@@ -11,8 +11,8 @@ import { PropertiesPanel } from "@/components/editor/panels/properties-panel";
 import { EditorToolbar } from "@/components/editor/toolbar";
 import { useAssetUrlSync } from "@/hooks/use-asset-url-sync";
 import { useAutosave } from "@/hooks/use-autosave";
+import { useClipboard } from "@/hooks/use-clipboard";
 import { useEditorShortcuts } from "@/hooks/use-editor-shortcuts";
-import { usePasteImages } from "@/hooks/use-paste-images";
 import { useThumbnail } from "@/hooks/use-thumbnail";
 import { createEditorStore } from "@/lib/editor/store";
 import type { EditorInit } from "@/lib/editor/store";
@@ -21,7 +21,7 @@ const EditorShell = ({ hasThumbnail }: { hasThumbnail: boolean }) => {
   const flushSave = useAutosave();
   const flushThumbnail = useThumbnail(hasThumbnail);
   useEditorShortcuts();
-  usePasteImages();
+  useClipboard();
   useAssetUrlSync();
 
   const flush = useCallback(async () => {

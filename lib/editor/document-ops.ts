@@ -55,6 +55,14 @@ export const insertElement = (
   return { ...document, elements };
 };
 
+export const appendElements = (
+  document: DesignDocument,
+  elements: readonly DesignElement[]
+): DesignDocument =>
+  elements.length === 0
+    ? document
+    : { ...document, elements: [...document.elements, ...elements] };
+
 export const removeElements = (
   document: DesignDocument,
   ids: readonly string[]
