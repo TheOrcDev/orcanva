@@ -17,6 +17,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "storage:setup": "tsx scripts/setup-storage.ts",
+    "claim-designs": "tsx scripts/claim-designs.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

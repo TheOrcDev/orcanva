@@ -28,6 +28,16 @@ const timestamps = {
     .defaultNow(),
 };
 
+// Private: only the owner can open it. Public: listed in the gallery, and
+// anyone, signed in or not, can edit the canvas.
+export const designVisibility = pgEnum("design_visibility", [
+  "private",
+  "public",
+]);
+
+// owner_id columns reference neon_auth."user"(id). That table belongs to
+// Neon Auth, so the foreign keys live in hand-written SQL (drizzle/0006_*)
+// rather than here, where drizzle-kit would try to create the table.
 export const designs = pgTable(
   "designs",
   {
@@ -39,12 +49,24 @@ export const designs = pgTable(
     height: integer("height").notNull(),
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
+    // Who can rename, delete and change visibility; null only for designs
+    // made before accounts existed
+    ownerId: uuid("owner_id"),
     thumbnailKey: text("thumbnail_key"),
     // Document schema version the elements were written with
     version: integer("version").notNull().default(1),
+    // Public by default while instances without accounts may still insert
+    visibility: designVisibility("visibility").notNull().default("public"),
     width: integer("width").notNull(),
   },
-  (table) => [index("designs_updated_at_idx").on(table.updatedAt)]
+  (table) => [
+    index("designs_updated_at_idx").on(table.updatedAt),
+    index("designs_owner_updated_idx").on(table.ownerId, table.updatedAt),
+    index("designs_visibility_updated_idx").on(
+      table.visibility,
+      table.updatedAt
+    ),
+  ]
 );
 
 // One row per element, so people editing different elements never clash.
@@ -79,9 +101,13 @@ export const designPresence = pgTable(
       .notNull()
       .references(() => designs.id, { onDelete: "cascade" }),
     drag: jsonb("drag"),
+    // Avatar of a signed-in person; guests have none
+    image: text("image"),
     name: text("name").notNull(),
     seenAt: timestamp("seen_at", { withTimezone: true }).notNull().defaultNow(),
     selection: jsonb("selection").$type<string[]>().notNull().default([]),
+    // The signed-in person behind the session; null for guests
+    userId: uuid("user_id"),
     // Pointer in page coordinates; null while it's off the canvas
     x: real("x"),
     y: real("y"),
@@ -103,6 +129,8 @@ export const assets = pgTable(
     key: text("key").notNull().unique(),
     mimeType: text("mime_type").notNull(),
     originalName: text("original_name").notNull(),
+    // The uploader's account; null for uploads made by guests
+    ownerId: uuid("owner_id"),
     sha256: text("sha256").unique(),
     sizeBytes: integer("size_bytes").notNull(),
     sourceAssetId: uuid("source_asset_id").references(
