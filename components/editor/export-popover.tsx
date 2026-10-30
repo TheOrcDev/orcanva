@@ -74,9 +74,11 @@ export const ExportPopover = () => {
         return;
       }
       try {
+        // Ending an in-progress text edit commits it; prepare waits a frame
+        // so the canvas shows it before the document is read
+        store.getState().setEditingText(null);
+        await prepareForRender(selectDocument(store.getState()));
         const state = store.getState();
-        // Commit any in-progress text edit so it is visible in the export
-        state.setEditingText(null);
         const document = selectDocument(state);
         await prepareForRender(document);
         const blob = await renderPage(node, document, {

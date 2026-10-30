@@ -9,6 +9,7 @@ import { usePageNodeRef } from "@/components/editor/canvas-context";
 import { BackgroundNode } from "@/components/editor/canvas/background-node";
 import { ElementNode } from "@/components/editor/canvas/element-node";
 import { SelectionTransformer } from "@/components/editor/canvas/selection-transformer";
+import { TextEditOverlay } from "@/components/editor/canvas/text-edit-overlay";
 import {
   useEditor,
   useEditorStoreApi,
@@ -21,6 +22,7 @@ import { bakeBoxTransform, bakeTextTransform } from "@/lib/editor/bake";
 import type { NodeTransform } from "@/lib/editor/bake";
 import {
   insertElement,
+  removeElements,
   replaceElement,
   updateElement,
 } from "@/lib/editor/document-ops";
@@ -128,6 +130,33 @@ export const WorkspaceStage = () => {
     [store]
   );
 
+  const editText = useCallback(
+    (id: string) => {
+      const state = store.getState();
+      state.select([id]);
+      state.setEditingText(id);
+    },
+    [store]
+  );
+
+  // One undo step per edit session; emptied text boxes are removed
+  const commitText = useCallback(
+    (id: string, text: string) => {
+      const state = store.getState();
+      state.setEditingText(null);
+      state.change((doc) =>
+        text.trim() === ""
+          ? removeElements(doc, [id])
+          : updateElement(doc, id, { text })
+      );
+    },
+    [store]
+  );
+
+  const cancelText = useCallback(() => {
+    store.getState().setEditingText(null);
+  }, [store]);
+
   const clearSelection = useCallback(() => {
     store.getState().clearSelection();
   }, [store]);
@@ -188,6 +217,11 @@ export const WorkspaceStage = () => {
     selectedIds.length === 1
       ? document.elements.find((element) => element.id === selectedIds[0])
       : undefined;
+  const editingElement = editingTextId
+    ? document.elements.find((element) => element.id === editingTextId)
+    : undefined;
+  const editingText =
+    editingElement?.type === "text" ? editingElement : undefined;
   const transformTarget =
     selected && !isLinear(selected) && selected.id !== editingTextId
       ? selected
@@ -300,6 +334,7 @@ export const WorkspaceStage = () => {
                   isEditing={element.id === editingTextId}
                   onSelect={selectElement}
                   onMove={moveElement}
+                  onEditText={editText}
                 />
               ))}
             </Group>
@@ -311,6 +346,16 @@ export const WorkspaceStage = () => {
             />
           </Layer>
         </Stage>
+      ) : null}
+      {editingText ? (
+        <TextEditOverlay
+          key={editingText.id}
+          element={editingText}
+          origin={origin}
+          zoom={zoom}
+          onCommit={commitText}
+          onCancel={cancelText}
+        />
       ) : null}
     </div>
   );

@@ -17,6 +17,7 @@ import { BoxShapeProperties } from "@/components/editor/panels/box-shape-propert
 import { ImageProperties } from "@/components/editor/panels/image-properties";
 import { NumberInput } from "@/components/editor/panels/number-input";
 import { PanelSection } from "@/components/editor/panels/panel-section";
+import { TextProperties } from "@/components/editor/panels/text-properties";
 import { TransactionSlider } from "@/components/editor/panels/transaction-slider";
 import { Button } from "@/components/ui/button";
 import {
@@ -172,6 +173,9 @@ const TypeProperties = ({ element }: { element: DesignElement }) => {
     }
     case "image": {
       return <ImageProperties element={element} />;
+    }
+    case "text": {
+      return <TextProperties element={element} />;
     }
     default: {
       return null;

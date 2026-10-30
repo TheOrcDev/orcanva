@@ -67,21 +67,29 @@ export const createImageElement = (
   };
 };
 
-export type TextPreset = "heading" | "subheading" | "body";
+export type TextPreset =
+  | "heading"
+  | "subheading"
+  | "body"
+  | "outlined"
+  | "label"
+  | "shadow";
 
-const TEXT_PRESETS: Record<
-  TextPreset,
-  {
-    name: string;
-    text: string;
-    // Relative to page height so presets read well at any resolution
-    sizeRatio: number;
-    fontId: string;
-    weight: number;
-    uppercase: boolean;
-    lineHeight: number;
-  }
-> = {
+interface TextPresetConfig {
+  name: string;
+  text: string;
+  // Relative to page height so presets read well at any resolution
+  sizeRatio: number;
+  fontId: string;
+  weight: number;
+  uppercase: boolean;
+  lineHeight: number;
+  style?: Partial<
+    Pick<TextElement, "fill" | "stroke" | "shadow" | "highlight">
+  >;
+}
+
+export const TEXT_PRESETS: Record<TextPreset, TextPresetConfig> = {
   body: {
     fontId: "inter",
     lineHeight: 1.3,
@@ -98,6 +106,55 @@ const TEXT_PRESETS: Record<
     sizeRatio: 0.14,
     text: "Add a heading",
     uppercase: true,
+    weight: 400,
+  },
+  label: {
+    fontId: "montserrat",
+    lineHeight: 1.1,
+    name: "Label",
+    sizeRatio: 0.07,
+    style: {
+      highlight: { color: "#ffd60a", paddingEm: 0.25, radiusEm: 0.15 },
+    },
+    text: "New video",
+    uppercase: true,
+    weight: 800,
+  },
+  outlined: {
+    fontId: DEFAULT_FONT_ID,
+    lineHeight: 1.05,
+    name: "Outlined title",
+    sizeRatio: 0.16,
+    style: {
+      fill: "#ffffff",
+      shadow: {
+        blurEm: 0.08,
+        color: "#000000b3",
+        offsetXEm: 0,
+        offsetYEm: 0.06,
+      },
+      stroke: { color: "#111111", widthEm: 0.05 },
+    },
+    text: "Big title",
+    uppercase: true,
+    weight: 400,
+  },
+  shadow: {
+    fontId: "bebas-neue",
+    lineHeight: 1,
+    name: "Shadow caption",
+    sizeRatio: 0.12,
+    style: {
+      fill: "#ffffff",
+      shadow: {
+        blurEm: 0.15,
+        color: "#000000cc",
+        offsetXEm: 0.04,
+        offsetYEm: 0.04,
+      },
+    },
+    text: "Watch this",
+    uppercase: false,
     weight: 400,
   },
   subheading: {
@@ -141,6 +198,7 @@ export const createTextElement = (
     width,
     x: origin.x,
     y: origin.y,
+    ...config.style,
   };
 };
 

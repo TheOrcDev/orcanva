@@ -155,6 +155,15 @@ const handlePlainShortcut = (
     state.clearSelection();
     return true;
   }
+  if (event.key === "Enter") {
+    const [id] = editableSelection(store);
+    const element = id ? findElement(selectDocument(state), id) : undefined;
+    if (element?.type === "text") {
+      state.setEditingText(element.id);
+      return true;
+    }
+    return false;
+  }
   if (event.key === "Delete" || event.key === "Backspace") {
     const ids = editableSelection(store);
     if (ids.length > 0) {

@@ -23,6 +23,9 @@ describe("design document schema", () => {
     document.elements.push(
       createImageElement(ASSET, PAGE),
       createTextElement("heading", PAGE),
+      createTextElement("outlined", PAGE),
+      createTextElement("label", PAGE),
+      createTextElement("shadow", PAGE),
       createBoxElement("rect", PAGE),
       createBoxElement("ellipse", PAGE),
       createLinearElement("line", PAGE),

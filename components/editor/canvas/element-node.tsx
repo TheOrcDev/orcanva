@@ -5,7 +5,9 @@ import { Group } from "react-konva";
 
 import { BoxShapeNode } from "@/components/editor/canvas/box-shape-node";
 import { ImageNode } from "@/components/editor/canvas/image-node";
+import { TextNode } from "@/components/editor/canvas/text-node";
 import type { DesignElement } from "@/lib/document/schema";
+import { MIN_ELEMENT_SIZE } from "@/lib/editor/bake";
 import { ELEMENT_NODE_NAME } from "@/lib/editor/node-names";
 
 export interface ElementNodeProps {
@@ -13,6 +15,7 @@ export interface ElementNodeProps {
   isEditing: boolean;
   onSelect: (id: string) => void;
   onMove: (id: string, position: { x: number; y: number }) => void;
+  onEditText: (id: string) => void;
 }
 
 const ElementContent = ({ element }: { element: DesignElement }) => {
@@ -24,9 +27,41 @@ const ElementContent = ({ element }: { element: DesignElement }) => {
     case "image": {
       return <ImageNode element={element} />;
     }
+    case "text": {
+      return <TextNode element={element} />;
+    }
     default: {
       return null;
     }
+  }
+};
+
+const SIDE_ANCHORS = new Set(["middle-left", "middle-right"]);
+
+// Side handles on text change the wrap width instead of squashing glyphs:
+// fold the horizontal scale into the Text width while the drag is live.
+const rewrapText = (event: Konva.KonvaEventObject<Event>) => {
+  const group = event.currentTarget as Konva.Group;
+  const transformer = group.getStage()?.findOne("Transformer") as
+    | Konva.Transformer
+    | undefined;
+  if (!SIDE_ANCHORS.has(transformer?.getActiveAnchor() ?? "")) {
+    return;
+  }
+  const text = group.findOne("Text");
+  if (!text) {
+    return;
+  }
+  const width = Math.max(MIN_ELEMENT_SIZE, text.width() * group.scaleX());
+  group.scaleX(1);
+  text.width(width);
+  const highlight = group.findOne(".text-highlight");
+  if (highlight) {
+    const padding = -highlight.x();
+    highlight.setAttrs({
+      height: text.height() + padding * 2,
+      width: width + padding * 2,
+    });
   }
 };
 
@@ -37,10 +72,17 @@ export const ElementNode = ({
   isEditing,
   onSelect,
   onMove,
+  onEditText,
 }: ElementNodeProps) => {
+  const isText = element.type === "text";
   const select = () => onSelect(element.id);
   const handleDragEnd = (event: Konva.KonvaEventObject<DragEvent>) => {
     onMove(element.id, { x: event.target.x(), y: event.target.y() });
+  };
+  const editText = () => {
+    if (isText && !element.locked) {
+      onEditText(element.id);
+    }
   };
 
   return (
@@ -57,6 +99,9 @@ export const ElementNode = ({
       onTap={select}
       onDragStart={select}
       onDragEnd={handleDragEnd}
+      onDblClick={editText}
+      onDblTap={editText}
+      onTransform={isText ? rewrapText : undefined}
     >
       <ElementContent element={element} />
     </Group>
