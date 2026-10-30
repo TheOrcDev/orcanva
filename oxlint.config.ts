@@ -7,6 +7,11 @@ import shadcn from "ultracite/oxlint/shadcn";
 export default defineConfig({
   env: core.env,
   extends: [core, react, next, shadcn],
-  ignorePatterns: core.ignorePatterns,
+  // Agent skills are vendored from upstream and managed by skills-lock.json
+  ignorePatterns: [
+    ...(core.ignorePatterns ?? []),
+    "**/.agents/skills",
+    "**/.claude/skills",
+  ],
   jsPlugins: shadcn.jsPlugins,
 });
