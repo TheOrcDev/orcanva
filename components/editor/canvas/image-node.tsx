@@ -13,6 +13,9 @@ export const ImageNode = ({ element }: { element: ImageElement }) => {
   const url = useEditor(
     (state) => state.assets.find((asset) => asset.id === element.assetId)?.url
   );
+  const missing = useEditor((state) =>
+    state.missingAssetIds.includes(element.assetId)
+  );
   const { image, status } = useAssetImage(url);
   const { cornerRadius, flipX, flipY, height, width } = element;
 
@@ -22,7 +25,7 @@ export const ImageNode = ({ element }: { element: ImageElement }) => {
         width={width}
         height={height}
         cornerRadius={cornerRadius}
-        fill={status === "error" || !url ? MISSING_FILL : PLACEHOLDER_FILL}
+        fill={status === "error" || missing ? MISSING_FILL : PLACEHOLDER_FILL}
       />
     );
   }

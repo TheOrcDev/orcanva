@@ -99,6 +99,8 @@ export interface EditorState {
   zoomMode: "fit" | "manual";
   saveStatus: SaveStatus;
   assets: EditorAsset[];
+  // Assets images point at that the server doesn't have (drawn in red)
+  missingAssetIds: string[];
   uploadsInFlight: number;
   // Files are being dragged somewhere over the editor window
   fileDragActive: boolean;
@@ -147,6 +149,9 @@ export interface EditorActions {
   zoomToFit: () => void;
   setSaveStatus: (status: SaveStatus) => void;
   addAsset: (asset: EditorAsset) => void;
+  // Assets looked up after the editor opened (e.g. a collaborator's upload)
+  addAssets: (assets: readonly EditorAsset[]) => void;
+  markAssetsMissing: (ids: readonly string[]) => void;
   adjustUploads: (delta: number) => void;
   setFileDragActive: (active: boolean) => void;
   setBackgroundJob: (elementId: string, running: boolean) => void;
@@ -261,6 +266,14 @@ export const createEditorStore = (init: EditorInit) => {
           ? state
           : { assets: [asset, ...state.assets] }
       ),
+    addAssets: (assets) =>
+      set((state) => {
+        const known = new Set(state.assets.map((item) => item.id));
+        const added = assets.filter((asset) => !known.has(asset.id));
+        return added.length === 0
+          ? state
+          : { assets: [...state.assets, ...added] };
+      }),
     adjustUploads: (delta) =>
       set((state) => ({
         uploadsInFlight: Math.max(0, state.uploadsInFlight + delta),
@@ -320,6 +333,14 @@ export const createEditorStore = (init: EditorInit) => {
     history: createHistory(),
     hold: (ids) => set((state) => ({ held: new Set([...state.held, ...ids]) })),
     liveStatus: init.live ? "connecting" : "off",
+    markAssetsMissing: (ids) =>
+      set((state) => {
+        const added = ids.filter((id) => !state.missingAssetIds.includes(id));
+        return added.length === 0
+          ? state
+          : { missingAssetIds: [...state.missingAssetIds, ...added] };
+      }),
+    missingAssetIds: [],
     name: init.name,
     peers: [],
     pending: EMPTY_PENDING,

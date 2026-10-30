@@ -10,6 +10,7 @@ import { EditorStoreProvider } from "@/components/editor/editor-store-context";
 import { ExportPopover } from "@/components/editor/export-popover";
 import { PropertiesPanel } from "@/components/editor/panels/properties-panel";
 import { EditorToolbar } from "@/components/editor/toolbar";
+import { useAssetResolver } from "@/hooks/use-asset-resolver";
 import { useAssetUrlSync } from "@/hooks/use-asset-url-sync";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { useEditorShortcuts } from "@/hooks/use-editor-shortcuts";
@@ -35,6 +36,7 @@ const EditorShell = ({
   useClipboard();
   useFileDrop();
   useAssetUrlSync();
+  useAssetResolver();
 
   const flush = useCallback(async () => {
     await Promise.all([flushSave(), flushThumbnail()]);
