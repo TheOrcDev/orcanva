@@ -50,6 +50,15 @@ describe("document ops", () => {
     expect(updateElement(document, "nope", { x: 1 })).toBe(document);
   });
 
+  it("returns the same document when a patch changes nothing", () => {
+    // e.g. a field committing the same value twice (Enter, then blur)
+    const document = withElements(1);
+    const [first] = document.elements;
+    expect(updateElement(document, first?.id ?? "", { x: first?.x })).toBe(
+      document
+    );
+  });
+
   it("arranges z-order in every direction", () => {
     const document = withElements(4);
     const id = document.elements[1]?.id ?? "";

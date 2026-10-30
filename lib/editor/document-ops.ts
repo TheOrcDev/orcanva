@@ -18,6 +18,13 @@ export const findElement = (
 ): DesignElement | undefined =>
   document.elements.find((element) => element.id === id);
 
+// True when every patched value already matches, e.g. a field committing the
+// same value twice (Enter, then blur). Such edits must not become undo steps.
+const isNoOpPatch = (element: DesignElement, patch: ElementPatch): boolean =>
+  Object.entries(patch).every(([key, value]) =>
+    Object.is(element[key as keyof DesignElement], value)
+  );
+
 export const updateElement = (
   document: DesignDocument,
   id: string,
@@ -25,7 +32,7 @@ export const updateElement = (
 ): DesignDocument => {
   let changed = false;
   const elements = document.elements.map((element) => {
-    if (element.id !== id) {
+    if (element.id !== id || isNoOpPatch(element, patch)) {
       return element;
     }
     changed = true;
