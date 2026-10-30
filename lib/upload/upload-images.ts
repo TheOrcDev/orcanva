@@ -10,14 +10,39 @@ import type { PreparedImage } from "@/lib/upload/prepare-image";
 // Multiple dropped files fan out so they don't stack exactly on top
 const STACK_OFFSET = 24;
 
-const putToStorage = async (url: string, image: PreparedImage) => {
+const putDirect = async (url: string, image: PreparedImage) => {
   const response = await fetch(url, {
     body: image.blob,
     headers: { "Content-Type": image.mimeType },
     method: "PUT",
   });
   if (!response.ok) {
+    throw new Error(`Storage responded ${response.status}`);
+  }
+};
+
+const putViaApp = async (assetId: string, image: PreparedImage) => {
+  const response = await fetch(`/api/assets/${assetId}/file`, {
+    body: image.blob,
+    headers: { "Content-Type": image.mimeType },
+    method: "PUT",
+  });
+  if (!response.ok) {
     throw new Error(`Upload failed with ${response.status}`);
+  }
+};
+
+// Straight to the bucket when its CORS allows this origin; otherwise
+// (e.g. dev server on another port) through the app's own upload route
+const putToStorage = async (
+  assetId: string,
+  url: string,
+  image: PreparedImage
+) => {
+  try {
+    await putDirect(url, image);
+  } catch {
+    await putViaApp(assetId, image);
   }
 };
 
@@ -34,7 +59,7 @@ const uploadImage = async (image: PreparedImage): Promise<EditorAsset> => {
   if (result.status === "exists") {
     return result.asset;
   }
-  await putToStorage(result.uploadUrl, image);
+  await putToStorage(result.assetId, result.uploadUrl, image);
   return confirmUpload(result.assetId);
 };
 
@@ -69,7 +94,7 @@ const uploadAndPlace = async (
       message:
         error instanceof UploadError
           ? error.message
-          : "Check your connection and try again.",
+          : `Upload failed${error instanceof Error ? `: ${error.message}` : ""}`,
     };
   } finally {
     store.getState().adjustUploads(-1);

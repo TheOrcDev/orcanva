@@ -1,5 +1,8 @@
 // One-time Neon Object Storage setup: CORS for browser uploads + smoke test.
-// Usage: pnpm storage:setup [extra-origin ...]
+// Usage: pnpm storage:setup [origin ...]   (default: any origin)
+//
+// Any origin is safe here: uploads only work with a short-lived presigned
+// URL the app hands out, and the bucket itself stays private.
 import {
   DeleteObjectCommand,
   GetBucketCorsCommand,
@@ -25,7 +28,9 @@ const log = (message: string) => {
   process.stdout.write(`${message}\n`);
 };
 
-const DEFAULT_ORIGINS = ["http://localhost:3000"];
+const ANY_ORIGIN = "*";
+// Checked in the smoke test; any dev port should be allowed
+const PREFLIGHT_ORIGIN = "http://localhost:3001";
 
 const main = async () => {
   const bucket = required("STORAGE_BUCKET");
@@ -41,7 +46,8 @@ const main = async () => {
     responseChecksumValidation: "WHEN_REQUIRED",
   });
 
-  const origins = [...DEFAULT_ORIGINS, ...process.argv.slice(2)];
+  const requested = process.argv.slice(2);
+  const origins = requested.length > 0 ? requested : [ANY_ORIGIN];
 
   await client.send(
     new PutBucketCorsCommand({
@@ -76,7 +82,7 @@ const main = async () => {
     { expiresIn: 60 }
   );
 
-  const [origin] = origins;
+  const origin = origins.includes(ANY_ORIGIN) ? PREFLIGHT_ORIGIN : origins[0];
   const preflight = await fetch(url, {
     headers: {
       "Access-Control-Request-Headers": "content-type",

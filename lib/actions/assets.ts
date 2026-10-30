@@ -24,7 +24,10 @@ const createUploadInput = z.object({
   height: z.number().int().positive().max(16_384),
   mimeType: z.enum(mimeTypes),
   originalName: z.string().trim().min(1).max(200),
-  sha256: z.string().regex(/^[0-9a-f]{64}$/u),
+  sha256: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/u)
+    .nullable(),
   size: z.number().int().positive().max(MAX_UPLOAD_BYTES),
   width: z.number().int().positive().max(16_384),
 });
@@ -41,11 +44,13 @@ export const createUpload = async (
   const data = createUploadInput.parse(input);
   const db = getDb();
 
-  const [existing] = await db
-    .select()
-    .from(assets)
-    .where(eq(assets.sha256, data.sha256))
-    .limit(1);
+  const [existing] = data.sha256
+    ? await db
+        .select()
+        .from(assets)
+        .where(eq(assets.sha256, data.sha256))
+        .limit(1)
+    : [];
   if (existing?.status === "ready") {
     return { asset: toEditorAsset(existing), status: "exists" };
   }

@@ -12,7 +12,23 @@ import type {
 } from "@/lib/document/schema";
 import { DEFAULT_FONT_ID } from "@/lib/fonts/catalog";
 
-export const createId = (): string => crypto.randomUUID();
+const HEX_BYTE = Array.from({ length: 256 }, (_, byte) =>
+  byte.toString(16).padStart(2, "0")
+);
+
+// RFC 4122 v4 from getRandomValues, which (unlike randomUUID) also works
+// outside secure contexts, e.g. opening the dev server via a LAN IP
+const randomUuid = (): string => {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  // Version nibble = 4 and variant bits = 10, set arithmetically
+  bytes[6] = ((bytes[6] ?? 0) % 16) + 64;
+  bytes[8] = ((bytes[8] ?? 0) % 64) + 128;
+  const hex = [...bytes].map((byte) => HEX_BYTE[byte] ?? "00").join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+};
+
+export const createId = (): string =>
+  typeof crypto.randomUUID === "function" ? crypto.randomUUID() : randomUuid();
 
 export const DEFAULT_BACKGROUND_COLOR = "#ffffff";
 

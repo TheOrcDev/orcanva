@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createImageElement } from "@/lib/document/factories";
+import { createId, createImageElement } from "@/lib/document/factories";
 import {
   canExportAt,
   clampCanvasSize,
@@ -58,6 +58,28 @@ describe("geometry", () => {
       "my-thumbnail-episode-12"
     );
     expect(slugify("!!!")).toBe("design");
+  });
+});
+
+describe("createId", () => {
+  it("falls back to a v4 UUID when randomUUID is unavailable", () => {
+    const original = crypto.randomUUID;
+    Object.defineProperty(crypto, "randomUUID", {
+      configurable: true,
+      value: undefined,
+    });
+    try {
+      const id = createId();
+      expect(id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u
+      );
+      expect(createId()).not.toBe(id);
+    } finally {
+      Object.defineProperty(crypto, "randomUUID", {
+        configurable: true,
+        value: original,
+      });
+    }
   });
 });
 

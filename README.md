@@ -38,11 +38,11 @@ The storage endpoint and region come from `neon api /projects/<project>/branches
 
 ```bash
 pnpm db:migrate                     # apply Drizzle migrations
-pnpm storage:setup                  # set bucket CORS for http://localhost:3000 and smoke-test uploads
-pnpm storage:setup https://my.app   # add more origins (keeps localhost:3000)
+pnpm storage:setup                  # allow browser uploads from any origin and smoke-test them
+pnpm storage:setup https://my.app   # or restrict uploads to specific origins
 ```
 
-Browsers upload straight to the private bucket with presigned URLs, so every origin you open the app from must be in the bucket's CORS rules. Images are read back through the same-origin `/api/storage/*` route, which keeps exports from being tainted.
+Browsers upload straight to the private bucket with short-lived presigned URLs. If the bucket's CORS doesn't allow the page's origin, uploads fall back to going through the app (`PUT /api/assets/[id]/file`), so they work on any dev port. Images are read back through the same-origin `/api/storage/*` route, which keeps exports from being tainted.
 
 ### Run
 

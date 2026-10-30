@@ -14,7 +14,8 @@ export interface PreparedImage {
   mimeType: UploadMimeType;
   width: number;
   height: number;
-  sha256: string;
+  // Null outside secure contexts (no crypto.subtle); uploads then skip dedupe
+  sha256: string | null;
   name: string;
 }
 
@@ -88,9 +89,10 @@ export const prepareImage = async (file: File): Promise<PreparedImage> => {
         mimeType = "image/png";
       }
     }
-    const sha256 = toHex(
-      await crypto.subtle.digest("SHA-256", await blob.arrayBuffer())
-    );
+    const subtle: SubtleCrypto | undefined = globalThis.crypto?.subtle;
+    const sha256 = subtle
+      ? toHex(await subtle.digest("SHA-256", await blob.arrayBuffer()))
+      : null;
     return {
       blob,
       height,
