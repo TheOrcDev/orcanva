@@ -1,11 +1,12 @@
 import "server-only";
-import { desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, isNull, ne, or } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { z } from "zod";
 
 import { roleFor } from "@/lib/auth/access";
-import type { DesignRole } from "@/lib/auth/access";
+import type { DesignRole, Visibility } from "@/lib/auth/access";
 import { comparePositioned } from "@/lib/collab/positions";
+import { authUsers } from "@/lib/db/auth-schema";
 import { getDb } from "@/lib/db/client";
 import { designElements, designs } from "@/lib/db/schema";
 import type { DesignRow } from "@/lib/db/schema";
@@ -16,6 +17,8 @@ export interface DesignSummary {
   id: string;
   name: string;
   ownerId: string | null;
+  ownerName: string | null;
+  visibility: Visibility;
   width: number;
   height: number;
   thumbnailKey: string | null;
@@ -33,22 +36,46 @@ export const visibleTo = (viewerId: string | null): SQL | undefined =>
     ? or(eq(designs.visibility, "public"), eq(designs.ownerId, viewerId))
     : eq(designs.visibility, "public");
 
-export const listDesigns = (
-  viewerId: string | null
-): Promise<DesignSummary[]> =>
+// The newest public designs shown in the gallery
+const PUBLIC_GALLERY_LIMIT = 60;
+
+const summaries = () =>
   getDb()
     .select({
       height: designs.height,
       id: designs.id,
       name: designs.name,
       ownerId: designs.ownerId,
+      ownerName: authUsers.name,
       thumbnailKey: designs.thumbnailKey,
       updatedAt: designs.updatedAt,
+      visibility: designs.visibility,
       width: designs.width,
     })
     .from(designs)
-    .where(visibleTo(viewerId))
+    .leftJoin(authUsers, eq(authUsers.id, designs.ownerId));
+
+// Everything the account owns, public or private
+export const listOwnDesigns = (ownerId: string): Promise<DesignSummary[]> =>
+  summaries()
+    .where(eq(designs.ownerId, ownerId))
     .orderBy(desc(designs.updatedAt));
+
+// Everyone's public designs, minus the viewer's own (listed above them)
+export const listPublicDesigns = (
+  viewerId: string | null
+): Promise<DesignSummary[]> =>
+  summaries()
+    .where(
+      and(
+        eq(designs.visibility, "public"),
+        viewerId
+          ? or(ne(designs.ownerId, viewerId), isNull(designs.ownerId))
+          : undefined
+      )
+    )
+    .orderBy(desc(designs.updatedAt))
+    .limit(PUBLIC_GALLERY_LIMIT);
 
 export const getDesign = async (id: string): Promise<DesignRow | null> => {
   if (!isDesignId(id)) {

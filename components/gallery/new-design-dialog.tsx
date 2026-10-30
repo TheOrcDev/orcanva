@@ -16,9 +16,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
 import { createDesign } from "@/lib/actions/designs";
 import { DEFAULT_PRESET, findPresetBySize } from "@/lib/document/presets";
@@ -29,6 +36,8 @@ export const NewDesignDialog = () => {
   const [name, setName] = useState("");
   const [width, setWidth] = useState(String(DEFAULT_PRESET.width));
   const [height, setHeight] = useState(String(DEFAULT_PRESET.height));
+  // Private unless the owner opts in
+  const [isPublic, setIsPublic] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const parsedWidth = parseCanvasDimension(width);
@@ -48,6 +57,7 @@ export const NewDesignDialog = () => {
         const design = await createDesign({
           height: parsedHeight,
           name: designName,
+          visibility: isPublic ? "public" : "private",
           width: parsedWidth,
         });
         router.push(`/design/${design.id}`);
@@ -85,6 +95,20 @@ export const NewDesignDialog = () => {
                 value={name}
                 maxLength={120}
                 onChange={(event) => setName(event.target.value)}
+              />
+            </Field>
+            <Field orientation="horizontal">
+              <FieldContent>
+                <FieldLabel htmlFor={`${id}-public`}>Public</FieldLabel>
+                <FieldDescription>
+                  Anyone can find it in the gallery and edit it with you, signed
+                  in or not.
+                </FieldDescription>
+              </FieldContent>
+              <Switch
+                id={`${id}-public`}
+                checked={isPublic}
+                onCheckedChange={setIsPublic}
               />
             </Field>
             <SizePicker

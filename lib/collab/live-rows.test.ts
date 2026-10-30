@@ -45,6 +45,7 @@ describe("pageFromRow", () => {
         height: 100,
         name: "Thumb",
         version: 1,
+        visibility: "public",
         width: 200,
       })
     ).toEqual({
@@ -64,6 +65,7 @@ describe("pageFromRow", () => {
         height: 100,
         name: "Thumb",
         version: 1,
+        visibility: "public",
         width: 200,
       })
     ).toBeNull();

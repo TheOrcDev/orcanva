@@ -168,6 +168,8 @@ export interface EditorActions {
   setSaveStatus: (status: SaveStatus) => void;
   // The server no longer lets this person at the design (404)
   loseAccess: () => void;
+  // The owner changed who can see the design
+  setVisibility: (visibility: Visibility) => void;
   // One of the viewer's own uploads (or cutouts): drawable and in the library
   addAsset: (asset: EditorAsset) => void;
   // Assets looked up after the editor opened (e.g. a collaborator's upload)
@@ -217,6 +219,11 @@ const initialDocument = (init: EditorInit): EditorDocument => {
     positions: assignPositions(stored, ids),
   };
 };
+
+const visibilityFromRow = (row: LivePageRow, current: Visibility) =>
+  row.visibility === "private" || row.visibility === "public"
+    ? row.visibility
+    : current;
 
 // Keeps the previous array when nothing changed, so cursors don't re-render
 const nextPeers = (state: EditorState, rows: readonly LivePresenceRow[]) => {
@@ -319,11 +326,21 @@ export const createEditorStore = (init: EditorInit) => {
       }),
     applyLivePage: (row) =>
       set((state) => {
+        const visibility = visibilityFromRow(row, state.visibility);
+        // Gone private: only the owner may stay (the server agrees on the
+        // next request, this just doesn't wait for it)
+        const accessLost =
+          state.accessLost ||
+          (visibility === "private" && state.role !== "owner");
         const live = pageFromRow(row);
         if (!live) {
-          return state;
+          return { accessLost, visibility };
         }
-        return reconcile(state, { ...state.synced, ...live }, state.pending);
+        return {
+          ...reconcile(state, { ...state.synced, ...live }, state.pending),
+          accessLost,
+          visibility,
+        };
       }),
     applyPresence: (rows) =>
       set((state) => ({ peers: nextPeers(state, rows), presenceRows: rows })),
@@ -481,6 +498,10 @@ export const createEditorStore = (init: EditorInit) => {
         state.saveStatus === status ? state : { saveStatus: status }
       ),
     setServerOffset: (offset) => set({ serverOffset: offset }),
+    setVisibility: (visibility) =>
+      set((state) =>
+        state.visibility === visibility ? state : { visibility }
+      ),
     setZoom: (zoom) => set({ zoom: clampZoom(zoom), zoomMode: "manual" }),
     settleWrites: (batch, outcome, txid) =>
       set((state) => {

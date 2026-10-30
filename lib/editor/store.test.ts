@@ -118,4 +118,35 @@ describe("editor store", () => {
     store.getState().zoomToFit();
     expect(store.getState().zoomMode).toBe("fit");
   });
+
+  it("stops an editor (but not the owner) when the design goes private", () => {
+    const row = {
+      background: { color: "#ffffff", type: "solid" },
+      height: PAGE.height,
+      name: "Test",
+      version: 1,
+      width: PAGE.width,
+    };
+    const init: EditorInit = {
+      assets: [],
+      designId: "d",
+      document: createDocument(PAGE),
+      hasThumbnail: false,
+      libraryIds: [],
+      name: "Test",
+      role: "editor",
+      viewer: null,
+      visibility: "public",
+    };
+    const editor = createEditorStore(init);
+    editor.getState().applyLivePage({ ...row, visibility: "public" });
+    expect(editor.getState().accessLost).toBe(false);
+    editor.getState().applyLivePage({ ...row, visibility: "private" });
+    expect(editor.getState().accessLost).toBe(true);
+
+    const owner = createEditorStore({ ...init, role: "owner" });
+    owner.getState().applyLivePage({ ...row, visibility: "private" });
+    expect(owner.getState().accessLost).toBe(false);
+    expect(owner.getState().visibility).toBe("private");
+  });
 });

@@ -4,7 +4,9 @@ import {
   RiDeleteBinLine,
   RiEditLine,
   RiFileCopy2Line,
+  RiGlobalLine,
   RiImageLine,
+  RiLockLine,
   RiMoreLine,
   RiPencilLine,
 } from "@remixicon/react";
@@ -24,6 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -56,7 +59,9 @@ import {
   deleteDesign,
   duplicateDesign,
   renameDesign,
+  setDesignVisibility,
 } from "@/lib/actions/designs";
+import type { Visibility } from "@/lib/auth/access";
 import { signInUrl } from "@/lib/auth/redirect";
 
 export interface DesignCardProps {
@@ -65,7 +70,9 @@ export interface DesignCardProps {
   sizeLabel: string;
   editedLabel: string;
   thumbnailUrl: string | null;
-  // The viewer owns it: rename and delete
+  visibility: Visibility;
+  ownerName: string | null;
+  // The viewer owns it: rename, delete, and change visibility
   canManage: boolean;
   // Copies belong to an account, so guests are sent to sign in first
   signedIn: boolean;
@@ -77,6 +84,8 @@ export const DesignCard = ({
   sizeLabel,
   editedLabel,
   thumbnailUrl,
+  visibility,
+  ownerName,
   canManage,
   signedIn,
 }: DesignCardProps) => {
@@ -112,6 +121,24 @@ export const DesignCard = ({
         router.push(`/design/${copy.id}`);
       } catch {
         toast.add({ title: "Could not copy design", type: "error" });
+      }
+    });
+  };
+
+  const handleVisibility = () => {
+    const next = visibility === "public" ? "private" : "public";
+    startTransition(async () => {
+      try {
+        await setDesignVisibility({ id, visibility: next });
+        toast.add({
+          title:
+            next === "public"
+              ? `“${name}” is public: anyone can edit it`
+              : `“${name}” is private`,
+          type: "success",
+        });
+      } catch {
+        toast.add({ title: "Could not change who can see it", type: "error" });
       }
     });
   };
@@ -157,7 +184,18 @@ export const DesignCard = ({
           </Link>
         </CardTitle>
         <CardDescription>
-          {sizeLabel} · Edited {editedLabel}
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {canManage ? (
+              <Badge variant="secondary">
+                {visibility === "public" ? <RiGlobalLine /> : <RiLockLine />}
+                {visibility === "public" ? "Public" : "Private"}
+              </Badge>
+            ) : null}
+            <span>
+              {sizeLabel} · Edited {editedLabel}
+              {!canManage && ownerName ? ` · by ${ownerName}` : null}
+            </span>
+          </span>
         </CardDescription>
         <CardAction>
           <DropdownMenu>
@@ -193,15 +231,28 @@ export const DesignCard = ({
                   </DropdownMenuItem>
                 )}
                 {canManage ? (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setDraftName(name);
-                      setRenameOpen(true);
-                    }}
-                  >
-                    <RiPencilLine />
-                    Rename
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setDraftName(name);
+                        setRenameOpen(true);
+                      }}
+                    >
+                      <RiPencilLine />
+                      Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={isPending}
+                      onClick={handleVisibility}
+                    >
+                      {visibility === "public" ? (
+                        <RiLockLine />
+                      ) : (
+                        <RiGlobalLine />
+                      )}
+                      {visibility === "public" ? "Make private" : "Make public"}
+                    </DropdownMenuItem>
+                  </>
                 ) : null}
               </DropdownMenuGroup>
               {canManage ? (

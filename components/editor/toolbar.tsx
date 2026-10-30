@@ -20,6 +20,7 @@ import {
   useEditorStoreApi,
 } from "@/components/editor/editor-store-context";
 import { SaveStatus } from "@/components/editor/save-status";
+import { SharePopover } from "@/components/editor/share-popover";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -168,6 +169,7 @@ export const EditorToolbar = ({
       <LiveStatus />
       <SaveStatus onRetry={flush} />
       <ZoomControls />
+      <SharePopover />
       {actions}
     </header>
   );

@@ -16,7 +16,7 @@ import type {
 // ORDER BY to keep in sync with JavaScript string order.
 const pageQuery = (designId: string) =>
   rawSql<LivePageRow>(
-    "SELECT name, width, height, background, version FROM designs WHERE id = $1",
+    "SELECT name, width, height, background, version, visibility FROM designs WHERE id = $1",
     [designId]
   );
 

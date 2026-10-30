@@ -10,6 +10,8 @@ export interface LivePageRow {
   height: number;
   background: unknown;
   version: number;
+  // "private" or "public": open editors react when the owner changes it
+  visibility: string;
 }
 
 export interface LiveElementRow {

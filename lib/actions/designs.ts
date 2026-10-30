@@ -8,7 +8,7 @@ import { getViewer } from "@/lib/auth/server";
 import type { Viewer } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/client";
 import { visibleTo } from "@/lib/db/queries/designs";
-import { designElements, designs } from "@/lib/db/schema";
+import { designElements, designVisibility, designs } from "@/lib/db/schema";
 import { createDocument } from "@/lib/document/factories";
 import {
   DOCUMENT_VERSION,
@@ -30,16 +30,24 @@ const requireViewer = async (): Promise<Viewer> => {
 const canvasSize = z.number().int().min(MIN_CANVAS_SIZE).max(MAX_CANVAS_SIZE);
 const designName = z.string().trim().min(1).max(120);
 
+const visibility = z.enum(designVisibility.enumValues);
+
 const createDesignInput = z.object({
   height: canvasSize,
   name: designName,
+  visibility,
   width: canvasSize,
 });
 
 export const createDesign = async (
   input: z.input<typeof createDesignInput>
 ): Promise<{ id: string }> => {
-  const { height, name, width } = createDesignInput.parse(input);
+  const {
+    height,
+    name,
+    visibility: chosen,
+    width,
+  } = createDesignInput.parse(input);
   const viewer = await requireViewer();
   const [row] = await getDb()
     .insert(designs)
@@ -49,7 +57,7 @@ export const createDesign = async (
       name,
       ownerId: viewer.id,
       version: DOCUMENT_VERSION,
-      visibility: "public",
+      visibility: chosen,
       width,
     })
     .returning({ id: designs.id });
@@ -96,6 +104,41 @@ export const deleteDesign = async (id: string): Promise<void> => {
   revalidatePath("/");
 };
 
+const visibilityInput = z.object({ id: z.uuid(), visibility });
+
+// Owner only. Going private also moves the preview to a new random key, so
+// a thumbnail URL someone saw while it was public stops working.
+export const setDesignVisibility = async (
+  input: z.input<typeof visibilityInput>
+): Promise<void> => {
+  const { id, visibility: next } = visibilityInput.parse(input);
+  const viewer = await requireViewer();
+  const db = getDb();
+  const [row] = await db
+    .update(designs)
+    .set({ visibility: next })
+    .where(and(eq(designs.id, id), eq(designs.ownerId, viewer.id)))
+    .returning({ thumbnailKey: designs.thumbnailKey });
+  if (!row) {
+    throw new Error("Design not found");
+  }
+
+  if (next === "private" && row.thumbnailKey) {
+    const key = thumbnailKey(id);
+    try {
+      await copyObject(row.thumbnailKey, key);
+      await db
+        .update(designs)
+        .set({ thumbnailKey: key })
+        .where(eq(designs.id, id));
+      await deleteObject(row.thumbnailKey);
+    } catch {
+      // The next edit renders a preview under a fresh key anyway
+    }
+  }
+  revalidatePath("/");
+};
+
 const COPY_SUFFIX = " copy";
 
 // "Use as template": a full copy (elements + preview) of any design the
@@ -125,7 +168,8 @@ export const duplicateDesign = async (id: string): Promise<{ id: string }> => {
       name,
       ownerId: viewer.id,
       version: source.version,
-      visibility: "public",
+      // A copy starts out private; its owner can publish it
+      visibility: "private",
       width: source.width,
     }),
     db.insert(designElements).select(
