@@ -12,6 +12,7 @@ import {
   useEditorStoreApi,
 } from "@/components/editor/editor-store-context";
 import { BackgroundRemovalButton } from "@/components/editor/panels/background-removal-button";
+import { ImageAdjustments } from "@/components/editor/panels/image-adjustments";
 import { PanelSection } from "@/components/editor/panels/panel-section";
 import { TransactionSlider } from "@/components/editor/panels/transaction-slider";
 import { Button } from "@/components/ui/button";
@@ -91,6 +92,7 @@ export const ImageProperties = ({ element }: { element: ImageElement }) => {
           </Button>
         </div>
       </PanelSection>
+      <ImageAdjustments element={element} />
       <PanelSection title="Corners">
         <TransactionSlider
           label="Radius"
