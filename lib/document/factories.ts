@@ -73,6 +73,7 @@ export const createImageElement = (
     ...baseFields(asset.name ?? "Image"),
     assetId: asset.id,
     cornerRadius: 0,
+    filter: null,
     flipX: false,
     flipY: false,
     height: size.height,

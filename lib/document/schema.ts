@@ -43,10 +43,40 @@ const baseElement = {
   y: z.number(),
 };
 
+// Slider units. Defaults let older rows parse and new sliders arrive later
+// without a document migration.
+const bipolar = z.number().min(-100).max(100).default(0);
+const unipolar = z.number().min(0).max(100).default(0);
+
+export const imageAdjustmentsSchema = z.object({
+  blur: unipolar,
+  brightness: bipolar,
+  contrast: bipolar,
+  fade: unipolar,
+  grain: unipolar,
+  highlights: bipolar,
+  saturation: bipolar,
+  shadows: bipolar,
+  sharpen: unipolar,
+  tint: bipolar,
+  vignette: unipolar,
+  warmth: bipolar,
+});
+
+// Rendered on the fly, never baked into the asset. The preset is a plain
+// string so a client that doesn't know a newer preset still keeps the image.
+export const imageFilterSchema = z.object({
+  adjust: imageAdjustmentsSchema,
+  preset: z.string().min(1).max(32).nullable(),
+  strength: z.number().min(0).max(100),
+});
+
 export const imageElementSchema = z.object({
   ...baseElement,
   assetId: z.uuid(),
   cornerRadius: z.number().min(0),
+  // null = untouched; images saved before filters existed have no field
+  filter: imageFilterSchema.nullable().default(null),
   flipX: z.boolean(),
   flipY: z.boolean(),
   height: length,
@@ -153,6 +183,8 @@ export const designDocumentSchema = z.object({
 export type Background = z.infer<typeof backgroundSchema>;
 export type GradientStop = z.infer<typeof gradientStopSchema>;
 export type ImageElement = z.infer<typeof imageElementSchema>;
+export type ImageAdjustments = z.infer<typeof imageAdjustmentsSchema>;
+export type ImageFilter = z.infer<typeof imageFilterSchema>;
 export type TextElement = z.infer<typeof textElementSchema>;
 export type TextAlign = z.infer<typeof textAlignSchema>;
 export type TextStroke = z.infer<typeof textStrokeSchema>;

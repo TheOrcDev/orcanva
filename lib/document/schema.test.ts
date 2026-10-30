@@ -8,7 +8,7 @@ import {
   createTextElement,
 } from "@/lib/document/factories";
 import { migrateDocument } from "@/lib/document/migrate";
-import { designDocumentSchema } from "@/lib/document/schema";
+import { designDocumentSchema, elementSchema } from "@/lib/document/schema";
 
 const PAGE = { height: 720, width: 1280 };
 const ASSET = {
@@ -42,6 +42,37 @@ describe("design document schema", () => {
     expect(() =>
       designDocumentSchema.parse(createDocument({ height: 8, width: 1280 }))
     ).toThrow();
+  });
+
+  it("reads images saved before filters existed as unfiltered", () => {
+    const { filter, ...saved } = createImageElement(ASSET, PAGE);
+    expect(filter).toBeNull();
+    expect(elementSchema.parse(saved)).toEqual({ ...saved, filter: null });
+  });
+
+  it("fills in sliders a filter was saved without and keeps unknown presets", () => {
+    const image = {
+      ...createImageElement(ASSET, PAGE),
+      filter: { adjust: { contrast: 20 }, preset: "newer-look", strength: 60 },
+    };
+    const parsed = elementSchema.parse(image);
+    expect(parsed.type === "image" && parsed.filter).toMatchObject({
+      adjust: { brightness: 0, contrast: 20, vignette: 0 },
+      preset: "newer-look",
+      strength: 60,
+    });
+  });
+
+  it("rejects filter values outside their range", () => {
+    const image = createImageElement(ASSET, PAGE);
+    const withFilter = (adjust: Record<string, number>) => ({
+      ...image,
+      filter: { adjust, preset: null, strength: 100 },
+    });
+    expect(() =>
+      elementSchema.parse(withFilter({ brightness: 101 }))
+    ).toThrow();
+    expect(() => elementSchema.parse(withFilter({ vignette: -1 }))).toThrow();
   });
 
   it("rejects unknown element types", () => {
