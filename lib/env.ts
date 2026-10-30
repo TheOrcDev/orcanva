@@ -7,6 +7,10 @@ const envSchema = z.object({
   AWS_REGION: z.string().min(1),
   AWS_SECRET_ACCESS_KEY: z.string().min(1),
   DATABASE_URL: z.url(),
+  // Neon Auth (Managed Better Auth) for this branch, and the key that signs
+  // the session cache cookie
+  NEON_AUTH_BASE_URL: z.url(),
+  NEON_AUTH_COOKIE_SECRET: z.string().min(32),
   // Optional: without Realtime the editor still saves, just single-player
   NEON_REALTIME_SECRET: z.string().min(1).optional(),
   NEON_REALTIME_URL: z.url().optional(),

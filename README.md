@@ -32,6 +32,8 @@ AWS_SECRET_ACCESS_KEY=…
 AWS_ENDPOINT_URL_S3=https://<branch>.storage.<cell>.<region>.aws.neon.tech
 AWS_REGION=eu-central-1
 STORAGE_BUCKET=orcanva-assets
+NEON_AUTH_BASE_URL=https://…/neondb/auth  # see "Accounts" below
+NEON_AUTH_COOKIE_SECRET=…              # openssl rand -base64 32
 NEON_REALTIME_URL=wss://…              # optional, see "Realtime" below
 NEON_REALTIME_SECRET=…
 ```
@@ -47,6 +49,18 @@ pnpm storage:setup https://my.app   # or restrict uploads to specific origins
 ```
 
 Browsers upload straight to the private bucket with short-lived presigned URLs. If the bucket's CORS doesn't allow the page's origin, uploads fall back to going through the app (`PUT /api/assets/[id]/file`), so they work on any dev port. Images are read back through the same-origin `/api/storage/*` route, which keeps exports from being tainted.
+
+### Accounts
+
+Sign-in uses [Neon Auth](https://neon.com/docs/auth/overview) (Managed Better Auth), with Google and email + password. Users live in the branch's own `neon_auth` schema. Enable it on the branch, add the app's domain, and copy the base URL into `NEON_AUTH_BASE_URL`:
+
+```bash
+neon neon-auth enable --project-id <project> --branch main
+neon neon-auth domain add https://my.app --project-id <project> --branch main
+neon neon-auth status --project-id <project> --branch main   # shows base_url
+```
+
+`NEON_AUTH_COOKIE_SECRET` is your own random string (32+ characters) that signs the session cache cookie; keep it the same across deployments. Localhost is trusted by default. Google works out of the box on Neon's shared OAuth app, which shows Neon's name on the consent screen; add your own Google OAuth app (redirect URI `{NEON_AUTH_BASE_URL}/callback/google`) before a real launch.
 
 ### Realtime
 

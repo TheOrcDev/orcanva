@@ -1,6 +1,7 @@
 import { RiLayoutMasonryLine, RiPaletteLine } from "@remixicon/react";
 import { connection } from "next/server";
 
+import { UserMenu } from "@/components/auth/user-menu";
 import { DesignCard } from "@/components/gallery/design-card";
 import { NewDesignDialog } from "@/components/gallery/new-design-dialog";
 import {
@@ -11,6 +12,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { getViewer } from "@/lib/auth/server";
 import { listDesigns } from "@/lib/db/queries/designs";
 import { formatRelativeTime, formatSize } from "@/lib/format";
 import { storageUrl } from "@/lib/storage/keys";
@@ -18,19 +20,20 @@ import { storageUrl } from "@/lib/storage/keys";
 const loadGallery = async () => {
   // Always read fresh from Neon; this page must never be prerendered
   await connection();
-  const designs = await listDesigns();
+  const [designs, viewer] = await Promise.all([listDesigns(), getViewer()]);
   const now = new Date();
-  return designs.map((design) => ({
+  const cards = designs.map((design) => ({
     editedLabel: formatRelativeTime(design.updatedAt, now),
     id: design.id,
     name: design.name,
     sizeLabel: formatSize(design.width, design.height),
     thumbnailUrl: design.thumbnailKey ? storageUrl(design.thumbnailKey) : null,
   }));
+  return { designs: cards, viewer };
 };
 
 const GalleryPage = async () => {
-  const designs = await loadGallery();
+  const { designs, viewer } = await loadGallery();
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -40,7 +43,10 @@ const GalleryPage = async () => {
             <RiPaletteLine aria-hidden />
             <span className="font-heading text-lg font-semibold">Orcanva</span>
           </div>
-          <NewDesignDialog />
+          <div className="flex items-center gap-2">
+            <NewDesignDialog />
+            <UserMenu viewer={viewer} />
+          </div>
         </div>
       </header>
 

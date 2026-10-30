@@ -28,6 +28,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@huggingface/transformers": "4.3.2",
+    "@neon/auth": "0.8.2",
     "@neon/realtime": "^0.1.2",
     "@neon/realtime-react": "^0.1.1",
     "@neondatabase/serverless": "^1.2.0",
