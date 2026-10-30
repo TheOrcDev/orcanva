@@ -1,9 +1,15 @@
 "use client";
 
-import { RiImageLine, RiShapesLine, RiText } from "@remixicon/react";
+import {
+  RiImageLine,
+  RiShapesLine,
+  RiStackLine,
+  RiText,
+} from "@remixicon/react";
 import type { RemixiconComponentType } from "@remixicon/react";
 import type { ReactNode } from "react";
 
+import { LayersPanel } from "@/components/editor/panels/layers-panel";
 import { ShapesPanel } from "@/components/editor/panels/shapes-panel";
 import { TextPanel } from "@/components/editor/panels/text-panel";
 import { UploadsPanel } from "@/components/editor/panels/uploads-panel";
@@ -35,6 +41,12 @@ const TABS: SidebarTab[] = [
     label: "Shapes",
     panel: <ShapesPanel />,
     value: "shapes",
+  },
+  {
+    icon: RiStackLine,
+    label: "Layers",
+    panel: <LayersPanel />,
+    value: "layers",
   },
 ];
 
