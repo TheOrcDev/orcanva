@@ -6,6 +6,7 @@ import {
 } from "@/components/editor/editor-store-context";
 import { ColorPicker } from "@/components/editor/panels/color-picker";
 import { PanelSection } from "@/components/editor/panels/panel-section";
+import { ResizeCanvasDialog } from "@/components/editor/resize-canvas-dialog";
 import { DEFAULT_BACKGROUND_COLOR } from "@/lib/document/factories";
 import { setBackground } from "@/lib/editor/document-ops";
 import { selectDocument } from "@/lib/editor/store";
@@ -23,7 +24,7 @@ export const PageProperties = () => {
 
   return (
     <>
-      <PanelSection title="Canvas">
+      <PanelSection title="Canvas" action={<ResizeCanvasDialog />}>
         <p className="text-sm tabular-nums">
           {formatSize(document.width, document.height)} px
         </p>

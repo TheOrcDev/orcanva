@@ -3,12 +3,14 @@
 import {
   RiDeleteBinLine,
   RiEditLine,
+  RiFileCopy2Line,
   RiImageLine,
   RiMoreLine,
   RiPencilLine,
 } from "@remixicon/react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 import type { FormEvent } from "react";
 
@@ -50,7 +52,11 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
-import { deleteDesign, renameDesign } from "@/lib/actions/designs";
+import {
+  deleteDesign,
+  duplicateDesign,
+  renameDesign,
+} from "@/lib/actions/designs";
 
 export interface DesignCardProps {
   id: string;
@@ -67,6 +73,7 @@ export const DesignCard = ({
   editedLabel,
   thumbnailUrl,
 }: DesignCardProps) => {
+  const router = useRouter();
   const inputId = useId();
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -87,6 +94,17 @@ export const DesignCard = ({
         setRenameOpen(false);
       } catch {
         toast.add({ title: "Could not rename design", type: "error" });
+      }
+    });
+  };
+
+  const handleUseAsTemplate = () => {
+    startTransition(async () => {
+      try {
+        const copy = await duplicateDesign(id);
+        router.push(`/design/${copy.id}`);
+      } catch {
+        toast.add({ title: "Could not copy design", type: "error" });
       }
     });
   };
@@ -152,6 +170,13 @@ export const DesignCard = ({
                 <DropdownMenuItem render={<Link href={href} />}>
                   <RiEditLine />
                   Open
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={isPending}
+                  onClick={handleUseAsTemplate}
+                >
+                  <RiFileCopy2Line />
+                  Use as template
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {

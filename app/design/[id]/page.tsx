@@ -16,6 +16,7 @@ const loadDesign = async (id: string) => {
     assets: [],
     designId: row.id,
     document: migrateDocument(row.document),
+    hasThumbnail: row.thumbnailKey !== null,
     name: row.name,
   };
 };

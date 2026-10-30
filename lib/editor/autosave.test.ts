@@ -13,6 +13,7 @@ const setup = () =>
     assets: [],
     designId: "d",
     document: createDocument(PAGE),
+    hasThumbnail: false,
     name: "Test",
   });
 

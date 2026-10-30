@@ -60,6 +60,7 @@ export interface EditorInit {
   name: string;
   document: DesignDocument;
   assets: EditorAsset[];
+  hasThumbnail: boolean;
 }
 
 export const MIN_ZOOM = 0.05;

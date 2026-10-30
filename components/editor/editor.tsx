@@ -1,25 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { PageNodeProvider } from "@/components/editor/canvas-context";
 import { WorkspaceStage } from "@/components/editor/canvas/workspace-stage";
 import { EditorSidebar } from "@/components/editor/editor-sidebar";
 import { EditorStoreProvider } from "@/components/editor/editor-store-context";
+import { ExportPopover } from "@/components/editor/export-popover";
 import { PropertiesPanel } from "@/components/editor/panels/properties-panel";
 import { EditorToolbar } from "@/components/editor/toolbar";
 import { useAutosave } from "@/hooks/use-autosave";
 import { useEditorShortcuts } from "@/hooks/use-editor-shortcuts";
+import { useThumbnail } from "@/hooks/use-thumbnail";
 import { createEditorStore } from "@/lib/editor/store";
 import type { EditorInit } from "@/lib/editor/store";
 
-const EditorShell = () => {
-  const flush = useAutosave();
+const EditorShell = ({ hasThumbnail }: { hasThumbnail: boolean }) => {
+  const flushSave = useAutosave();
+  const flushThumbnail = useThumbnail(hasThumbnail);
   useEditorShortcuts();
+
+  const flush = useCallback(async () => {
+    await Promise.all([flushSave(), flushThumbnail()]);
+  }, [flushSave, flushThumbnail]);
 
   return (
     <div className="flex h-svh flex-col overflow-hidden">
-      <EditorToolbar flush={flush} />
+      <EditorToolbar flush={flush} actions={<ExportPopover />} />
       <div className="flex min-h-0 flex-1">
         <EditorSidebar />
         <WorkspaceStage />
@@ -38,7 +45,7 @@ export const Editor = ({ init }: { init: EditorInit }) => {
   return (
     <EditorStoreProvider store={store}>
       <PageNodeProvider>
-        <EditorShell />
+        <EditorShell hasThumbnail={init.hasThumbnail} />
       </PageNodeProvider>
     </EditorStoreProvider>
   );

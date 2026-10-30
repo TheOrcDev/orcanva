@@ -7,8 +7,10 @@ import { z } from "zod";
 import { getDb } from "@/lib/db/client";
 import { designs } from "@/lib/db/schema";
 import { createDocument } from "@/lib/document/factories";
+import { migrateDocument } from "@/lib/document/migrate";
 import { MAX_CANVAS_SIZE, MIN_CANVAS_SIZE } from "@/lib/document/schema";
-import { deleteObject } from "@/lib/storage/s3";
+import { thumbnailKey } from "@/lib/storage/keys";
+import { copyObject, deleteObject } from "@/lib/storage/s3";
 
 const canvasSize = z.number().int().min(MIN_CANVAS_SIZE).max(MAX_CANVAS_SIZE);
 const designName = z.string().trim().min(1).max(120);
@@ -64,4 +66,52 @@ export const deleteDesign = async (id: string): Promise<void> => {
     await deleteObject(row.thumbnailKey);
   }
   revalidatePath("/");
+};
+
+const COPY_SUFFIX = " copy";
+
+// "Use as template": a full copy (document + preview) the user can rework
+// without touching the original. Assets are shared, so no files are copied.
+export const duplicateDesign = async (id: string): Promise<{ id: string }> => {
+  const sourceId = z.uuid().parse(id);
+  const db = getDb();
+  const [source] = await db
+    .select()
+    .from(designs)
+    .where(eq(designs.id, sourceId))
+    .limit(1);
+  if (!source) {
+    throw new Error("Design not found");
+  }
+
+  const document = migrateDocument(source.document);
+  const name = `${source.name.slice(0, 120 - COPY_SUFFIX.length)}${COPY_SUFFIX}`;
+  const [copy] = await db
+    .insert(designs)
+    .values({
+      document,
+      height: document.height,
+      name,
+      width: document.width,
+    })
+    .returning({ id: designs.id });
+  if (!copy) {
+    throw new Error("Could not duplicate design");
+  }
+
+  if (source.thumbnailKey) {
+    const key = thumbnailKey(copy.id, Date.now());
+    try {
+      await copyObject(source.thumbnailKey, key);
+      await db
+        .update(designs)
+        .set({ thumbnailKey: key })
+        .where(eq(designs.id, copy.id));
+    } catch {
+      // The editor regenerates a preview on first open
+    }
+  }
+
+  revalidatePath("/");
+  return { id: copy.id };
 };

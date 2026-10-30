@@ -5,8 +5,7 @@ import { Group } from "react-konva";
 
 import { BoxShapeNode } from "@/components/editor/canvas/box-shape-node";
 import type { DesignElement } from "@/lib/document/schema";
-
-export const ELEMENT_NODE_NAME = "design-element";
+import { ELEMENT_NODE_NAME } from "@/lib/editor/node-names";
 
 export interface ElementNodeProps {
   element: DesignElement;
