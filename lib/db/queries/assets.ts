@@ -11,6 +11,7 @@ export const toEditorAsset = (row: AssetRow): EditorAsset => ({
   height: row.height,
   id: row.id,
   name: row.originalName,
+  sourceAssetId: row.sourceAssetId,
   url: storageUrl(row.key),
   width: row.width,
 });

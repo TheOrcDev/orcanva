@@ -76,6 +76,9 @@ const bakeTransform = (
 const WorkspaceOverlays = () => {
   const fileDragActive = useEditor((state) => state.fileDragActive);
   const uploadsInFlight = useEditor((state) => state.uploadsInFlight);
+  const removingBackground = useEditor(
+    (state) => state.backgroundJobs.length > 0
+  );
   const noun = uploadsInFlight === 1 ? "image" : "images";
 
   return (
@@ -91,6 +94,12 @@ const WorkspaceOverlays = () => {
         <output className="bg-background absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2 text-sm shadow-md">
           <Spinner />
           Uploading {uploadsInFlight} {noun}…
+        </output>
+      ) : null}
+      {removingBackground && uploadsInFlight === 0 ? (
+        <output className="bg-background absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2 text-sm shadow-md">
+          <Spinner />
+          Removing background…
         </output>
       ) : null}
     </>

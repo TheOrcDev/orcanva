@@ -1,6 +1,7 @@
 import {
   index,
   integer,
+  uniqueIndex,
   jsonb,
   pgEnum,
   pgTable,
@@ -8,6 +9,7 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 import type { DesignDocument } from "@/lib/document/schema";
 
@@ -37,6 +39,9 @@ export const designs = pgTable(
 
 export const assetStatus = pgEnum("asset_status", ["pending", "ready"]);
 
+// Derived images (e.g. a background-removed cutout) point at their source
+export const assetVariant = pgEnum("asset_variant", ["no-background"]);
+
 export const assets = pgTable(
   "assets",
   {
@@ -48,10 +53,22 @@ export const assets = pgTable(
     originalName: text("original_name").notNull(),
     sha256: text("sha256").unique(),
     sizeBytes: integer("size_bytes").notNull(),
+    sourceAssetId: uuid("source_asset_id").references(
+      (): AnyPgColumn => assets.id,
+      { onDelete: "cascade" }
+    ),
     status: assetStatus("status").notNull().default("pending"),
+    variant: assetVariant("variant"),
     width: integer("width").notNull(),
   },
-  (table) => [index("assets_created_at_idx").on(table.createdAt)]
+  (table) => [
+    index("assets_created_at_idx").on(table.createdAt),
+    // One cached result per source image and variant
+    uniqueIndex("assets_source_variant_idx").on(
+      table.sourceAssetId,
+      table.variant
+    ),
+  ]
 );
 
 export type DesignRow = typeof designs.$inferSelect;

@@ -20,6 +20,8 @@ export interface EditorAsset {
   width: number;
   height: number;
   name: string;
+  // Set for derived images (e.g. a background-removed cutout)
+  sourceAssetId: string | null;
 }
 
 export interface EditorState {
@@ -36,6 +38,8 @@ export interface EditorState {
   uploadsInFlight: number;
   // Files are being dragged somewhere over the editor window
   fileDragActive: boolean;
+  // Image elements with a background removal in progress
+  backgroundJobs: string[];
 }
 
 export interface EditorActions {
@@ -59,6 +63,7 @@ export interface EditorActions {
   addAsset: (asset: EditorAsset) => void;
   adjustUploads: (delta: number) => void;
   setFileDragActive: (active: boolean) => void;
+  setBackgroundJob: (elementId: string, running: boolean) => void;
 }
 
 export type EditorStore = EditorState & EditorActions;
@@ -97,6 +102,7 @@ export const createEditorStore = (init: EditorInit) =>
         uploadsInFlight: Math.max(0, state.uploadsInFlight + delta),
       })),
     assets: init.assets,
+    backgroundJobs: [],
     begin: () => set((state) => ({ history: beginTransaction(state.history) })),
     change: (recipe) =>
       set((state) => {
@@ -141,6 +147,18 @@ export const createEditorStore = (init: EditorInit) =>
     saveStatus: "saved",
     select: (ids) => set({ selectedIds: ids }),
     selectedIds: [],
+    setBackgroundJob: (elementId, running) =>
+      set((state) => {
+        const has = state.backgroundJobs.includes(elementId);
+        if (running === has) {
+          return state;
+        }
+        return {
+          backgroundJobs: running
+            ? [...state.backgroundJobs, elementId]
+            : state.backgroundJobs.filter((id) => id !== elementId),
+        };
+      }),
     setEditingText: (id) => set({ editingTextId: id }),
     setFileDragActive: (active) =>
       set((state) =>

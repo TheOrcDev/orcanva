@@ -4,6 +4,7 @@ A personal, Canva-style editor for YouTube thumbnails and social images.
 
 - Pick a canvas size (YouTube thumbnail, Full HD, 4K, square, story, … or custom)
 - Upload images (button, drag from the desktop, or paste a screenshot) and move, scale, rotate, and flip them
+- One-click **Remove background** for any image, run by an open-source model on your own machine (no API key, no per-image cost)
 - Text with 40 curated Google Fonts, inline editing, outline, drop shadow, and highlight effects
 - Shapes, lines, arrows, solid or gradient backgrounds, and a drag-to-reorder layers panel
 - Undo/redo, autosave, and download as PNG, JPG, or WebP at exact pixel size (1× or 2×)
@@ -49,6 +50,10 @@ Browsers upload straight to the private bucket with short-lived presigned URLs. 
 ```bash
 pnpm dev
 ```
+
+### Background removal
+
+Uses [BiRefNet-lite](https://huggingface.co/onnx-community/BiRefNet_lite-ONNX), whose weights are MIT-licensed so commercial use is fine, through [Transformers.js](https://huggingface.co/docs/transformers.js) and onnxruntime on the server's CPU. The first removal downloads the model (~220 MB) into `.cache/models` (gitignored). After that, each image takes a few seconds. The cutout is stored as a new transparent PNG in your library and linked to its source, so repeating the removal is instant and **Restore original** can switch back. It's heavy for serverless platforms, so plan for a long-running server (or a GPU service) if you deploy it.
 
 ## Scripts
 

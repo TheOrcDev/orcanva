@@ -11,6 +11,7 @@ import {
   useEditor,
   useEditorStoreApi,
 } from "@/components/editor/editor-store-context";
+import { BackgroundRemovalButton } from "@/components/editor/panels/background-removal-button";
 import { PanelSection } from "@/components/editor/panels/panel-section";
 import { TransactionSlider } from "@/components/editor/panels/transaction-slider";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ export const ImageProperties = ({ element }: { element: ImageElement }) => {
   return (
     <>
       <PanelSection title="Image">
+        <BackgroundRemovalButton element={element} />
         <div className="grid grid-cols-2 gap-2">
           <Button
             variant="outline"
@@ -76,7 +78,7 @@ export const ImageProperties = ({ element }: { element: ImageElement }) => {
           </Button>
           <Button variant="outline" size="sm" onClick={setAsBackground}>
             <RiLayoutMasonryLine data-icon="inline-start" />
-            Background
+            Fill page
           </Button>
           <Button
             variant="outline"
