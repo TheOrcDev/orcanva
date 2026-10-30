@@ -8,30 +8,71 @@ import {
 } from "@/lib/fonts/catalog";
 import type { FontDefinition } from "@/lib/fonts/catalog";
 
-const stylesheets = new Map<string, Promise<void>>();
-const loadedStylesheets = new Set<string>();
+const FONT_FACE_BLOCK = /@font-face\s*\{(?<body>[^}]*)\}/gu;
+const FAMILY_DESCRIPTOR = /font-family:\s*['"]?(?<value>[^;'"]+)['"]?;/u;
+const STYLE_DESCRIPTOR = /font-style:\s*(?<value>[^;]+);/u;
+const WEIGHT_DESCRIPTOR = /font-weight:\s*(?<value>[^;]+);/u;
+const SRC_DESCRIPTOR = /src:\s*(?<value>[^;]+);/u;
+const RANGE_DESCRIPTOR = /unicode-range:\s*(?<value>[^;]+);/u;
 
-// document.fonts.load() resolves with nothing if the @font-face rules
-// aren't parsed yet, so the stylesheet must finish loading first.
-const ensureStylesheet = (font: FontDefinition): Promise<void> => {
-  let pending = stylesheets.get(font.id);
+const registrations = new Map<string, Promise<void>>();
+const registeredFonts = new Set<string>();
+
+export interface FontFaceRule {
+  family: string;
+  src: string;
+  style: string;
+  weight: string;
+  unicodeRange: string;
+}
+
+// Reads the @font-face rules out of a Google Fonts CSS2 response
+export const parseFontFaces = (css: string): FontFaceRule[] =>
+  [...css.matchAll(FONT_FACE_BLOCK)].flatMap((match) => {
+    const body = match.groups?.body ?? "";
+    const family = FAMILY_DESCRIPTOR.exec(body)?.groups?.value;
+    const src = SRC_DESCRIPTOR.exec(body)?.groups?.value;
+    if (!family || !src) {
+      return [];
+    }
+    return [
+      {
+        family: family.trim(),
+        src: src.trim(),
+        style: STYLE_DESCRIPTOR.exec(body)?.groups?.value.trim() ?? "normal",
+        unicodeRange:
+          RANGE_DESCRIPTOR.exec(body)?.groups?.value.trim() ?? "U+0-10FFFF",
+        weight: WEIGHT_DESCRIPTOR.exec(body)?.groups?.value.trim() ?? "400",
+      },
+    ];
+  });
+
+// Fetches the family's Google Fonts CSS and registers every face directly
+// with document.fonts. (A <link> stylesheet registers its faces on the
+// browser's own schedule, so fonts.load() could race it and find nothing.)
+// Font files still only download for the faces and subsets text needs.
+const registerFont = (font: FontDefinition): Promise<void> => {
+  let pending = registrations.get(font.id);
   if (!pending) {
-    const { promise, reject, resolve } = Promise.withResolvers<undefined>();
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = fontStylesheetUrl(font);
-    link.addEventListener("load", () => {
-      loadedStylesheets.add(font.id);
-      resolve(undefined);
-    });
-    link.addEventListener("error", () => {
-      stylesheets.delete(font.id);
-      link.remove();
-      reject(new Error(`Could not load font ${font.family}`));
-    });
-    document.head.append(link);
-    pending = promise;
-    stylesheets.set(font.id, pending);
+    pending = (async () => {
+      const response = await fetch(fontStylesheetUrl(font));
+      if (!response.ok) {
+        throw new Error(`Could not load font ${font.family}`);
+      }
+      for (const rule of parseFontFaces(await response.text())) {
+        document.fonts.add(
+          new FontFace(rule.family, rule.src, {
+            display: "block",
+            style: rule.style,
+            unicodeRange: rule.unicodeRange,
+            weight: rule.weight,
+          })
+        );
+      }
+      registeredFonts.add(font.id);
+    })();
+    pending.catch(() => registrations.delete(font.id));
+    registrations.set(font.id, pending);
   }
   return pending;
 };
@@ -55,40 +96,12 @@ const faceSpec = (request: FontRequest): string => {
 const sample = (text: string) => text || "A";
 
 export const isFontReady = (request: FontRequest): boolean =>
-  loadedStylesheets.has(getFont(request.fontId).id) &&
+  registeredFonts.has(getFont(request.fontId).id) &&
   document.fonts.check(faceSpec(request), sample(request.text));
 
-const REGISTER_RETRY_MS = 16;
-const REGISTER_ATTEMPTS = 60;
-
-const wait = (ms: number): Promise<undefined> => {
-  const { promise, resolve } = Promise.withResolvers<undefined>();
-  setTimeout(() => resolve(undefined), ms);
-  return promise;
-};
-
-// The <link> load event fires before the browser registers the sheet's
-// @font-face rules; until then fonts.load() matches nothing and resolves
-// with no faces. Retry briefly until the faces exist and have loaded.
-const loadFaces = async (
-  spec: string,
-  text: string,
-  attemptsLeft: number
-): Promise<void> => {
-  const faces = await document.fonts.load(spec, text);
-  if (faces.length > 0) {
-    return;
-  }
-  if (attemptsLeft <= 0) {
-    throw new Error(`No font faces registered for ${spec}`);
-  }
-  await wait(REGISTER_RETRY_MS);
-  return loadFaces(spec, text, attemptsLeft - 1);
-};
-
 export const ensureFont = async (request: FontRequest): Promise<void> => {
-  await ensureStylesheet(getFont(request.fontId));
-  await loadFaces(faceSpec(request), sample(request.text), REGISTER_ATTEMPTS);
+  await registerFont(getFont(request.fontId));
+  await document.fonts.load(faceSpec(request), sample(request.text));
 };
 
 const waitForFonts = async (document: DesignDocument): Promise<void> => {
