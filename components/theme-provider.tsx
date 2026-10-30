@@ -1,7 +1,6 @@
 "use client";
 
 import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes";
-import { usePathname } from "next/navigation";
 import * as React from "react";
 
 const isTypingTarget = (target: EventTarget | null) => {
@@ -17,16 +16,17 @@ const isTypingTarget = (target: EventTarget | null) => {
   );
 };
 
+// Menus and listboxes use letter keys for type-ahead
+const isInTypeahead = (target: EventTarget | null) =>
+  target instanceof Element &&
+  target.closest('[role="menu"], [role="listbox"]') !== null;
+
+// Plain "d" toggles light/dark everywhere, including the editor (its own
+// shortcuts never use a bare "d"; duplicate is ⌘D)
 const ThemeHotkey = () => {
   const { resolvedTheme, setTheme } = useTheme();
-  // The editor owns the keyboard; a stray "d" must not flip the theme there
-  const isEditor = usePathname().startsWith("/design/");
 
   React.useEffect(() => {
-    if (isEditor) {
-      return;
-    }
-
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.repeat) {
         return;
@@ -40,7 +40,7 @@ const ThemeHotkey = () => {
         return;
       }
 
-      if (isTypingTarget(event.target)) {
+      if (isTypingTarget(event.target) || isInTypeahead(event.target)) {
         return;
       }
 
@@ -52,7 +52,7 @@ const ThemeHotkey = () => {
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [isEditor, resolvedTheme, setTheme]);
+  }, [resolvedTheme, setTheme]);
 
   return null;
 };
