@@ -8,5 +8,7 @@ export default defineConfig({
     ...(ultracite.ignorePatterns ?? []),
     "**/.agents/skills",
     "**/.claude/skills",
+    // drizzle-kit regenerates migration metadata on every `db:generate`
+    "drizzle/meta",
   ],
 });
