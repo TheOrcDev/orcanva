@@ -31,6 +31,8 @@ AWS_SECRET_ACCESS_KEY=…
 AWS_ENDPOINT_URL_S3=https://<branch>.storage.<cell>.<region>.aws.neon.tech
 AWS_REGION=eu-central-1
 STORAGE_BUCKET=orcanva-assets
+NEON_REALTIME_URL=wss://…              # optional, see "Realtime" below
+NEON_REALTIME_SECRET=…
 ```
 
 The storage endpoint and region come from `neon api /projects/<project>/branches/<branch>/storage`. Object Storage needs a project in `aws-us-east-1`, `aws-us-east-2`, `aws-eu-central-1`, or `aws-ap-southeast-1`.
@@ -44,6 +46,17 @@ pnpm storage:setup https://my.app   # or restrict uploads to specific origins
 ```
 
 Browsers upload straight to the private bucket with short-lived presigned URLs. If the bucket's CORS doesn't allow the page's origin, uploads fall back to going through the app (`PUT /api/assets/[id]/file`), so they work on any dev port. Images are read back through the same-origin `/api/storage/*` route, which keeps exports from being tainted.
+
+### Realtime
+
+Live collaboration uses [Neon Realtime](https://neon.com/docs/realtime/overview) (beta, needs one of the regions above). Enable it on the branch and pull its two variables into `.env.local`:
+
+```bash
+npx neon@latest realtime enable --project-id <project>
+npx neon@latest env pull --project-id <project> --service realtime --file .env.local
+```
+
+Without them the editor still works and saves, just without live updates.
 
 ### Run
 

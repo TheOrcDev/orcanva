@@ -7,6 +7,9 @@ const envSchema = z.object({
   AWS_REGION: z.string().min(1),
   AWS_SECRET_ACCESS_KEY: z.string().min(1),
   DATABASE_URL: z.url(),
+  // Optional: without Realtime the editor still saves, just single-player
+  NEON_REALTIME_SECRET: z.string().min(1).optional(),
+  NEON_REALTIME_URL: z.url().optional(),
   STORAGE_BUCKET: z.string().min(1),
 });
 
