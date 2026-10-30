@@ -1,0 +1,54 @@
+"use client";
+
+import { RiShapesLine } from "@remixicon/react";
+import type { RemixiconComponentType } from "@remixicon/react";
+import type { ReactNode } from "react";
+
+import { ShapesPanel } from "@/components/editor/panels/shapes-panel";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+interface SidebarTab {
+  value: string;
+  label: string;
+  icon: RemixiconComponentType;
+  panel: ReactNode;
+}
+
+const TABS: SidebarTab[] = [
+  {
+    icon: RiShapesLine,
+    label: "Shapes",
+    panel: <ShapesPanel />,
+    value: "shapes",
+  },
+];
+
+export const EditorSidebar = () => (
+  <aside className="bg-background flex shrink-0 border-r" aria-label="Tools">
+    <Tabs defaultValue={TABS[0]?.value} orientation="vertical">
+      <div className="border-r p-2">
+        <TabsList variant="line">
+          {TABS.map((tab) => (
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              className="flex-col"
+              aria-label={tab.label}
+            >
+              <tab.icon />
+              <span className="text-xs">{tab.label}</span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </div>
+      {TABS.map((tab) => (
+        <TabsContent key={tab.value} value={tab.value} className="w-72">
+          <ScrollArea className="h-full">
+            <div className="flex flex-col gap-6 p-4">{tab.panel}</div>
+          </ScrollArea>
+        </TabsContent>
+      ))}
+    </Tabs>
+  </aside>
+);

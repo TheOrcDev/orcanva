@@ -1,6 +1,7 @@
 "use client";
 
 import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes";
+import { usePathname } from "next/navigation";
 import * as React from "react";
 
 const isTypingTarget = (target: EventTarget | null) => {
@@ -18,8 +19,14 @@ const isTypingTarget = (target: EventTarget | null) => {
 
 const ThemeHotkey = () => {
   const { resolvedTheme, setTheme } = useTheme();
+  // The editor owns the keyboard; a stray "d" must not flip the theme there
+  const isEditor = usePathname().startsWith("/design/");
 
   React.useEffect(() => {
+    if (isEditor) {
+      return;
+    }
+
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.repeat) {
         return;
@@ -45,7 +52,7 @@ const ThemeHotkey = () => {
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [resolvedTheme, setTheme]);
+  }, [isEditor, resolvedTheme, setTheme]);
 
   return null;
 };
