@@ -1,9 +1,12 @@
 "use client";
 
+import type Konva from "konva";
+import { useRef } from "react";
 import { Image as KonvaImage, Rect } from "react-konva";
 
 import { useEditor } from "@/components/editor/editor-store-context";
 import { useAssetImage } from "@/hooks/use-asset-image";
+import { useFilteredImage } from "@/hooks/use-filtered-image";
 import type { ImageElement } from "@/lib/document/schema";
 
 const PLACEHOLDER_FILL = "#e4e4e7";
@@ -17,7 +20,9 @@ export const ImageNode = ({ element }: { element: ImageElement }) => {
     state.missingAssetIds.includes(element.assetId)
   );
   const { image, status } = useAssetImage(url);
-  const { cornerRadius, flipX, flipY, height, width } = element;
+  const imageRef = useRef<Konva.Image>(null);
+  const { cornerRadius, filter, flipX, flipY, height, width } = element;
+  useFilteredImage(imageRef, image, filter, { height, width });
 
   if (!image) {
     return (
@@ -33,6 +38,7 @@ export const ImageNode = ({ element }: { element: ImageElement }) => {
   // Mirrored inside the element box, so x/y/size semantics never change
   return (
     <KonvaImage
+      ref={imageRef}
       image={image}
       width={width}
       height={height}
