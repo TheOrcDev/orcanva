@@ -8,6 +8,7 @@ import { Group, Layer, Rect, Stage } from "react-konva";
 import { usePageNodeRef } from "@/components/editor/canvas-context";
 import { BackgroundNode } from "@/components/editor/canvas/background-node";
 import { ElementNode } from "@/components/editor/canvas/element-node";
+import { LineHandles } from "@/components/editor/canvas/line-handles";
 import { SelectionTransformer } from "@/components/editor/canvas/selection-transformer";
 import { TextEditOverlay } from "@/components/editor/canvas/text-edit-overlay";
 import {
@@ -222,6 +223,11 @@ export const WorkspaceStage = () => {
     : undefined;
   const editingText =
     editingElement?.type === "text" ? editingElement : undefined;
+  const selectedLine =
+    (selected?.type === "line" || selected?.type === "arrow") &&
+    !selected.locked
+      ? selected
+      : undefined;
   const transformTarget =
     selected && !isLinear(selected) && selected.id !== editingTextId
       ? selected
@@ -340,6 +346,11 @@ export const WorkspaceStage = () => {
             </Group>
           </Layer>
           <Layer>
+            {selectedLine ? (
+              <Group x={origin.x} y={origin.y} scaleX={zoom} scaleY={zoom}>
+                <LineHandles element={selectedLine} zoom={zoom} />
+              </Group>
+            ) : null}
             <SelectionTransformer
               element={transformTarget}
               onTransformEnd={handleTransformEnd}

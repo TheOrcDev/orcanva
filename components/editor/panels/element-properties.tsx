@@ -16,6 +16,7 @@ import { useEditorStoreApi } from "@/components/editor/editor-store-context";
 import { BoxShapeProperties } from "@/components/editor/panels/box-shape-properties";
 import { EffectsProperties } from "@/components/editor/panels/effects-properties";
 import { ImageProperties } from "@/components/editor/panels/image-properties";
+import { LineProperties } from "@/components/editor/panels/line-properties";
 import { NumberInput } from "@/components/editor/panels/number-input";
 import { PanelSection } from "@/components/editor/panels/panel-section";
 import { TextProperties } from "@/components/editor/panels/text-properties";
@@ -174,6 +175,10 @@ const TypeProperties = ({ element }: { element: DesignElement }) => {
     }
     case "image": {
       return <ImageProperties element={element} />;
+    }
+    case "line":
+    case "arrow": {
+      return <LineProperties element={element} />;
     }
     case "text": {
       return (

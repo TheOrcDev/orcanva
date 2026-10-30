@@ -5,6 +5,7 @@ import { Group } from "react-konva";
 
 import { BoxShapeNode } from "@/components/editor/canvas/box-shape-node";
 import { ImageNode } from "@/components/editor/canvas/image-node";
+import { LineNode } from "@/components/editor/canvas/line-node";
 import {
   HIGHLIGHT_NODE_NAME,
   TextNode,
@@ -33,6 +34,10 @@ const ElementContent = ({ element }: { element: DesignElement }) => {
     }
     case "text": {
       return <TextNode element={element} />;
+    }
+    case "line":
+    case "arrow": {
+      return <LineNode element={element} />;
     }
     default: {
       return null;
