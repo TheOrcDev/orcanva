@@ -3,37 +3,79 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
+import { useEditorStoreApi } from "@/components/editor/editor-store-context";
 import type { Point } from "@/lib/document/geometry";
 import type { TextElement } from "@/lib/document/schema";
+import {
+  findElement,
+  removeElements,
+  updateElement,
+} from "@/lib/editor/document-ops";
+import type { EditorStoreApi } from "@/lib/editor/store";
+import { selectDocument } from "@/lib/editor/store";
 import { cssFamily, getFont, nearestWeight } from "@/lib/fonts/catalog";
+
+const CARET_COLOR = "#2563eb";
+
+// Closes the session's single undo step; text emptied while typing is removed
+const finishEditing = (store: EditorStoreApi, id: string) => {
+  const state = store.getState();
+  const element = findElement(selectDocument(state), id);
+  if (element?.type === "text" && element.text.trim() === "") {
+    state.change((doc) => removeElements(doc, [id]));
+  }
+  state.end();
+  if (store.getState().editingTextId === id) {
+    store.getState().setEditingText(null);
+  }
+};
 
 export interface TextEditOverlayProps {
   element: TextElement;
   origin: Point;
   zoom: number;
-  onCommit: (id: string, text: string) => void;
-  onCancel: () => void;
 }
 
-// A textarea laid exactly over the (hidden) Konva text. Styles are applied
-// imperatively: they track zoom/pan every frame and inline style props are
-// off-limits in this codebase.
+// The canvas text stays visible and updates on every keystroke; this
+// textarea sits exactly on top as an invisible typing surface (only the
+// caret and selection show). Styles are applied imperatively because they
+// track zoom/pan and inline style props are off-limits in this codebase.
 export const TextEditOverlay = ({
   element,
   origin,
   zoom,
-  onCommit,
-  onCancel,
 }: TextEditOverlayProps) => {
+  const store = useEditorStoreApi();
   const ref = useRef<HTMLTextAreaElement>(null);
-  const [value, setValue] = useState(element.text);
-  const valueRef = useRef(value);
   const settledRef = useRef(false);
-  const commitRef = useRef(onCommit);
+  const [value, setValue] = useState(element.text);
+  const { id } = element;
 
-  useLayoutEffect(() => {
-    commitRef.current = onCommit;
-  }, [onCommit]);
+  const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // One transaction for the whole editing session. React StrictMode (dev)
+  // unmounts and remounts effects once; the deferred finish lets that
+  // simulated remount cancel it instead of ending the edit immediately.
+  useEffect(() => {
+    if (finishTimerRef.current) {
+      clearTimeout(finishTimerRef.current);
+      finishTimerRef.current = null;
+    } else {
+      store.getState().begin();
+    }
+    const textarea = ref.current;
+    textarea?.focus();
+    textarea?.select();
+    return () => {
+      // Ending the edit any other way (export, clicking a panel) keeps it
+      if (!settledRef.current) {
+        finishTimerRef.current = setTimeout(() => {
+          finishTimerRef.current = null;
+          finishEditing(store, id);
+        }, 0);
+      }
+    };
+  }, [store, id]);
 
   useLayoutEffect(() => {
     const textarea = ref.current;
@@ -54,40 +96,32 @@ export const TextEditOverlay = ({
     style.lineHeight = String(element.lineHeight);
     style.letterSpacing = `${element.letterSpacingEm * fontSize}px`;
     style.textAlign = element.align;
-    style.color = element.fill;
     style.textTransform = element.uppercase ? "uppercase" : "none";
+    style.color = "transparent";
+    style.caretColor = CARET_COLOR;
     style.height = "auto";
     style.height = `${textarea.scrollHeight}px`;
   });
 
-  useEffect(() => {
-    const textarea = ref.current;
-    textarea?.focus();
-    textarea?.select();
-    // Ending the edit any other way (export, undo, selecting elsewhere)
-    // still keeps what was typed
-    return () => {
-      if (!settledRef.current) {
-        commitRef.current(element.id, valueRef.current);
-      }
-    };
-  }, [element.id]);
-
-  const commit = () => {
+  const settle = (cancel: boolean) => {
     if (settledRef.current) {
       return;
     }
     settledRef.current = true;
-    onCommit(element.id, valueRef.current);
+    if (cancel) {
+      store.getState().rollback();
+      store.getState().setEditingText(null);
+      return;
+    }
+    finishEditing(store, id);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Escape") {
-      settledRef.current = true;
-      onCancel();
+      settle(true);
     }
     if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-      commit();
+      settle(false);
     }
   };
 
@@ -95,14 +129,15 @@ export const TextEditOverlay = ({
     <textarea
       ref={ref}
       aria-label="Edit text"
-      className="absolute z-20 m-0 origin-top-left resize-none overflow-hidden border-0 bg-transparent p-0 break-words whitespace-pre-wrap outline-none"
+      className="selection:bg-primary/25 absolute z-20 m-0 origin-top-left resize-none overflow-hidden border-0 bg-transparent p-0 break-words whitespace-pre-wrap outline-none"
       value={value}
       spellCheck={false}
       onChange={(event) => {
-        valueRef.current = event.target.value;
-        setValue(event.target.value);
+        const text = event.target.value;
+        setValue(text);
+        store.getState().change((doc) => updateElement(doc, id, { text }));
       }}
-      onBlur={commit}
+      onBlur={() => settle(false)}
       onKeyDown={handleKeyDown}
     />
   );

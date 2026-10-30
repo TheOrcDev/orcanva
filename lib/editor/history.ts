@@ -48,6 +48,12 @@ export const endTransaction = <T>(
   };
 };
 
+// Abandons an open transaction, restoring the state from when it began
+export const cancelTransaction = <T>(history: History<T>): History<T> =>
+  history.pending === null
+    ? history
+    : { ...history, pending: null, present: history.pending };
+
 // Inside a transaction the change is transient; otherwise it is one step
 export const applyChange = <T>(
   history: History<T>,

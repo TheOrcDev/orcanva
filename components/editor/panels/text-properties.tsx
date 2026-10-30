@@ -9,6 +9,7 @@ import {
 } from "@remixicon/react";
 import { useState } from "react";
 
+import { useEditorStoreApi } from "@/components/editor/editor-store-context";
 import { ColorPicker } from "@/components/editor/panels/color-picker";
 import { FontPicker } from "@/components/editor/panels/font-picker";
 import { NumberInput } from "@/components/editor/panels/number-input";
@@ -48,25 +49,30 @@ const ALIGNMENTS = [
   { icon: RiAlignRight, label: "Align right", value: "right" },
 ] as const;
 
-// Typing stays local; the whole edit lands as one undo step on blur
+// Updates the canvas on every keystroke; focus → blur is one undo step.
+// An emptied field keeps the last non-empty text on the canvas.
 const TextContentField = ({ element }: { element: TextElement }) => {
+  const store = useEditorStoreApi();
   const update = useUpdateElement(element.id);
   const [draft, setDraft] = useState<string | null>(null);
-
-  const commit = () => {
-    if (draft !== null && draft !== element.text && draft.trim() !== "") {
-      update({ text: draft });
-    }
-    setDraft(null);
-  };
 
   return (
     <Textarea
       aria-label="Text content"
       rows={3}
       value={draft ?? element.text}
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={commit}
+      onFocus={() => store.getState().begin()}
+      onChange={(event) => {
+        const text = event.target.value;
+        setDraft(text);
+        if (text.trim() !== "") {
+          update({ text });
+        }
+      }}
+      onBlur={() => {
+        setDraft(null);
+        store.getState().end();
+      }}
     />
   );
 };
@@ -83,7 +89,7 @@ export const TextProperties = ({ element }: { element: TextElement }) => {
   return (
     <>
       <PanelSection title="Text">
-        <TextContentField key={element.text} element={element} />
+        <TextContentField element={element} />
         <FontPicker
           value={font}
           onChange={(next) =>

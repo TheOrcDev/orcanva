@@ -4,6 +4,7 @@ import {
   applyChange,
   beginTransaction,
   canRedo,
+  cancelTransaction,
   canUndo,
   createHistory,
   endTransaction,
@@ -39,6 +40,18 @@ describe("history", () => {
     expect(history.present.x).toBe(14);
     expect(history.past.map((entry) => entry.x)).toEqual([0, 10]);
     expect(undo(history).present.x).toBe(10);
+  });
+
+  it("cancels a transaction back to the state when it began", () => {
+    let history = applyChange(createHistory(doc(0)), doc(1));
+    history = beginTransaction(history);
+    history = applyChange(history, doc(2));
+    history = applyChange(history, doc(3));
+    history = cancelTransaction(history);
+
+    expect(history.present.x).toBe(1);
+    expect(history.pending).toBeNull();
+    expect(history.past.map((entry) => entry.x)).toEqual([0]);
   });
 
   it("drops a transaction that changed nothing", () => {

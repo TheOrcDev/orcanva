@@ -15,6 +15,7 @@ import {
   useEditor,
   useEditorStoreApi,
 } from "@/components/editor/editor-store-context";
+import { Spinner } from "@/components/ui/spinner";
 import { useUpload } from "@/hooks/use-upload";
 import { createImageElement } from "@/lib/document/factories";
 import { fitZoom } from "@/lib/document/geometry";
@@ -23,7 +24,6 @@ import { bakeBoxTransform, bakeTextTransform } from "@/lib/editor/bake";
 import type { NodeTransform } from "@/lib/editor/bake";
 import {
   insertElement,
-  removeElements,
   replaceElement,
   updateElement,
 } from "@/lib/editor/document-ops";
@@ -35,6 +35,14 @@ const PINCH_ZOOM_SPEED = 0.01;
 const isAcceptedDrag = (event: DragEvent<HTMLDivElement>) =>
   event.dataTransfer.types.includes("Files") ||
   event.dataTransfer.types.includes(ASSET_DRAG_TYPE);
+
+const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
+  if (!isAcceptedDrag(event)) {
+    return;
+  }
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "copy";
+};
 
 const isLinear = (element: DesignElement) =>
   element.type === "line" || element.type === "arrow";
@@ -64,13 +72,37 @@ const bakeTransform = (
   }
 };
 
+// Drop hint while files are dragged over the editor, and upload progress
+const WorkspaceOverlays = () => {
+  const fileDragActive = useEditor((state) => state.fileDragActive);
+  const uploadsInFlight = useEditor((state) => state.uploadsInFlight);
+  const noun = uploadsInFlight === 1 ? "image" : "images";
+
+  return (
+    <>
+      {fileDragActive ? (
+        <div className="border-primary bg-primary/5 pointer-events-none absolute inset-3 z-10 flex items-center justify-center rounded-3xl border-2 border-dashed">
+          <span className="bg-background rounded-full px-4 py-2 text-sm font-medium shadow-sm">
+            Drop images to add them to your design
+          </span>
+        </div>
+      ) : null}
+      {uploadsInFlight > 0 ? (
+        <output className="bg-background absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2 text-sm shadow-md">
+          <Spinner />
+          Uploading {uploadsInFlight} {noun}…
+        </output>
+      ) : null}
+    </>
+  );
+};
+
 export const WorkspaceStage = () => {
   const store = useEditorStoreApi();
   const pageNodeRef = usePageNodeRef();
   const containerRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState({ height: 0, width: 0 });
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [isDropTarget, setIsDropTarget] = useState(false);
   const upload = useUpload();
 
   const document = useEditor(selectDocument);
@@ -139,24 +171,6 @@ export const WorkspaceStage = () => {
     },
     [store]
   );
-
-  // One undo step per edit session; emptied text boxes are removed
-  const commitText = useCallback(
-    (id: string, text: string) => {
-      const state = store.getState();
-      state.setEditingText(null);
-      state.change((doc) =>
-        text.trim() === ""
-          ? removeElements(doc, [id])
-          : updateElement(doc, id, { text })
-      );
-    },
-    [store]
-  );
-
-  const cancelText = useCallback(() => {
-    store.getState().setEditingText(null);
-  }, [store]);
 
   const clearSelection = useCallback(() => {
     store.getState().clearSelection();
@@ -233,29 +247,15 @@ export const WorkspaceStage = () => {
       ? selected
       : null;
 
-  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
-    if (!isAcceptedDrag(event)) {
-      return;
-    }
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "copy";
-    setIsDropTarget(true);
-  };
-
-  const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
-    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-      setIsDropTarget(false);
-    }
-  };
-
   // Files from the desktop upload; library assets place directly. Both land
   // where the pointer is, converted from screen to page coordinates.
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     if (!isAcceptedDrag(event)) {
       return;
     }
+    // Marks the drop handled so the editor-wide fallback doesn't repeat it
     event.preventDefault();
-    setIsDropTarget(false);
+    store.getState().setFileDragActive(false);
     const bounds = event.currentTarget.getBoundingClientRect();
     const at = {
       x: (event.clientX - bounds.left - origin.x) / zoom,
@@ -285,16 +285,9 @@ export const WorkspaceStage = () => {
       ref={containerRef}
       className="bg-muted/60 relative min-h-0 min-w-0 flex-1 overflow-hidden"
       onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {isDropTarget ? (
-        <div className="border-primary bg-primary/5 pointer-events-none absolute inset-3 z-10 flex items-center justify-center rounded-3xl border-2 border-dashed">
-          <span className="bg-background rounded-full px-4 py-2 text-sm font-medium shadow-sm">
-            Drop to add to your design
-          </span>
-        </div>
-      ) : null}
+      <WorkspaceOverlays />
       {viewport.width > 0 && viewport.height > 0 ? (
         <Stage
           width={viewport.width}
@@ -337,7 +330,6 @@ export const WorkspaceStage = () => {
                 <ElementNode
                   key={element.id}
                   element={element}
-                  isEditing={element.id === editingTextId}
                   onSelect={selectElement}
                   onMove={moveElement}
                   onEditText={editText}
@@ -364,8 +356,6 @@ export const WorkspaceStage = () => {
           element={editingText}
           origin={origin}
           zoom={zoom}
-          onCommit={commitText}
-          onCancel={cancelText}
         />
       ) : null}
     </div>

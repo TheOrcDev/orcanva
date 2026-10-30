@@ -13,6 +13,7 @@ import { useAssetUrlSync } from "@/hooks/use-asset-url-sync";
 import { useAutosave } from "@/hooks/use-autosave";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { useEditorShortcuts } from "@/hooks/use-editor-shortcuts";
+import { useFileDrop } from "@/hooks/use-file-drop";
 import { useThumbnail } from "@/hooks/use-thumbnail";
 import { createEditorStore } from "@/lib/editor/store";
 import type { EditorInit } from "@/lib/editor/store";
@@ -22,6 +23,7 @@ const EditorShell = ({ hasThumbnail }: { hasThumbnail: boolean }) => {
   const flushThumbnail = useThumbnail(hasThumbnail);
   useEditorShortcuts();
   useClipboard();
+  useFileDrop();
   useAssetUrlSync();
 
   const flush = useCallback(async () => {

@@ -4,6 +4,7 @@ import type { DesignDocument } from "@/lib/document/schema";
 import {
   applyChange,
   beginTransaction,
+  cancelTransaction,
   createHistory,
   endTransaction,
   redo,
@@ -33,6 +34,8 @@ export interface EditorState {
   saveStatus: SaveStatus;
   assets: EditorAsset[];
   uploadsInFlight: number;
+  // Files are being dragged somewhere over the editor window
+  fileDragActive: boolean;
 }
 
 export interface EditorActions {
@@ -40,6 +43,8 @@ export interface EditorActions {
   change: (recipe: (document: DesignDocument) => DesignDocument) => void;
   begin: () => void;
   end: () => void;
+  // Abandons the open transaction (e.g. Escape while typing)
+  rollback: () => void;
   undo: () => void;
   redo: () => void;
   rename: (name: string) => void;
@@ -53,6 +58,7 @@ export interface EditorActions {
   setSaveStatus: (status: SaveStatus) => void;
   addAsset: (asset: EditorAsset) => void;
   adjustUploads: (delta: number) => void;
+  setFileDragActive: (active: boolean) => void;
 }
 
 export type EditorStore = EditorState & EditorActions;
@@ -110,6 +116,7 @@ export const createEditorStore = (init: EditorInit) =>
     designId: init.designId,
     editingTextId: null,
     end: () => set((state) => ({ history: endTransaction(state.history) })),
+    fileDragActive: false,
     history: createHistory(init.document),
     name: init.name,
     redo: () =>
@@ -117,15 +124,28 @@ export const createEditorStore = (init: EditorInit) =>
         const history = redo(state.history);
         return {
           editingTextId: null,
+          fileDragActive: false,
           history,
           selectedIds: keepExisting(state.selectedIds, history.present),
         };
       }),
     rename: (name) => set({ name }),
+    rollback: () =>
+      set((state) => {
+        const history = cancelTransaction(state.history);
+        return {
+          history,
+          selectedIds: keepExisting(state.selectedIds, history.present),
+        };
+      }),
     saveStatus: "saved",
     select: (ids) => set({ selectedIds: ids }),
     selectedIds: [],
     setEditingText: (id) => set({ editingTextId: id }),
+    setFileDragActive: (active) =>
+      set((state) =>
+        state.fileDragActive === active ? state : { fileDragActive: active }
+      ),
     setFitZoom: (zoom) => set({ zoom: clampZoom(zoom) }),
     setSaveStatus: (status) => set({ saveStatus: status }),
     setZoom: (zoom) => set({ zoom: clampZoom(zoom), zoomMode: "manual" }),
@@ -134,6 +154,7 @@ export const createEditorStore = (init: EditorInit) =>
         const history = undo(state.history);
         return {
           editingTextId: null,
+          fileDragActive: false,
           history,
           selectedIds: keepExisting(state.selectedIds, history.present),
         };

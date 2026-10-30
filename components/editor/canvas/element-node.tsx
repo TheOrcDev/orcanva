@@ -17,7 +17,6 @@ import { ELEMENT_NODE_NAME } from "@/lib/editor/node-names";
 
 export interface ElementNodeProps {
   element: DesignElement;
-  isEditing: boolean;
   onSelect: (id: string) => void;
   onMove: (id: string, position: { x: number; y: number }) => void;
   onEditText: (id: string) => void;
@@ -74,7 +73,6 @@ const rewrapText = (event: Konva.KonvaEventObject<Event>) => {
 // what drags and what the Transformer scales; scale is baked on release.
 export const ElementNode = ({
   element,
-  isEditing,
   onSelect,
   onMove,
   onEditText,
@@ -98,7 +96,7 @@ export const ElementNode = ({
       y={element.y}
       rotation={element.rotation}
       opacity={element.opacity}
-      visible={element.visible && !isEditing}
+      visible={element.visible}
       draggable={!element.locked}
       onMouseDown={select}
       onTap={select}
