@@ -5,7 +5,11 @@ import { Group } from "react-konva";
 
 import { BoxShapeNode } from "@/components/editor/canvas/box-shape-node";
 import { ImageNode } from "@/components/editor/canvas/image-node";
-import { TextNode } from "@/components/editor/canvas/text-node";
+import {
+  HIGHLIGHT_NODE_NAME,
+  TextNode,
+  layoutHighlight,
+} from "@/components/editor/canvas/text-node";
 import type { DesignElement } from "@/lib/document/schema";
 import { MIN_ELEMENT_SIZE } from "@/lib/editor/bake";
 import { ELEMENT_NODE_NAME } from "@/lib/editor/node-names";
@@ -55,13 +59,9 @@ const rewrapText = (event: Konva.KonvaEventObject<Event>) => {
   const width = Math.max(MIN_ELEMENT_SIZE, text.width() * group.scaleX());
   group.scaleX(1);
   text.width(width);
-  const highlight = group.findOne(".text-highlight");
+  const highlight = group.findOne(`.${HIGHLIGHT_NODE_NAME}`);
   if (highlight) {
-    const padding = -highlight.x();
-    highlight.setAttrs({
-      height: text.height() + padding * 2,
-      width: width + padding * 2,
-    });
+    layoutHighlight(text as Konva.Text, highlight);
   }
 };
 

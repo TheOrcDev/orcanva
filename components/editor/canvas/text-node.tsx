@@ -22,6 +22,24 @@ export const displayText = (element: TextElement): string =>
 export const textStrokeWidth = (element: TextElement): number =>
   element.stroke ? element.stroke.widthEm * element.fontSize * 2 : 0;
 
+export const HIGHLIGHT_NODE_NAME = "text-highlight";
+
+const ALIGN_FACTOR: Record<string, number> = { center: 0.5, left: 0, right: 1 };
+
+// The highlight hugs the longest rendered line (not the whole wrap box),
+// offset by alignment. Konva only knows line widths after layout.
+export const layoutHighlight = (text: Konva.Text, box: Konva.Node) => {
+  const padding = Number(box.getAttr("padding") ?? 0);
+  const contentWidth = Math.min(text.width(), text.getTextWidth());
+  const offset =
+    (text.width() - contentWidth) * (ALIGN_FACTOR[text.align()] ?? 0);
+  box.setAttrs({
+    height: text.height() + padding * 2,
+    width: contentWidth + padding * 2,
+    x: offset - padding,
+  });
+};
+
 export const TextNode = ({ element }: { element: TextElement }) => {
   const textRef = useRef<Konva.Text>(null);
   const highlightRef = useRef<Konva.Rect>(null);
@@ -39,18 +57,13 @@ export const TextNode = ({ element }: { element: TextElement }) => {
   const { fontSize, highlight, shadow, stroke } = element;
   const padding = highlight ? highlight.paddingEm * fontSize : 0;
 
-  // The highlight box hugs the measured text, which Konva only knows after
-  // laying it out, so size it imperatively after each render
+  // Sized after every render because it depends on measured text
   useLayoutEffect(() => {
     const textNode = textRef.current;
     const box = highlightRef.current;
-    if (!textNode || !box) {
-      return;
+    if (textNode && box) {
+      layoutHighlight(textNode, box);
     }
-    box.setAttrs({
-      height: textNode.height() + padding * 2,
-      width: textNode.width() + padding * 2,
-    });
   });
 
   return (
@@ -58,8 +71,8 @@ export const TextNode = ({ element }: { element: TextElement }) => {
       {highlight ? (
         <Rect
           ref={highlightRef}
-          name="text-highlight"
-          x={-padding}
+          name={HIGHLIGHT_NODE_NAME}
+          padding={padding}
           y={-padding}
           fill={highlight.color}
           cornerRadius={highlight.radiusEm * fontSize}

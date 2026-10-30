@@ -58,9 +58,37 @@ export const isFontReady = (request: FontRequest): boolean =>
   loadedStylesheets.has(getFont(request.fontId).id) &&
   document.fonts.check(faceSpec(request), sample(request.text));
 
+const REGISTER_RETRY_MS = 16;
+const REGISTER_ATTEMPTS = 60;
+
+const wait = (ms: number): Promise<undefined> => {
+  const { promise, resolve } = Promise.withResolvers<undefined>();
+  setTimeout(() => resolve(undefined), ms);
+  return promise;
+};
+
+// The <link> load event fires before the browser registers the sheet's
+// @font-face rules; until then fonts.load() matches nothing and resolves
+// with no faces. Retry briefly until the faces exist and have loaded.
+const loadFaces = async (
+  spec: string,
+  text: string,
+  attemptsLeft: number
+): Promise<void> => {
+  const faces = await document.fonts.load(spec, text);
+  if (faces.length > 0) {
+    return;
+  }
+  if (attemptsLeft <= 0) {
+    throw new Error(`No font faces registered for ${spec}`);
+  }
+  await wait(REGISTER_RETRY_MS);
+  return loadFaces(spec, text, attemptsLeft - 1);
+};
+
 export const ensureFont = async (request: FontRequest): Promise<void> => {
   await ensureStylesheet(getFont(request.fontId));
-  await document.fonts.load(faceSpec(request), sample(request.text));
+  await loadFaces(faceSpec(request), sample(request.text), REGISTER_ATTEMPTS);
 };
 
 const waitForFonts = async (document: DesignDocument): Promise<void> => {
