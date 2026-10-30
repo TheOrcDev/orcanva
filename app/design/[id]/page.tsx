@@ -4,21 +4,24 @@ import { connection } from "next/server";
 
 import { EditorLoader } from "@/components/editor/editor-loader";
 import { listReadyAssets } from "@/lib/db/queries/assets";
-import { getDesign } from "@/lib/db/queries/designs";
-import { migrateDocument } from "@/lib/document/migrate";
+import { getDesign, getDesignContent } from "@/lib/db/queries/designs";
 
 const loadDesign = async (id: string) => {
   await connection();
-  const [row, assets] = await Promise.all([getDesign(id), listReadyAssets()]);
-  if (!row) {
+  const [content, assets] = await Promise.all([
+    getDesignContent(id),
+    listReadyAssets(),
+  ]);
+  if (!content) {
     notFound();
   }
   return {
     assets,
-    designId: row.id,
-    document: migrateDocument(row.document),
-    hasThumbnail: row.thumbnailKey !== null,
-    name: row.name,
+    designId: content.row.id,
+    document: content.document,
+    hasThumbnail: content.row.thumbnailKey !== null,
+    name: content.row.name,
+    positions: content.positions,
   };
 };
 

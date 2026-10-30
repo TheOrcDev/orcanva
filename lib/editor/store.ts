@@ -1,8 +1,30 @@
 import { createStore } from "zustand/vanilla";
 
-import { applyWrites, diffDocument, writesFor } from "@/lib/collab/changeset";
-import type { EditorDocument } from "@/lib/collab/changeset";
+import {
+  applyWrites,
+  diffDocument,
+  writesFor,
+  writesOf,
+} from "@/lib/collab/changeset";
+import type { EditorDocument, Writes } from "@/lib/collab/changeset";
+import type { SaveStatus } from "@/lib/collab/outbox";
 import { assignPositions } from "@/lib/collab/positions";
+import {
+  EMPTY_PENDING,
+  addNameWrite,
+  addWrites,
+  currentName,
+  dropBatch,
+  rebase,
+  settleBatch,
+  syncedFromDocument,
+} from "@/lib/collab/sync-state";
+import type {
+  BatchSeqs,
+  PendingWrites,
+  SyncedState,
+} from "@/lib/collab/sync-state";
+import { createId } from "@/lib/document/factories";
 import type { DesignDocument } from "@/lib/document/schema";
 import {
   beginTransaction,
@@ -15,7 +37,7 @@ import {
 } from "@/lib/editor/history";
 import type { History } from "@/lib/editor/history";
 
-export type SaveStatus = "saved" | "unsaved" | "saving" | "error";
+export type { SaveStatus } from "@/lib/collab/outbox";
 
 export interface EditorAsset {
   id: string;
@@ -29,9 +51,16 @@ export interface EditorAsset {
 
 export interface EditorState {
   designId: string;
+  // Identifies this editor session in writes and presence
+  clientId: string;
   name: string;
-  // The rendered document and each element's z-order key
+  // The rendered document and each element's z-order key: the synced state
+  // with this session's unconfirmed writes on top
   doc: EditorDocument;
+  synced: SyncedState;
+  pending: PendingWrites;
+  // Counts local writes; also tells "I changed it" apart from remote edits
+  seq: number;
   history: History;
   // Everything below is session UI state and never enters undo history
   selectedIds: string[];
@@ -57,6 +86,10 @@ export interface EditorActions {
   undo: () => void;
   redo: () => void;
   rename: (name: string) => void;
+  // A batch of writes reached the server (see lib/collab/outbox)
+  settleWrites: (batch: BatchSeqs, promote: boolean) => void;
+  // The server refused a batch: fall back to its version
+  dropWrites: (batch: BatchSeqs) => void;
   select: (ids: string[]) => void;
   clearSelection: () => void;
   setEditingText: (id: string | null) => void;
@@ -86,10 +119,12 @@ export interface EditorInit {
 export const MIN_ZOOM = 0.05;
 export const MAX_ZOOM = 8;
 
+const NO_HELD = new Set<string>();
+
 const clampZoom = (zoom: number) =>
   Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
 
-// Drop selections that point at elements an undo/redo just removed
+// Drop selections that point at elements that no longer exist
 const keepExisting = (ids: string[], document: DesignDocument): string[] => {
   const existing = new Set(document.elements.map((element) => element.id));
   const kept = ids.filter((id) => existing.has(id));
@@ -105,8 +140,60 @@ const initialDocument = (init: EditorInit): EditorDocument => {
   };
 };
 
-export const createEditorStore = (init: EditorInit) =>
-  createStore<EditorStore>()((set) => ({
+// Queues a local edit's writes for the outbox
+const queueWrites = (
+  state: EditorState,
+  writes: Writes
+): Pick<EditorState, "pending" | "seq"> => {
+  const seq = state.seq + 1;
+  const existing = new Set(
+    state.doc.document.elements.map((element) => element.id)
+  );
+  return { pending: addWrites(state.pending, writes, existing, seq), seq };
+};
+
+// Applies undo/redo/rollback writes and queues them
+const applyLocal = (
+  state: EditorState,
+  writes: Writes
+): Pick<EditorState, "doc" | "pending" | "seq" | "selectedIds"> => {
+  const doc = applyWrites(state.doc, writes);
+  return {
+    ...queueWrites(state, writes),
+    doc,
+    selectedIds: keepExisting(state.selectedIds, doc.document),
+  };
+};
+
+// Recomputes what's shown after the synced or pending state changed
+const reconcile = (
+  state: EditorState,
+  synced: SyncedState,
+  pending: PendingWrites
+): Pick<
+  EditorState,
+  "doc" | "editingTextId" | "name" | "pending" | "selectedIds" | "synced"
+> => {
+  const doc = rebase(synced, pending, state.doc, NO_HELD);
+  const editingGone =
+    state.editingTextId !== null &&
+    !doc.document.elements.some(
+      (element) => element.id === state.editingTextId
+    );
+  return {
+    doc,
+    editingTextId: editingGone ? null : state.editingTextId,
+    name: currentName(synced, pending),
+    pending,
+    selectedIds: keepExisting(state.selectedIds, doc.document),
+    synced,
+  };
+};
+
+export const createEditorStore = (init: EditorInit) => {
+  const doc = initialDocument(init);
+
+  return createStore<EditorStore>()((set) => ({
     addAsset: (asset) =>
       set((state) =>
         state.assets.some((item) => item.id === asset.id)
@@ -128,6 +215,7 @@ export const createEditorStore = (init: EditorInit) =>
         }
         const { changes, editor } = diffDocument(state.doc, next);
         return {
+          ...queueWrites(state, writesOf(changes)),
           doc: editor,
           history: recordChange(state.history, changes),
           selectedIds: keepExisting(state.selectedIds, next),
@@ -137,43 +225,53 @@ export const createEditorStore = (init: EditorInit) =>
       set((state) =>
         state.selectedIds.length === 0 ? state : { selectedIds: [] }
       ),
+    clientId: createId(),
     designId: init.designId,
-    doc: initialDocument(init),
+    doc,
+    dropWrites: (batch) =>
+      set((state) =>
+        reconcile(state, state.synced, dropBatch(state.pending, batch))
+      ),
     editingTextId: null,
     end: () => set((state) => ({ history: endTransaction(state.history) })),
     fileDragActive: false,
     history: createHistory(),
     name: init.name,
+    pending: EMPTY_PENDING,
     redo: () =>
       set((state) => {
         const { history, step } = redo(state.history);
-        const doc = step
-          ? applyWrites(state.doc, writesFor(step, "redo", state.doc))
-          : state.doc;
+        if (!step) {
+          return { editingTextId: null, fileDragActive: false, history };
+        }
         return {
-          doc,
+          ...applyLocal(state, writesFor(step, "redo", state.doc)),
           editingTextId: null,
           fileDragActive: false,
           history,
-          selectedIds: keepExisting(state.selectedIds, doc.document),
         };
       }),
-    rename: (name) => set({ name }),
+    rename: (name) =>
+      set((state) => ({
+        name,
+        pending: addNameWrite(state.pending, name, state.seq + 1),
+        seq: state.seq + 1,
+      })),
     rollback: () =>
       set((state) => {
         const { history, reverted } = cancelTransaction(state.history);
-        const doc = reverted
-          ? applyWrites(state.doc, writesFor(reverted, "undo", state.doc))
-          : state.doc;
+        if (!reverted) {
+          return { history };
+        }
         return {
-          doc,
+          ...applyLocal(state, writesFor(reverted, "undo", state.doc)),
           history,
-          selectedIds: keepExisting(state.selectedIds, doc.document),
         };
       }),
     saveStatus: "saved",
     select: (ids) => set({ selectedIds: ids }),
     selectedIds: [],
+    seq: 0,
     setBackgroundJob: (elementId, running) =>
       set((state) => {
         const has = state.backgroundJobs.includes(elementId);
@@ -192,20 +290,33 @@ export const createEditorStore = (init: EditorInit) =>
         state.fileDragActive === active ? state : { fileDragActive: active }
       ),
     setFitZoom: (zoom) => set({ zoom: clampZoom(zoom) }),
-    setSaveStatus: (status) => set({ saveStatus: status }),
+    setSaveStatus: (status) =>
+      set((state) =>
+        state.saveStatus === status ? state : { saveStatus: status }
+      ),
     setZoom: (zoom) => set({ zoom: clampZoom(zoom), zoomMode: "manual" }),
+    settleWrites: (batch, promote) =>
+      set((state) => {
+        const settled = settleBatch(
+          state.pending,
+          state.synced,
+          batch,
+          promote
+        );
+        return reconcile(state, settled.synced, settled.pending);
+      }),
+    synced: syncedFromDocument(doc, init.name),
     undo: () =>
       set((state) => {
         const { history, step } = undo(state.history);
-        const doc = step
-          ? applyWrites(state.doc, writesFor(step, "undo", state.doc))
-          : state.doc;
+        if (!step) {
+          return { editingTextId: null, fileDragActive: false, history };
+        }
         return {
-          doc,
+          ...applyLocal(state, writesFor(step, "undo", state.doc)),
           editingTextId: null,
           fileDragActive: false,
           history,
-          selectedIds: keepExisting(state.selectedIds, doc.document),
         };
       }),
     uploadsInFlight: 0,
@@ -213,6 +324,7 @@ export const createEditorStore = (init: EditorInit) =>
     zoomMode: "fit",
     zoomToFit: () => set({ zoomMode: "fit" }),
   }));
+};
 
 export type EditorStoreApi = ReturnType<typeof createEditorStore>;
 

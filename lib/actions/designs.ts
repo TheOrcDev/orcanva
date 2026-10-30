@@ -1,14 +1,17 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getDb } from "@/lib/db/client";
-import { designs } from "@/lib/db/schema";
+import { designElements, designs } from "@/lib/db/schema";
 import { createDocument } from "@/lib/document/factories";
-import { migrateDocument } from "@/lib/document/migrate";
-import { MAX_CANVAS_SIZE, MIN_CANVAS_SIZE } from "@/lib/document/schema";
+import {
+  DOCUMENT_VERSION,
+  MAX_CANVAS_SIZE,
+  MIN_CANVAS_SIZE,
+} from "@/lib/document/schema";
 import { thumbnailKey } from "@/lib/storage/keys";
 import { copyObject, deleteObject } from "@/lib/storage/s3";
 
@@ -28,9 +31,10 @@ export const createDesign = async (
   const [row] = await getDb()
     .insert(designs)
     .values({
-      document: createDocument({ height, width }),
+      background: createDocument({ height, width }).background,
       height,
       name,
+      version: DOCUMENT_VERSION,
       width,
     })
     .returning({ id: designs.id });
@@ -70,8 +74,9 @@ export const deleteDesign = async (id: string): Promise<void> => {
 
 const COPY_SUFFIX = " copy";
 
-// "Use as template": a full copy (document + preview) the user can rework
+// "Use as template": a full copy (elements + preview) the user can rework
 // without touching the original. Assets are shared, so no files are copied.
+// Element ids only need to be unique within a design, so rows copy as-is.
 export const duplicateDesign = async (id: string): Promise<{ id: string }> => {
   const sourceId = z.uuid().parse(id);
   const db = getDb();
@@ -84,20 +89,31 @@ export const duplicateDesign = async (id: string): Promise<{ id: string }> => {
     throw new Error("Design not found");
   }
 
-  const document = migrateDocument(source.document);
+  const copy = { id: crypto.randomUUID() };
   const name = `${source.name.slice(0, 120 - COPY_SUFFIX.length)}${COPY_SUFFIX}`;
-  const [copy] = await db
-    .insert(designs)
-    .values({
-      document,
-      height: document.height,
+  await db.batch([
+    db.insert(designs).values({
+      background: source.background,
+      height: source.height,
+      id: copy.id,
       name,
-      width: document.width,
-    })
-    .returning({ id: designs.id });
-  if (!copy) {
-    throw new Error("Could not duplicate design");
-  }
+      version: source.version,
+      width: source.width,
+    }),
+    db.insert(designElements).select(
+      db
+        .select({
+          data: designElements.data,
+          designId: sql<string>`${copy.id}::uuid`.as("design_id"),
+          id: designElements.id,
+          position: designElements.position,
+          updatedAt: designElements.updatedAt,
+          updatedBy: sql<string | null>`null`.as("updated_by"),
+        })
+        .from(designElements)
+        .where(eq(designElements.designId, sourceId))
+    ),
+  ]);
 
   if (source.thumbnailKey) {
     const key = thumbnailKey(copy.id, Date.now());

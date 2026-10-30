@@ -26,8 +26,10 @@ export const useThumbnail = (hasThumbnail: boolean): (() => Promise<void>) => {
     });
     thumbnailerRef.current = thumbnailer;
 
+    // Only this session's own edits: every open window re-rendering the
+    // preview for every remote change would be wasted work
     const unsubscribe = store.subscribe((state, previous) => {
-      if (state.doc.document !== previous.doc.document) {
+      if (state.seq !== previous.seq) {
         thumbnailer.schedule();
       }
     });

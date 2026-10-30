@@ -10,16 +10,16 @@ import { ExportPopover } from "@/components/editor/export-popover";
 import { PropertiesPanel } from "@/components/editor/panels/properties-panel";
 import { EditorToolbar } from "@/components/editor/toolbar";
 import { useAssetUrlSync } from "@/hooks/use-asset-url-sync";
-import { useAutosave } from "@/hooks/use-autosave";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { useEditorShortcuts } from "@/hooks/use-editor-shortcuts";
 import { useFileDrop } from "@/hooks/use-file-drop";
+import { useOutbox } from "@/hooks/use-outbox";
 import { useThumbnail } from "@/hooks/use-thumbnail";
 import { createEditorStore } from "@/lib/editor/store";
 import type { EditorInit } from "@/lib/editor/store";
 
 const EditorShell = ({ hasThumbnail }: { hasThumbnail: boolean }) => {
-  const flushSave = useAutosave();
+  const { flush: flushSave } = useOutbox();
   const flushThumbnail = useThumbnail(hasThumbnail);
   useEditorShortcuts();
   useClipboard();
