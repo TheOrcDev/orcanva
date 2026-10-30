@@ -1,7 +1,7 @@
 import { z } from "zod";
 
+import { getDesignAccess } from "@/lib/auth/design-access";
 import { findReadyAssets } from "@/lib/db/queries/assets";
-import { isDesignId } from "@/lib/db/queries/designs";
 import { MAX_ASSET_LOOKUP } from "@/lib/editor/asset-resolver";
 
 const lookupIds = z.array(z.uuid()).min(1).max(MAX_ASSET_LOOKUP);
@@ -15,7 +15,8 @@ export const GET = async (
   context: RouteContext<"/api/designs/[id]/assets">
 ): Promise<Response> => {
   const { id } = await context.params;
-  if (!isDesignId(id)) {
+  const { role } = await getDesignAccess(id);
+  if (!role) {
     return json({ error: "Not found" }, 404);
   }
 

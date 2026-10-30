@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { isDesignId } from "@/lib/db/queries/designs";
+import { getDesignAccess } from "@/lib/auth/design-access";
 import type { LiveQueryName } from "@/lib/realtime/rows";
 import {
   sealElementsQuery,
@@ -31,7 +31,10 @@ export const POST = async (
   context: RouteContext<"/api/designs/[id]/live">
 ): Promise<Response> => {
   const { id } = await context.params;
-  if (!isDesignId(id)) {
+  // A sealed query is a bearer token for the design's rows: only for people
+  // who may open it, checked again on every renewal (about once a minute)
+  const { role } = await getDesignAccess(id);
+  if (!role) {
     return json({ error: "Not found" }, 404);
   }
 

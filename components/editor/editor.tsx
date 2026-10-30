@@ -2,11 +2,15 @@
 
 import { useCallback, useState } from "react";
 
+import { AccessLostDialog } from "@/components/editor/access-lost-dialog";
 import { PageNodeProvider } from "@/components/editor/canvas-context";
 import { WorkspaceStage } from "@/components/editor/canvas/workspace-stage";
 import { LiveSync } from "@/components/editor/collab/live-sync";
 import { EditorSidebar } from "@/components/editor/editor-sidebar";
-import { EditorStoreProvider } from "@/components/editor/editor-store-context";
+import {
+  EditorStoreProvider,
+  useEditor,
+} from "@/components/editor/editor-store-context";
 import { ExportPopover } from "@/components/editor/export-popover";
 import { PropertiesPanel } from "@/components/editor/panels/properties-panel";
 import { EditorToolbar } from "@/components/editor/toolbar";
@@ -29,8 +33,11 @@ const EditorShell = ({
   hasThumbnail: boolean;
   live: LiveConfig | null;
 }) => {
+  const accessLost = useEditor((state) => state.accessLost);
   const { flush: flushSave, setAwaitSync } = useOutbox(live !== null);
-  usePresence(live !== null);
+  // Nothing to stream or show others once the design is gone for us
+  const connected = live !== null && !accessLost;
+  usePresence(connected);
   const flushThumbnail = useThumbnail(hasThumbnail);
   useEditorShortcuts();
   useClipboard();
@@ -44,7 +51,10 @@ const EditorShell = ({
 
   return (
     <div className="flex h-svh flex-col overflow-hidden">
-      {live ? <LiveSync live={live} setAwaitSync={setAwaitSync} /> : null}
+      {live && connected ? (
+        <LiveSync live={live} setAwaitSync={setAwaitSync} />
+      ) : null}
+      <AccessLostDialog />
       <EditorToolbar flush={flush} actions={<ExportPopover />} />
       <div className="flex min-h-0 flex-1">
         <EditorSidebar />

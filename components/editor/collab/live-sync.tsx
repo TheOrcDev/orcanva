@@ -27,6 +27,18 @@ const AWAIT_SYNC_TIMEOUT_MS = 10_000;
 
 type QueryStatus = "connecting" | "live" | "stale" | "error" | "closed";
 
+const NOT_FOUND = 404;
+
+class RenewError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`Couldn't renew the live query (${status})`);
+    this.name = "RenewError";
+    this.status = status;
+  }
+}
+
 const fetchSealed = async <Row,>(
   designId: string,
   query: LiveQueryName
@@ -37,10 +49,14 @@ const fetchSealed = async <Row,>(
     method: "POST",
   });
   if (!response.ok) {
-    throw new Error(`Couldn't renew the live query (${response.status})`);
+    throw new RenewError(response.status);
   }
   return response.json();
 };
+
+// The design was made private or deleted: no point reconnecting
+const isAccessLost = (error: unknown) =>
+  error instanceof RenewError && error.status === NOT_FOUND;
 
 const combineStatus = (statuses: QueryStatus[]): LiveStatus => {
   if (statuses.includes("error")) {
@@ -63,21 +79,32 @@ interface LiveQueriesProps {
 const LiveQueries = ({ live, setAwaitSync }: LiveQueriesProps) => {
   const store = useEditorStoreApi();
   const designId = useEditor((state) => state.designId);
-  const refreshPage = useCallback(
-    () => fetchSealed<LivePageRow>(designId, "page"),
-    [designId]
+  // Renewals that find the design gone stop the editor instead of retrying
+  const renew = useCallback(
+    async <Row,>(query: LiveQueryName): Promise<SealedLiveQuery<Row>> => {
+      try {
+        return await fetchSealed<Row>(designId, query);
+      } catch (error) {
+        if (isAccessLost(error)) {
+          store.getState().loseAccess();
+        }
+        throw error;
+      }
+    },
+    [designId, store]
   );
+  const refreshPage = useCallback(() => renew<LivePageRow>("page"), [renew]);
   const refreshElements = useCallback(
-    () => fetchSealed<LiveElementRow>(designId, "elements"),
-    [designId]
+    () => renew<LiveElementRow>("elements"),
+    [renew]
   );
   const page = useLiveQuery(live.page, { refreshQuery: refreshPage });
   const elements = useLiveQuery(live.elements, {
     refreshQuery: refreshElements,
   });
   const refreshPresence = useCallback(
-    () => fetchSealed<LivePresenceRow>(designId, "presence"),
-    [designId]
+    () => renew<LivePresenceRow>("presence"),
+    [renew]
   );
   const presence = useLiveQuery(live.presence, {
     refreshQuery: refreshPresence,
@@ -176,19 +203,27 @@ export const LiveSync = ({ live, setAwaitSync }: LiveQueriesProps) => {
 
   const reconnect = useCallback(() => {
     const renew = async () => {
-      const [page, elements, presence] = await Promise.all([
-        fetchSealed<LivePageRow>(designId, "page"),
-        fetchSealed<LiveElementRow>(designId, "elements"),
-        fetchSealed<LivePresenceRow>(designId, "presence"),
-      ]);
-      setSession((current) => ({
-        attempt: current.attempt + 1,
-        live: { ...current.live, elements, page, presence },
-      }));
+      try {
+        const [page, elements, presence] = await Promise.all([
+          fetchSealed<LivePageRow>(designId, "page"),
+          fetchSealed<LiveElementRow>(designId, "elements"),
+          fetchSealed<LivePresenceRow>(designId, "presence"),
+        ]);
+        setSession((current) => ({
+          attempt: current.attempt + 1,
+          live: { ...current.live, elements, page, presence },
+        }));
+      } catch (error) {
+        if (isAccessLost(error)) {
+          store.getState().loseAccess();
+          return;
+        }
+        store.getState().setLiveStatus("error");
+      }
     };
     failuresRef.current += 1;
     store.getState().setLiveStatus("connecting");
-    renew().catch(() => store.getState().setLiveStatus("error"));
+    renew().catch(() => null);
   }, [designId, store]);
 
   useEffect(() => {

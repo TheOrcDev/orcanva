@@ -9,6 +9,8 @@ import {
 } from "@/lib/collab/presence";
 import type { PresenceState } from "@/lib/collab/presence";
 
+const NOT_FOUND = 404;
+
 const presenceOf = (
   state: ReturnType<ReturnType<typeof useEditorStoreApi>["getState"]>
 ): PresenceState => ({
@@ -44,6 +46,9 @@ export const usePresence = (enabled: boolean): void => {
         if (response.ok) {
           const { now }: { now: number } = await response.json();
           store.getState().setServerOffset(now - Date.now());
+        } else if (response.status === NOT_FOUND) {
+          // Made private or deleted while we were on it
+          store.getState().loseAccess();
         }
       },
     });

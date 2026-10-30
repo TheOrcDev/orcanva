@@ -4,8 +4,14 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { useEditorStoreApi } from "@/components/editor/editor-store-context";
 import { toast } from "@/components/ui/toast";
-import { createOutbox, sendChangesRequest } from "@/lib/collab/outbox";
+import {
+  SaveError,
+  createOutbox,
+  sendChangesRequest,
+} from "@/lib/collab/outbox";
 import type { AwaitSync, Outbox } from "@/lib/collab/outbox";
+
+const NOT_FOUND = 404;
 
 // Sends this session's edits to the server as they happen (see
 // lib/collab/outbox). Returns a flush for leaving the editor and a way to
@@ -30,7 +36,12 @@ export const useOutbox = (
         echo: (txid) => store.getState().echoWrites(txid),
         getPending: () => store.getState().pending,
         live,
-        onRefused: () => {
+        onRefused: (error) => {
+          // Made private or deleted while we were editing
+          if (error instanceof SaveError && error.status === NOT_FOUND) {
+            store.getState().loseAccess();
+            return;
+          }
           toast.add({
             description: "The server refused the change, so it was undone.",
             title: "Couldn't save a change",

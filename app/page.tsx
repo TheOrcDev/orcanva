@@ -1,9 +1,15 @@
-import { RiLayoutMasonryLine, RiPaletteLine } from "@remixicon/react";
+import {
+  RiLayoutMasonryLine,
+  RiPaletteLine,
+  RiUserLine,
+} from "@remixicon/react";
+import Link from "next/link";
 import { connection } from "next/server";
 
 import { UserMenu } from "@/components/auth/user-menu";
 import { DesignCard } from "@/components/gallery/design-card";
 import { NewDesignDialog } from "@/components/gallery/new-design-dialog";
+import { Button } from "@/components/ui/button";
 import {
   Empty,
   EmptyContent,
@@ -20,9 +26,11 @@ import { storageUrl } from "@/lib/storage/keys";
 const loadGallery = async () => {
   // Always read fresh from Neon; this page must never be prerendered
   await connection();
-  const [designs, viewer] = await Promise.all([listDesigns(), getViewer()]);
+  const viewer = await getViewer();
+  const designs = await listDesigns(viewer?.id ?? null);
   const now = new Date();
   const cards = designs.map((design) => ({
+    canManage: viewer !== null && design.ownerId === viewer.id,
     editedLabel: formatRelativeTime(design.updatedAt, now),
     id: design.id,
     name: design.name,
@@ -32,8 +40,20 @@ const loadGallery = async () => {
   return { designs: cards, viewer };
 };
 
+// Creating a design needs an account, so guests are sent to sign in
+const CreateButton = ({ signedIn }: { signedIn: boolean }) =>
+  signedIn ? (
+    <NewDesignDialog />
+  ) : (
+    <Button render={<Link href="/auth/sign-in" />}>
+      <RiUserLine data-icon="inline-start" />
+      Sign in to create
+    </Button>
+  );
+
 const GalleryPage = async () => {
   const { designs, viewer } = await loadGallery();
+  const signedIn = viewer !== null;
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -44,7 +64,7 @@ const GalleryPage = async () => {
             <span className="font-heading text-lg font-semibold">Orcanva</span>
           </div>
           <div className="flex items-center gap-2">
-            <NewDesignDialog />
+            <CreateButton signedIn={signedIn} />
             <UserMenu viewer={viewer} />
           </div>
         </div>
@@ -72,14 +92,14 @@ const GalleryPage = async () => {
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
-              <NewDesignDialog />
+              <CreateButton signedIn={signedIn} />
             </EmptyContent>
           </Empty>
         ) : (
           <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {designs.map((design) => (
               <li key={design.id}>
-                <DesignCard {...design} />
+                <DesignCard {...design} signedIn={signedIn} />
               </li>
             ))}
           </ul>

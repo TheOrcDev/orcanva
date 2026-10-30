@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
+import { getDesignAccess } from "@/lib/auth/design-access";
 import { getDb } from "@/lib/db/client";
-import { isDesignId } from "@/lib/db/queries/designs";
 import { designs } from "@/lib/db/schema";
 import { thumbnailKey } from "@/lib/storage/keys";
 import { deleteObject, putObject } from "@/lib/storage/s3";
@@ -16,7 +16,9 @@ export const PUT = async (
   context: RouteContext<"/api/designs/[id]/thumbnail">
 ): Promise<Response> => {
   const { id } = await context.params;
-  if (!isDesignId(id)) {
+  // Any window editing the design renders its preview
+  const { role } = await getDesignAccess(id);
+  if (!role) {
     return text("Not found", 404);
   }
   if (request.headers.get("content-type") !== "image/jpeg") {

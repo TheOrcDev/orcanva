@@ -8,6 +8,7 @@ import {
   updateElement,
 } from "@/lib/editor/document-ops";
 import { createEditorStore, selectDocument } from "@/lib/editor/store";
+import type { EditorInit } from "@/lib/editor/store";
 
 const PAGE = { height: 720, width: 1280 };
 
@@ -18,6 +19,9 @@ const setup = () => {
     document: createDocument(PAGE),
     hasThumbnail: false,
     name: "Test",
+    role: "owner",
+    viewer: null,
+    visibility: "public",
   });
   const rect = createBoxElement("rect", PAGE);
   store.getState().change((doc) => insertElement(doc, rect));
@@ -82,12 +86,15 @@ describe("editor store", () => {
   });
 
   it("starts connecting only when the server sent live queries", () => {
-    const base = {
+    const base: EditorInit = {
       assets: [],
       designId: "d",
       document: createDocument(PAGE),
       hasThumbnail: false,
       name: "Test",
+      role: "owner",
+      viewer: null,
+      visibility: "public",
     };
     expect(createEditorStore(base).getState().liveStatus).toBe("off");
     const sealed = { capability: "x", expiresAt: 0, queryFingerprint: "f" };

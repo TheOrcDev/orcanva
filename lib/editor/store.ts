@@ -1,5 +1,6 @@
 import { createStore } from "zustand/vanilla";
 
+import type { DesignRole, Visibility } from "@/lib/auth/access";
 import {
   applyWrites,
   diffDocument,
@@ -65,8 +66,21 @@ export interface EditorAsset {
   sourceAssetId: string | null;
 }
 
+// The signed-in person using the editor
+export interface EditorViewer {
+  id: string;
+  name: string;
+  image: string | null;
+}
+
 export interface EditorState {
   designId: string;
+  // What this person may do here: an editor can't rename the design
+  role: DesignRole;
+  visibility: Visibility;
+  viewer: EditorViewer | null;
+  // The design went private or was deleted under us: stop and say so
+  accessLost: boolean;
   // Identifies this editor session in writes and presence
   clientId: string;
   name: string;
@@ -148,6 +162,8 @@ export interface EditorActions {
   setFitZoom: (zoom: number) => void;
   zoomToFit: () => void;
   setSaveStatus: (status: SaveStatus) => void;
+  // The server no longer lets this person at the design (404)
+  loseAccess: () => void;
   addAsset: (asset: EditorAsset) => void;
   // Assets looked up after the editor opened (e.g. a collaborator's upload)
   addAssets: (assets: readonly EditorAsset[]) => void;
@@ -169,6 +185,9 @@ export interface EditorInit {
   live?: LiveConfig | null;
   assets: EditorAsset[];
   hasThumbnail: boolean;
+  role: DesignRole;
+  visibility: Visibility;
+  viewer: EditorViewer | null;
 }
 
 export const MIN_ZOOM = 0.05;
@@ -260,6 +279,7 @@ export const createEditorStore = (init: EditorInit) => {
   const doc = initialDocument(init);
 
   return createStore<EditorStore>()((set) => ({
+    accessLost: false,
     addAsset: (asset) =>
       set((state) =>
         state.assets.some((item) => item.id === asset.id)
@@ -333,6 +353,8 @@ export const createEditorStore = (init: EditorInit) => {
     history: createHistory(),
     hold: (ids) => set((state) => ({ held: new Set([...state.held, ...ids]) })),
     liveStatus: init.live ? "connecting" : "off",
+    loseAccess: () =>
+      set((state) => (state.accessLost ? state : { accessLost: true })),
     markAssetsMissing: (ids) =>
       set((state) => {
         const added = ids.filter((id) => !state.missingAssetIds.includes(id));
@@ -384,6 +406,7 @@ export const createEditorStore = (init: EditorInit) => {
         pending: addNameWrite(state.pending, name, state.seq + 1),
         seq: state.seq + 1,
       })),
+    role: init.role,
     rollback: () =>
       set((state) => {
         const { history, reverted } = cancelTransaction(state.history);
@@ -470,6 +493,8 @@ export const createEditorStore = (init: EditorInit) => {
         };
       }),
     uploadsInFlight: 0,
+    viewer: init.viewer,
+    visibility: init.visibility,
     zoom: 1,
     zoomMode: "fit",
     zoomToFit: () => set({ zoomMode: "fit" }),

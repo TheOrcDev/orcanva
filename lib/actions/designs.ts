@@ -1,10 +1,13 @@
 "use server";
 
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { getViewer } from "@/lib/auth/server";
+import type { Viewer } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/client";
+import { visibleTo } from "@/lib/db/queries/designs";
 import { designElements, designs } from "@/lib/db/schema";
 import { createDocument } from "@/lib/document/factories";
 import {
@@ -14,6 +17,15 @@ import {
 } from "@/lib/document/schema";
 import { thumbnailKey } from "@/lib/storage/keys";
 import { copyObject, deleteObject } from "@/lib/storage/s3";
+
+// Server Actions are public endpoints: each one checks the session itself
+const requireViewer = async (): Promise<Viewer> => {
+  const viewer = await getViewer();
+  if (!viewer) {
+    throw new Error("Sign in first");
+  }
+  return viewer;
+};
 
 const canvasSize = z.number().int().min(MIN_CANVAS_SIZE).max(MAX_CANVAS_SIZE);
 const designName = z.string().trim().min(1).max(120);
@@ -28,13 +40,16 @@ export const createDesign = async (
   input: z.input<typeof createDesignInput>
 ): Promise<{ id: string }> => {
   const { height, name, width } = createDesignInput.parse(input);
+  const viewer = await requireViewer();
   const [row] = await getDb()
     .insert(designs)
     .values({
       background: createDocument({ height, width }).background,
       height,
       name,
+      ownerId: viewer.id,
       version: DOCUMENT_VERSION,
+      visibility: "public",
       width,
     })
     .returning({ id: designs.id });
@@ -52,21 +67,30 @@ export const renameDesign = async (
   input: z.input<typeof renameDesignInput>
 ): Promise<void> => {
   const { id, name } = renameDesignInput.parse(input);
-  await getDb()
+  const viewer = await requireViewer();
+  const [row] = await getDb()
     .update(designs)
     .set({ name, updatedAt: new Date() })
-    .where(eq(designs.id, id));
+    .where(and(eq(designs.id, id), eq(designs.ownerId, viewer.id)))
+    .returning({ id: designs.id });
+  if (!row) {
+    throw new Error("Design not found");
+  }
   revalidatePath("/");
 };
 
 export const deleteDesign = async (id: string): Promise<void> => {
   const designId = z.uuid().parse(id);
+  const viewer = await requireViewer();
   const [row] = await getDb()
     .delete(designs)
-    .where(eq(designs.id, designId))
+    .where(and(eq(designs.id, designId), eq(designs.ownerId, viewer.id)))
     .returning({ thumbnailKey: designs.thumbnailKey });
+  if (!row) {
+    throw new Error("Design not found");
+  }
 
-  if (row?.thumbnailKey) {
+  if (row.thumbnailKey) {
     await deleteObject(row.thumbnailKey);
   }
   revalidatePath("/");
@@ -74,16 +98,18 @@ export const deleteDesign = async (id: string): Promise<void> => {
 
 const COPY_SUFFIX = " copy";
 
-// "Use as template": a full copy (elements + preview) the user can rework
-// without touching the original. Assets are shared, so no files are copied.
-// Element ids only need to be unique within a design, so rows copy as-is.
+// "Use as template": a full copy (elements + preview) of any design the
+// viewer can open, owned by them, to rework without touching the original.
+// Assets are shared, so no files are copied. Element ids only need to be
+// unique within a design, so rows copy as-is.
 export const duplicateDesign = async (id: string): Promise<{ id: string }> => {
   const sourceId = z.uuid().parse(id);
+  const viewer = await requireViewer();
   const db = getDb();
   const [source] = await db
     .select()
     .from(designs)
-    .where(eq(designs.id, sourceId))
+    .where(and(eq(designs.id, sourceId), visibleTo(viewer.id)))
     .limit(1);
   if (!source) {
     throw new Error("Design not found");
@@ -97,7 +123,9 @@ export const duplicateDesign = async (id: string): Promise<{ id: string }> => {
       height: source.height,
       id: copy.id,
       name,
+      ownerId: viewer.id,
       version: source.version,
+      visibility: "public",
       width: source.width,
     }),
     db.insert(designElements).select(

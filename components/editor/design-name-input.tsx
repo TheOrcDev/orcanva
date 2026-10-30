@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 export const DesignNameInput = () => {
   const store = useEditorStoreApi();
   const name = useEditor((state) => state.name);
+  const isOwner = useEditor((state) => state.role === "owner");
   const [draft, setDraft] = useState<string | null>(null);
 
   const commit = () => {
@@ -35,6 +36,13 @@ export const DesignNameInput = () => {
       event.currentTarget.blur();
     }
   };
+
+  // Only the owner renames; everyone else sees the name as it is
+  if (!isOwner) {
+    return (
+      <Input aria-label="Design name" className="w-56" value={name} readOnly />
+    );
+  }
 
   return (
     <Input

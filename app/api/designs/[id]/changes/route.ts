@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 
+import { getViewer } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/client";
 import { isDesignId } from "@/lib/db/queries/designs";
 import {
@@ -46,6 +47,13 @@ const json = (body: unknown, status = 200) => Response.json(body, { status });
 // an element someone deleted stays deleted. A Route Handler rather than a
 // Server Action because actions run one at a time per client, and it doubles
 // as the keepalive target when the tab closes.
+//
+// Access is checked inside the statement: the design row is only updated
+// (and locked) when the viewer may edit it, and every element write joins
+// that row. Postgres runs every data-modifying CTE whether or not anything
+// reads it, so a write that didn't join `design` would bypass the check.
+// Only the owner's name changes stick; others' are ignored rather than
+// refused, since a refusal would drop the element writes batched with it.
 export const POST = async (
   request: Request,
   context: RouteContext<"/api/designs/[id]/changes">
@@ -66,6 +74,8 @@ export const POST = async (
     return json({ error: "Invalid changes", issues: parsed.error.issues }, 422);
   }
 
+  const viewer = await getViewer();
+  const viewerId = viewer?.id ?? null;
   const { clientId, deletes, elements, name, page } = parsed.data;
   const writes = JSON.stringify(
     elements.map(({ data, mode, position }) => ({
@@ -80,11 +90,15 @@ export const POST = async (
     WITH design AS (
       UPDATE designs SET
         updated_at = now(),
-        name = COALESCE(${name ?? null}::text, name),
+        name = CASE
+          WHEN owner_id = ${viewerId}::uuid THEN COALESCE(${name ?? null}::text, name)
+          ELSE name
+        END,
         width = COALESCE(${page?.width ?? null}::int, width),
         height = COALESCE(${page?.height ?? null}::int, height),
         background = COALESCE(${page ? JSON.stringify(page.background) : null}::jsonb, background)
       WHERE id = ${id}::uuid
+        AND (visibility = 'public' OR owner_id = ${viewerId}::uuid)
       RETURNING id
     ),
     input AS (
@@ -111,16 +125,17 @@ export const POST = async (
         data = input.data,
         updated_by = ${clientId}::uuid,
         updated_at = now()
-      FROM input
+      FROM input, design
       WHERE input.mode = 'update'
-        AND element.design_id = ${id}::uuid
+        AND element.design_id = design.id
         AND element.id = input.id
       RETURNING 1
     ),
     deleted AS (
-      DELETE FROM design_elements
-      WHERE design_id = ${id}::uuid
-        AND id IN (SELECT jsonb_array_elements_text(${JSON.stringify(deletes)}::jsonb))
+      DELETE FROM design_elements AS element
+      USING design
+      WHERE element.design_id = design.id
+        AND element.id IN (SELECT jsonb_array_elements_text(${JSON.stringify(deletes)}::jsonb))
       RETURNING 1
     )
     SELECT pg_current_xact_id()::text AS txid,

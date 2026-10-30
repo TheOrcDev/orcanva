@@ -30,11 +30,18 @@ export interface ChangesRequest {
 
 export class SaveError extends Error {
   readonly retryable: boolean;
+  // The server's answer; null when it couldn't be reached
+  readonly status: number | null;
 
-  constructor(message: string, retryable: boolean) {
+  constructor(
+    message: string,
+    retryable: boolean,
+    status: number | null = null
+  ) {
     super(message);
     this.name = "SaveError";
     this.retryable = retryable;
+    this.status = status;
   }
 }
 
@@ -331,7 +338,8 @@ const postChanges = async (
   if (!response.ok) {
     throw new SaveError(
       `Save failed with ${response.status}`,
-      isRetryableStatus(response.status)
+      isRetryableStatus(response.status),
+      response.status
     );
   }
   const result: unknown = await response.json();

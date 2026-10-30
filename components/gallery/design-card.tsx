@@ -57,6 +57,7 @@ import {
   duplicateDesign,
   renameDesign,
 } from "@/lib/actions/designs";
+import { signInUrl } from "@/lib/auth/redirect";
 
 export interface DesignCardProps {
   id: string;
@@ -64,6 +65,10 @@ export interface DesignCardProps {
   sizeLabel: string;
   editedLabel: string;
   thumbnailUrl: string | null;
+  // The viewer owns it: rename and delete
+  canManage: boolean;
+  // Copies belong to an account, so guests are sent to sign in first
+  signedIn: boolean;
 }
 
 export const DesignCard = ({
@@ -72,6 +77,8 @@ export const DesignCard = ({
   sizeLabel,
   editedLabel,
   thumbnailUrl,
+  canManage,
+  signedIn,
 }: DesignCardProps) => {
   const router = useRouter();
   const inputId = useId();
@@ -171,33 +178,46 @@ export const DesignCard = ({
                   <RiEditLine />
                   Open
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={isPending}
-                  onClick={handleUseAsTemplate}
-                >
-                  <RiFileCopy2Line />
-                  Use as template
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setDraftName(name);
-                    setRenameOpen(true);
-                  }}
-                >
-                  <RiPencilLine />
-                  Rename
-                </DropdownMenuItem>
+                {signedIn ? (
+                  <DropdownMenuItem
+                    disabled={isPending}
+                    onClick={handleUseAsTemplate}
+                  >
+                    <RiFileCopy2Line />
+                    Use as template
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem render={<Link href={signInUrl("/")} />}>
+                    <RiFileCopy2Line />
+                    Sign in to use as template
+                  </DropdownMenuItem>
+                )}
+                {canManage ? (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setDraftName(name);
+                      setRenameOpen(true);
+                    }}
+                  >
+                    <RiPencilLine />
+                    Rename
+                  </DropdownMenuItem>
+                ) : null}
               </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuItem
-                  variant="destructive"
-                  onClick={() => setDeleteOpen(true)}
-                >
-                  <RiDeleteBinLine />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
+              {canManage ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onClick={() => setDeleteOpen(true)}
+                    >
+                      <RiDeleteBinLine />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </>
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         </CardAction>
