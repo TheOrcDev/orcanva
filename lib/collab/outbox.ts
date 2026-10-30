@@ -1,6 +1,14 @@
 import type { PageSettings } from "@/lib/collab/changeset";
-import { isPendingEmpty } from "@/lib/collab/sync-state";
-import type { BatchSeqs, PendingWrites } from "@/lib/collab/sync-state";
+import {
+  hasUnsentWrites,
+  unechoedTransactions,
+  unsentWrites,
+} from "@/lib/collab/sync-state";
+import type {
+  BatchOutcome,
+  BatchSeqs,
+  PendingWrites,
+} from "@/lib/collab/sync-state";
 import type { DesignElement } from "@/lib/document/schema";
 
 export type SaveStatus = "saved" | "unsaved" | "saving" | "error";
@@ -36,19 +44,25 @@ export type SendChanges = (
   options: { keepalive: boolean }
 ) => Promise<{ txid: string }>;
 
-// Resolves true once the live queries have applied the transaction, or false
-// when there's no live connection to wait on
-export type AwaitSync = (
-  txid: string,
-  touched: { elements: boolean; page: boolean }
-) => Promise<boolean>;
+export interface Touched {
+  elements: boolean;
+  page: boolean;
+}
+
+// Resolves once the live queries have applied the transaction; rejects on
+// timeout or when the live connection goes away
+export type AwaitSync = (txid: string, touched: Touched) => Promise<void>;
 
 export interface OutboxHost {
   clientId: string;
   designId: string;
+  // Whether there are live queries at all (Realtime is configured)
+  live: boolean;
   getPending: () => PendingWrites;
-  // The batch reached the server; promote = also treat it as synced state
-  settle: (batch: BatchSeqs, promote: boolean) => void;
+  // The batch reached the server (see BatchOutcome)
+  settle: (batch: BatchSeqs, outcome: BatchOutcome, txid: string) => void;
+  // The live queries have applied this transaction
+  echo: (txid: string) => void;
   // The server refused the batch for good
   drop: (batch: BatchSeqs) => void;
   setStatus: (status: SaveStatus) => void;
@@ -60,6 +74,8 @@ export interface Outbox {
   schedule: () => void;
   // Sends everything now and resolves once it has all reached the server
   flush: () => Promise<void>;
+  // Plugs in (or removes) the live queries' check; written transactions
+  // still waiting for their echo are awaited on the new connection
   // Best-effort send for tab close; false when it could not be sent
   flushOnExit: () => boolean;
   isDirty: () => boolean;
@@ -123,29 +139,70 @@ export const createOutbox = (
   let failures = 0;
   let disposed = false;
 
-  const isDirty = () => !isPendingEmpty(host.getPending());
+  const draining = new Set<string>();
 
-  const waitForSync = async (
+  const isDirty = () => hasUnsentWrites(host.getPending());
+
+  // What became of a committed batch, as far as the live queries go
+  const confirm = async (
     txid: string,
     request: ChangesRequest
-  ): Promise<boolean> => {
-    if (!awaitSync) {
-      return false;
+  ): Promise<BatchOutcome> => {
+    if (!host.live) {
+      return "final";
+    }
+    const sync = awaitSync;
+    if (!sync) {
+      return "committed";
     }
     try {
-      return await awaitSync(txid, {
+      await sync(txid, {
         elements: request.elements.length + request.deletes.length > 0,
         page: request.page !== undefined || request.name !== undefined,
       });
+      return "echoed";
     } catch {
-      // Timed out or the live query failed: keep what we wrote on screen
-      return false;
+      // Same connection and still no echo: stop waiting. A new connection
+      // will be asked again.
+      return awaitSync === sync ? "final" : "committed";
+    }
+  };
+
+  const awaitEcho = async (sync: AwaitSync, txid: string, touched: Touched) => {
+    draining.add(txid);
+    try {
+      await sync(txid, touched);
+    } catch {
+      if (awaitSync !== sync) {
+        // The connection changed; the next one asks again
+        return;
+      }
+    } finally {
+      draining.delete(txid);
+    }
+    host.echo(txid);
+  };
+
+  // Waits for every committed-but-unechoed transaction on the current
+  // connection, e.g. writes made while it was reconnecting
+  const drainEchoes = () => {
+    const sync = awaitSync;
+    if (!sync) {
+      return;
+    }
+    for (const [txid, touched] of unechoedTransactions(host.getPending())) {
+      if (!draining.has(txid)) {
+        awaitEcho(sync, txid, touched).catch(() => null);
+      }
     }
   };
 
   // Resolves true when the batch reached the server
   const sendBatch = async (): Promise<boolean> => {
-    const { request, seqs } = buildBatch(host.clientId, host.getPending());
+    const { request, seqs } = buildBatch(
+      host.clientId,
+      unsentWrites(host.getPending())
+    );
     host.setStatus("saving");
     let txid: string;
     try {
@@ -163,8 +220,7 @@ export const createOutbox = (
       return false;
     }
     failures = 0;
-    const synced = await waitForSync(txid, request);
-    host.settle(seqs, !synced);
+    host.settle(seqs, await confirm(txid, request), txid);
     return true;
   };
 
@@ -219,7 +275,10 @@ export const createOutbox = (
     if (!isDirty()) {
       return true;
     }
-    const { request } = buildBatch(host.clientId, host.getPending());
+    const { request } = buildBatch(
+      host.clientId,
+      unsentWrites(host.getPending())
+    );
     try {
       send(host.designId, request, { keepalive: true }).catch(() => null);
       return true;
@@ -242,6 +301,7 @@ export const createOutbox = (
     schedule,
     setAwaitSync: (next) => {
       awaitSync = next;
+      drainEchoes();
     },
   };
 };

@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import type { ReactNode } from "react";
 
+import { LiveStatus } from "@/components/editor/collab/live-status";
 import { DesignNameInput } from "@/components/editor/design-name-input";
 import {
   useEditor,
@@ -162,6 +163,7 @@ export const EditorToolbar = ({
         onClick={() => store.getState().redo()}
       />
       <div className="flex-1" />
+      <LiveStatus />
       <SaveStatus onRetry={flush} />
       <ZoomControls />
       {actions}

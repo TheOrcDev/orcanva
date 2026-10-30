@@ -20,6 +20,9 @@ export interface ElementNodeProps {
   onSelect: (id: string) => void;
   onMove: (id: string, position: { x: number; y: number }) => void;
   onEditText: (id: string) => void;
+  // A drag started / ended: remote updates to the element wait meanwhile
+  onHold: (id: string) => void;
+  onRelease: (id: string) => void;
 }
 
 const ElementContent = ({ element }: { element: DesignElement }) => {
@@ -76,11 +79,18 @@ export const ElementNode = ({
   onSelect,
   onMove,
   onEditText,
+  onHold,
+  onRelease,
 }: ElementNodeProps) => {
   const isText = element.type === "text";
   const select = () => onSelect(element.id);
+  const handleDragStart = () => {
+    select();
+    onHold(element.id);
+  };
   const handleDragEnd = (event: Konva.KonvaEventObject<DragEvent>) => {
     onMove(element.id, { x: event.target.x(), y: event.target.y() });
+    onRelease(element.id);
   };
   const editText = () => {
     if (isText && !element.locked) {
@@ -100,7 +110,7 @@ export const ElementNode = ({
       draggable={!element.locked}
       onMouseDown={select}
       onTap={select}
-      onDragStart={select}
+      onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDblClick={editText}
       onDblTap={editText}

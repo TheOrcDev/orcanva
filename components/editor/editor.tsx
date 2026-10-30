@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 
 import { PageNodeProvider } from "@/components/editor/canvas-context";
 import { WorkspaceStage } from "@/components/editor/canvas/workspace-stage";
+import { LiveSync } from "@/components/editor/collab/live-sync";
 import { EditorSidebar } from "@/components/editor/editor-sidebar";
 import { EditorStoreProvider } from "@/components/editor/editor-store-context";
 import { ExportPopover } from "@/components/editor/export-popover";
@@ -17,9 +18,16 @@ import { useOutbox } from "@/hooks/use-outbox";
 import { useThumbnail } from "@/hooks/use-thumbnail";
 import { createEditorStore } from "@/lib/editor/store";
 import type { EditorInit } from "@/lib/editor/store";
+import type { LiveConfig } from "@/lib/realtime/rows";
 
-const EditorShell = ({ hasThumbnail }: { hasThumbnail: boolean }) => {
-  const { flush: flushSave } = useOutbox();
+const EditorShell = ({
+  hasThumbnail,
+  live,
+}: {
+  hasThumbnail: boolean;
+  live: LiveConfig | null;
+}) => {
+  const { flush: flushSave, setAwaitSync } = useOutbox(live !== null);
   const flushThumbnail = useThumbnail(hasThumbnail);
   useEditorShortcuts();
   useClipboard();
@@ -32,6 +40,7 @@ const EditorShell = ({ hasThumbnail }: { hasThumbnail: boolean }) => {
 
   return (
     <div className="flex h-svh flex-col overflow-hidden">
+      {live ? <LiveSync live={live} setAwaitSync={setAwaitSync} /> : null}
       <EditorToolbar flush={flush} actions={<ExportPopover />} />
       <div className="flex min-h-0 flex-1">
         <EditorSidebar />
@@ -51,7 +60,10 @@ export const Editor = ({ init }: { init: EditorInit }) => {
   return (
     <EditorStoreProvider store={store}>
       <PageNodeProvider>
-        <EditorShell hasThumbnail={init.hasThumbnail} />
+        <EditorShell
+          hasThumbnail={init.hasThumbnail}
+          live={init.live ?? null}
+        />
       </PageNodeProvider>
     </EditorStoreProvider>
   );

@@ -10,7 +10,9 @@ import type { AwaitSync, Outbox } from "@/lib/collab/outbox";
 // Sends this session's edits to the server as they happen (see
 // lib/collab/outbox). Returns a flush for leaving the editor and a way to
 // plug in the live queries' "has this transaction arrived" check.
-export const useOutbox = (): {
+export const useOutbox = (
+  live: boolean
+): {
   flush: () => Promise<void>;
   setAwaitSync: (awaitSync: AwaitSync | null) => void;
 } => {
@@ -25,7 +27,9 @@ export const useOutbox = (): {
         clientId,
         designId,
         drop: (batch) => store.getState().dropWrites(batch),
+        echo: (txid) => store.getState().echoWrites(txid),
         getPending: () => store.getState().pending,
+        live,
         onRefused: () => {
           toast.add({
             description: "The server refused the change, so it was undone.",
@@ -34,8 +38,8 @@ export const useOutbox = (): {
           });
         },
         setStatus: (status) => store.getState().setSaveStatus(status),
-        settle: (batch, promote) =>
-          store.getState().settleWrites(batch, promote),
+        settle: (batch, outcome, txid) =>
+          store.getState().settleWrites(batch, outcome, txid),
       },
       sendChangesRequest
     );
@@ -67,7 +71,7 @@ export const useOutbox = (): {
       outbox.dispose();
       outboxRef.current = null;
     };
-  }, [store]);
+  }, [live, store]);
 
   const flush = useCallback(
     () => outboxRef.current?.flush() ?? Promise.resolve(),

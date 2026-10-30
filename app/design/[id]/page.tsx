@@ -5,12 +5,14 @@ import { connection } from "next/server";
 import { EditorLoader } from "@/components/editor/editor-loader";
 import { listReadyAssets } from "@/lib/db/queries/assets";
 import { getDesign, getDesignContent } from "@/lib/db/queries/designs";
+import { getLiveConfig } from "@/lib/realtime/server";
 
 const loadDesign = async (id: string) => {
   await connection();
-  const [content, assets] = await Promise.all([
+  const [content, assets, live] = await Promise.all([
     getDesignContent(id),
     listReadyAssets(),
+    getLiveConfig(id),
   ]);
   if (!content) {
     notFound();
@@ -20,6 +22,7 @@ const loadDesign = async (id: string) => {
     designId: content.row.id,
     document: content.document,
     hasThumbnail: content.row.thumbnailKey !== null,
+    live,
     name: content.row.name,
     positions: content.positions,
   };

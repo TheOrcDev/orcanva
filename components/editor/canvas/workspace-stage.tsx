@@ -185,12 +185,28 @@ export const WorkspaceStage = () => {
     store.getState().clearSelection();
   }, [store]);
 
+  // Konva owns a node while it's dragged or transformed; holding it keeps
+  // remote updates from moving it mid-gesture
+  const holdElement = useCallback(
+    (id: string) => store.getState().hold([id]),
+    [store]
+  );
+  const releaseElement = useCallback(
+    (id: string) => store.getState().release([id]),
+    [store]
+  );
+  const holdTransformed = useCallback(
+    (element: DesignElement) => holdElement(element.id),
+    [holdElement]
+  );
+
   const handleTransformEnd = useCallback(
     (element: DesignElement, transform: NodeTransform, node: Konva.Node) => {
       const baked = bakeTransform(element, transform, node);
       store.getState().change((doc) => replaceElement(doc, baked));
+      releaseElement(element.id);
     },
-    [store]
+    [store, releaseElement]
   );
 
   const handleStageMouseDown = (
@@ -342,6 +358,8 @@ export const WorkspaceStage = () => {
                   onSelect={selectElement}
                   onMove={moveElement}
                   onEditText={editText}
+                  onHold={holdElement}
+                  onRelease={releaseElement}
                 />
               ))}
             </Group>
@@ -354,6 +372,7 @@ export const WorkspaceStage = () => {
             ) : null}
             <SelectionTransformer
               element={transformTarget}
+              onTransformStart={holdTransformed}
               onTransformEnd={handleTransformEnd}
             />
           </Layer>

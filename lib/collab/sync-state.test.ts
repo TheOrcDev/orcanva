@@ -6,7 +6,8 @@ import {
   EMPTY_PENDING,
   addWrites,
   dropBatch,
-  isPendingEmpty,
+  echoTransaction,
+  hasUnsentWrites,
   rebase,
   settleBatch,
   syncedFromDocument,
@@ -102,9 +103,13 @@ describe("settleBatch", () => {
       pending,
       syncedFromDocument(current, "Name"),
       sent,
-      false
+      "echoed",
+      "10"
     );
-    expect(settled.pending.elements.get("a")?.seq).toBe(2);
+    expect(settled.pending.elements.get("a")).toMatchObject({
+      seq: 2,
+      txid: null,
+    });
   });
 
   it("promotes confirmed writes to synced when nothing will echo them", () => {
@@ -115,9 +120,42 @@ describe("settleBatch", () => {
       new Set(["a", "b"]),
       1
     );
-    const settled = settleBatch(pending, synced, batchOf([["b", 1]]), true);
-    expect(isPendingEmpty(settled.pending)).toBe(true);
+    const settled = settleBatch(
+      pending,
+      synced,
+      batchOf([["b", 1]]),
+      "final",
+      "10"
+    );
+    expect(settled.pending.elements.size).toBe(0);
     expect(settled.synced.elements.has("b")).toBe(false);
+  });
+
+  it("keeps a committed write on top until its transaction is echoed", () => {
+    const current = start();
+    const synced = syncedFromDocument(current, "Name");
+    const pending = addWrites(
+      EMPTY_PENDING,
+      { elements: new Map([["a", entry("a", 9, "a0")]]), page: null },
+      new Set(["a", "b"]),
+      1
+    );
+    const settled = settleBatch(
+      pending,
+      synced,
+      batchOf([["a", 1]]),
+      "committed",
+      "42"
+    );
+    expect(hasUnsentWrites(settled.pending)).toBe(false);
+    expect(settled.pending.elements.get("a")?.txid).toBe("42");
+
+    // A live result that lags behind the database still shows our write
+    const lagging = syncedFromDocument(current, "Name");
+    expect(xOf(rebase(lagging, settled.pending, current, new Set()), "a")).toBe(
+      9
+    );
+    expect(echoTransaction(settled.pending, "42").elements.size).toBe(0);
   });
 });
 

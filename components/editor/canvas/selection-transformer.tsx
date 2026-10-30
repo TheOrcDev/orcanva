@@ -45,6 +45,7 @@ const limitBox = <T extends { width: number; height: number }>(
 export interface SelectionTransformerProps {
   // Lines and arrows use endpoint handles instead, so they never arrive here
   element: DesignElement | null;
+  onTransformStart: (element: DesignElement) => void;
   onTransformEnd: (
     element: DesignElement,
     transform: NodeTransform,
@@ -54,6 +55,7 @@ export interface SelectionTransformerProps {
 
 export const SelectionTransformer = ({
   element,
+  onTransformStart,
   onTransformEnd,
 }: SelectionTransformerProps) => {
   const transformerRef = useRef<Konva.Transformer>(null);
@@ -107,6 +109,11 @@ export const SelectionTransformer = ({
       rotateEnabled={!locked}
       rotationSnapTolerance={4}
       rotationSnaps={ROTATION_SNAPS}
+      onTransformStart={() => {
+        if (element) {
+          onTransformStart(element);
+        }
+      }}
       onTransformEnd={handleTransformEnd}
     />
   );

@@ -7,6 +7,7 @@ import {
   writesOf,
 } from "@/lib/collab/changeset";
 import type { EditorDocument, Writes } from "@/lib/collab/changeset";
+import { entriesFromRows, pageFromRow } from "@/lib/collab/live-rows";
 import type { SaveStatus } from "@/lib/collab/outbox";
 import { assignPositions } from "@/lib/collab/positions";
 import {
@@ -15,11 +16,13 @@ import {
   addWrites,
   currentName,
   dropBatch,
+  echoTransaction,
   rebase,
   settleBatch,
   syncedFromDocument,
 } from "@/lib/collab/sync-state";
 import type {
+  BatchOutcome,
   BatchSeqs,
   PendingWrites,
   SyncedState,
@@ -36,8 +39,16 @@ import {
   undo,
 } from "@/lib/editor/history";
 import type { History } from "@/lib/editor/history";
+import type {
+  LiveConfig,
+  LiveElementRow,
+  LivePageRow,
+} from "@/lib/realtime/rows";
 
 export type { SaveStatus } from "@/lib/collab/outbox";
+
+// "off" when Realtime isn't configured; otherwise the live queries' state
+export type LiveStatus = "off" | "connecting" | "live" | "stale" | "error";
 
 export interface EditorAsset {
   id: string;
@@ -61,6 +72,11 @@ export interface EditorState {
   pending: PendingWrites;
   // Counts local writes; also tells "I changed it" apart from remote edits
   seq: number;
+  // Elements under a local drag or transform: remote updates wait for them
+  held: ReadonlySet<string>;
+  liveStatus: LiveStatus;
+  // Re-subscribes the live queries after they stopped (set by the live sync)
+  reconnectLive: (() => void) | null;
   history: History;
   // Everything below is session UI state and never enters undo history
   selectedIds: string[];
@@ -87,9 +103,19 @@ export interface EditorActions {
   redo: () => void;
   rename: (name: string) => void;
   // A batch of writes reached the server (see lib/collab/outbox)
-  settleWrites: (batch: BatchSeqs, promote: boolean) => void;
+  settleWrites: (batch: BatchSeqs, outcome: BatchOutcome, txid: string) => void;
+  // The live queries have applied one of our transactions
+  echoWrites: (txid: string) => void;
   // The server refused a batch: fall back to its version
   dropWrites: (batch: BatchSeqs) => void;
+  // New results from the live queries
+  applyLiveElements: (rows: readonly LiveElementRow[]) => void;
+  applyLivePage: (row: LivePageRow) => void;
+  setLiveStatus: (status: LiveStatus) => void;
+  setReconnectLive: (reconnect: (() => void) | null) => void;
+  // A gesture on these elements started / ended
+  hold: (ids: string[]) => void;
+  release: (ids: string[]) => void;
   select: (ids: string[]) => void;
   clearSelection: () => void;
   setEditingText: (id: string | null) => void;
@@ -112,14 +138,14 @@ export interface EditorInit {
   document: DesignDocument;
   // Stored z-order keys by element id; generated when missing
   positions?: Record<string, string>;
+  // Sealed live queries; null when Realtime isn't configured
+  live?: LiveConfig | null;
   assets: EditorAsset[];
   hasThumbnail: boolean;
 }
 
 export const MIN_ZOOM = 0.05;
 export const MAX_ZOOM = 8;
-
-const NO_HELD = new Set<string>();
 
 const clampZoom = (zoom: number) =>
   Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
@@ -174,7 +200,7 @@ const reconcile = (
   EditorState,
   "doc" | "editingTextId" | "name" | "pending" | "selectedIds" | "synced"
 > => {
-  const doc = rebase(synced, pending, state.doc, NO_HELD);
+  const doc = rebase(synced, pending, state.doc, state.held);
   const editingGone =
     state.editingTextId !== null &&
     !doc.document.elements.some(
@@ -204,6 +230,19 @@ export const createEditorStore = (init: EditorInit) => {
       set((state) => ({
         uploadsInFlight: Math.max(0, state.uploadsInFlight + delta),
       })),
+    applyLiveElements: (rows) =>
+      set((state) => {
+        const elements = entriesFromRows(rows, state.synced.elements);
+        return reconcile(state, { ...state.synced, elements }, state.pending);
+      }),
+    applyLivePage: (row) =>
+      set((state) => {
+        const live = pageFromRow(row);
+        if (!live) {
+          return state;
+        }
+        return reconcile(state, { ...state.synced, ...live }, state.pending);
+      }),
     assets: init.assets,
     backgroundJobs: [],
     begin: () => set((state) => ({ history: beginTransaction(state.history) })),
@@ -232,12 +271,20 @@ export const createEditorStore = (init: EditorInit) => {
       set((state) =>
         reconcile(state, state.synced, dropBatch(state.pending, batch))
       ),
+    echoWrites: (txid) =>
+      set((state) =>
+        reconcile(state, state.synced, echoTransaction(state.pending, txid))
+      ),
     editingTextId: null,
     end: () => set((state) => ({ history: endTransaction(state.history) })),
     fileDragActive: false,
+    held: new Set(),
     history: createHistory(),
+    hold: (ids) => set((state) => ({ held: new Set([...state.held, ...ids]) })),
+    liveStatus: "off",
     name: init.name,
     pending: EMPTY_PENDING,
+    reconnectLive: null,
     redo: () =>
       set((state) => {
         const { history, step } = redo(state.history);
@@ -249,6 +296,18 @@ export const createEditorStore = (init: EditorInit) => {
           editingTextId: null,
           fileDragActive: false,
           history,
+        };
+      }),
+    release: (ids) =>
+      set((state) => {
+        const held = new Set(state.held);
+        for (const id of ids) {
+          held.delete(id);
+        }
+        // Catch up on anything that arrived during the gesture
+        return {
+          ...reconcile({ ...state, held }, state.synced, state.pending),
+          held,
         };
       }),
     rename: (name) =>
@@ -290,18 +349,24 @@ export const createEditorStore = (init: EditorInit) => {
         state.fileDragActive === active ? state : { fileDragActive: active }
       ),
     setFitZoom: (zoom) => set({ zoom: clampZoom(zoom) }),
+    setLiveStatus: (status) =>
+      set((state) =>
+        state.liveStatus === status ? state : { liveStatus: status }
+      ),
+    setReconnectLive: (reconnect) => set({ reconnectLive: reconnect }),
     setSaveStatus: (status) =>
       set((state) =>
         state.saveStatus === status ? state : { saveStatus: status }
       ),
     setZoom: (zoom) => set({ zoom: clampZoom(zoom), zoomMode: "manual" }),
-    settleWrites: (batch, promote) =>
+    settleWrites: (batch, outcome, txid) =>
       set((state) => {
         const settled = settleBatch(
           state.pending,
           state.synced,
           batch,
-          promote
+          outcome,
+          txid
         );
         return reconcile(state, settled.synced, settled.pending);
       }),

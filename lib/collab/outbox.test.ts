@@ -11,9 +11,14 @@ import {
   EMPTY_PENDING,
   addWrites,
   dropBatch,
+  echoTransaction,
   settleBatch,
 } from "@/lib/collab/sync-state";
-import type { PendingWrites, SyncedState } from "@/lib/collab/sync-state";
+import type {
+  BatchOutcome,
+  PendingWrites,
+  SyncedState,
+} from "@/lib/collab/sync-state";
 import { createBoxElement, createDocument } from "@/lib/document/factories";
 
 const PAGE = { height: 720, width: 1280 };
@@ -25,7 +30,7 @@ const entry = (id: string, x: number): Entry => ({
 });
 
 // A minimal host that keeps pending/synced state the way the store does
-const setup = () => {
+const setup = (live = false) => {
   let pending: PendingWrites = EMPTY_PENDING;
   let synced: SyncedState = {
     elements: new Map(),
@@ -34,18 +39,28 @@ const setup = () => {
   };
   let seq = 0;
   const statuses: SaveStatus[] = [];
-  const settled: boolean[] = [];
+  const settled: BatchOutcome[] = [];
   const host: OutboxHost = {
     clientId: "00000000-0000-4000-8000-000000000000",
     designId: "design",
     drop: (batch) => {
       pending = dropBatch(pending, batch);
     },
+    echo: (txid) => {
+      pending = echoTransaction(pending, txid);
+    },
     getPending: () => pending,
+    live,
     setStatus: (status) => statuses.push(status),
-    settle: (batch, promote) => {
-      settled.push(promote);
-      ({ pending, synced } = settleBatch(pending, synced, batch, promote));
+    settle: (batch, outcome, txid) => {
+      settled.push(outcome);
+      ({ pending, synced } = settleBatch(
+        pending,
+        synced,
+        batch,
+        outcome,
+        txid
+      ));
     },
   };
   const write = (id: string, x: number) => {
@@ -81,7 +96,7 @@ describe("buildBatch", () => {
       new Set(["b"]),
       3
     );
-    pending = { ...pending, name: { seq: 4, value: "Renamed" } };
+    pending = { ...pending, name: { seq: 4, txid: null, value: "Renamed" } };
     const { request, seqs } = buildBatch("client", pending);
 
     expect(request.elements.map((item) => [item.data.id, item.mode])).toEqual([
@@ -95,7 +110,7 @@ describe("buildBatch", () => {
 });
 
 describe("createOutbox", () => {
-  it("sends pending writes and promotes them when nothing echoes back", async () => {
+  it("sends writes and keeps them as synced when Realtime is off", async () => {
     const { getPending, getSynced, host, settled, write } = setup();
     const sent: ChangesRequest[] = [];
     const outbox = createOutbox(host, (_id, request) => {
@@ -106,24 +121,45 @@ describe("createOutbox", () => {
     await outbox.flush();
 
     expect(sent).toHaveLength(1);
-    expect(settled).toEqual([true]);
+    expect(settled).toEqual(["final"]);
     expect(getPending().elements.size).toBe(0);
     expect(getSynced().elements.get("a")?.element.x).toBe(1);
   });
 
-  it("waits for the live query instead of promoting when connected", async () => {
-    const { host, settled, write } = setup();
+  it("waits for the live query to echo the write when connected", async () => {
+    const { host, settled, write } = setup(true);
     const waited: string[] = [];
     const outbox = createOutbox(host, () => Promise.resolve({ txid: "42" }));
     outbox.setAwaitSync((txid) => {
       waited.push(txid);
-      return Promise.resolve(true);
+      return Promise.resolve();
     });
     write("a", 1);
     await outbox.flush();
 
     expect(waited).toEqual(["42"]);
-    expect(settled).toEqual([false]);
+    expect(settled).toEqual(["echoed"]);
+  });
+
+  it("keeps committed writes on screen until a connection echoes them", async () => {
+    const { getPending, host, settled, write } = setup(true);
+    const outbox = createOutbox(host, () => Promise.resolve({ txid: "7" }));
+    write("a", 1);
+    await outbox.flush();
+
+    expect(settled).toEqual(["committed"]);
+    expect(outbox.isDirty()).toBe(false);
+    expect(getPending().elements.get("a")?.txid).toBe("7");
+
+    const waited: string[] = [];
+    outbox.setAwaitSync((txid) => {
+      waited.push(txid);
+      return Promise.resolve();
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(waited).toEqual(["7"]);
+    expect(getPending().elements.size).toBe(0);
   });
 
   it("keeps one request in flight and sends later edits next", async () => {
