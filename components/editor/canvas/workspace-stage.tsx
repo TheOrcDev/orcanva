@@ -2,7 +2,7 @@
 
 import type Konva from "konva";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { DragEvent } from "react";
+import type { DragEvent, PointerEvent } from "react";
 import { Group, Layer, Rect, Stage } from "react-konva";
 
 import { usePageNodeRef } from "@/components/editor/canvas-context";
@@ -11,6 +11,7 @@ import { ElementNode } from "@/components/editor/canvas/element-node";
 import { LineHandles } from "@/components/editor/canvas/line-handles";
 import { SelectionTransformer } from "@/components/editor/canvas/selection-transformer";
 import { TextEditOverlay } from "@/components/editor/canvas/text-edit-overlay";
+import { RemoteCursors } from "@/components/editor/collab/remote-cursors";
 import {
   useEditor,
   useEditorStoreApi,
@@ -272,6 +273,16 @@ export const WorkspaceStage = () => {
       ? selected
       : null;
 
+  // Where this session's pointer is on the page, for everyone else's view
+  const reportPointer = (event: PointerEvent<HTMLDivElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    store.getState().setPointer({
+      x: Math.round((event.clientX - bounds.left - origin.x) / zoom),
+      y: Math.round((event.clientY - bounds.top - origin.y) / zoom),
+    });
+  };
+  const clearPointer = () => store.getState().setPointer(null);
+
   // Files from the desktop upload; library assets place directly. Both land
   // where the pointer is, converted from screen to page coordinates.
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
@@ -310,9 +321,12 @@ export const WorkspaceStage = () => {
       ref={containerRef}
       className="bg-muted/60 relative min-h-0 min-w-0 flex-1 overflow-hidden"
       onDragOver={handleDragOver}
+      onPointerMove={reportPointer}
+      onPointerLeave={clearPointer}
       onDrop={handleDrop}
     >
       <WorkspaceOverlays />
+      <RemoteCursors origin={origin} zoom={zoom} />
       {viewport.width > 0 && viewport.height > 0 ? (
         <Stage
           width={viewport.width}

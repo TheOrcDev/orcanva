@@ -2,6 +2,7 @@ import "server-only";
 import { createRealtime, rawSql } from "@neon/realtime/server";
 import type { RealtimeServer, SealedLiveQuery } from "@neon/realtime/server";
 
+import type { LivePresenceRow } from "@/lib/collab/presence";
 import { getEnv } from "@/lib/env";
 import type {
   LiveConfig,
@@ -22,6 +23,12 @@ const pageQuery = (designId: string) =>
 const elementsQuery = (designId: string) =>
   rawSql<LiveElementRow>(
     "SELECT id, position, data FROM design_elements WHERE design_id = $1",
+    [designId]
+  );
+
+const presenceQuery = (designId: string) =>
+  rawSql<LivePresenceRow>(
+    "SELECT client_id, name, color, x, y, selection, drag, seen_at FROM design_presence WHERE design_id = $1",
     [designId]
   );
 
@@ -55,14 +62,25 @@ export const sealElementsQuery = (
 ): Promise<SealedLiveQuery<LiveElementRow>> | null =>
   getRealtime()?.seal({ query: elementsQuery(designId) }) ?? null;
 
+export const sealPresenceQuery = (
+  designId: string
+): Promise<SealedLiveQuery<LivePresenceRow>> | null =>
+  getRealtime()?.seal({ query: presenceQuery(designId) }) ?? null;
+
 export const getLiveConfig = async (
   designId: string
 ): Promise<LiveConfig | null> => {
   const url = getEnv().NEON_REALTIME_URL;
   const page = sealPageQuery(designId);
   const elements = sealElementsQuery(designId);
-  if (!(url && page && elements)) {
+  const presence = sealPresenceQuery(designId);
+  if (!(url && page && elements && presence)) {
     return null;
   }
-  return { elements: await elements, page: await page, url };
+  return {
+    elements: await elements,
+    page: await page,
+    presence: await presence,
+    url,
+  };
 };

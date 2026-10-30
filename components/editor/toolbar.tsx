@@ -13,6 +13,7 @@ import { useTransition } from "react";
 import type { ReactNode } from "react";
 
 import { LiveStatus } from "@/components/editor/collab/live-status";
+import { PresenceAvatars } from "@/components/editor/collab/presence-avatars";
 import { DesignNameInput } from "@/components/editor/design-name-input";
 import {
   useEditor,
@@ -163,6 +164,7 @@ export const EditorToolbar = ({
         onClick={() => store.getState().redo()}
       />
       <div className="flex-1" />
+      <PresenceAvatars />
       <LiveStatus />
       <SaveStatus onRetry={flush} />
       <ZoomControls />

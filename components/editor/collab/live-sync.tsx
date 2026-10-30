@@ -12,6 +12,7 @@ import {
   useEditorStoreApi,
 } from "@/components/editor/editor-store-context";
 import type { AwaitSync } from "@/lib/collab/outbox";
+import type { LivePresenceRow } from "@/lib/collab/presence";
 import type { LiveStatus } from "@/lib/editor/store";
 import type {
   LiveConfig,
@@ -74,6 +75,14 @@ const LiveQueries = ({ live, setAwaitSync }: LiveQueriesProps) => {
   const elements = useLiveQuery(live.elements, {
     refreshQuery: refreshElements,
   });
+  const refreshPresence = useCallback(
+    () => fetchSealed<LivePresenceRow>(designId, "presence"),
+    [designId]
+  );
+  const presence = useLiveQuery(live.presence, {
+    refreshQuery: refreshPresence,
+  });
+  const presenceUtils = presence.utils;
   const pageUtils = page.utils;
   const elementUtils = elements.utils;
 
@@ -100,7 +109,17 @@ const LiveQueries = ({ live, setAwaitSync }: LiveQueriesProps) => {
     return elementUtils.onChange((snapshot) => apply(snapshot.data));
   }, [elementUtils, store]);
 
-  const status = combineStatus([page.status, elements.status]);
+  useEffect(() => {
+    const apply = (rows: readonly LivePresenceRow[] | undefined) => {
+      if (rows) {
+        store.getState().applyPresence(rows);
+      }
+    };
+    apply(presenceUtils.getSnapshot().data);
+    return presenceUtils.onChange((snapshot) => apply(snapshot.data));
+  }, [presenceUtils, store]);
+
+  const status = combineStatus([page.status, elements.status, presence.status]);
   useEffect(() => {
     store.getState().setLiveStatus(status);
   }, [status, store]);
@@ -157,13 +176,14 @@ export const LiveSync = ({ live, setAwaitSync }: LiveQueriesProps) => {
 
   const reconnect = useCallback(() => {
     const renew = async () => {
-      const [page, elements] = await Promise.all([
+      const [page, elements, presence] = await Promise.all([
         fetchSealed<LivePageRow>(designId, "page"),
         fetchSealed<LiveElementRow>(designId, "elements"),
+        fetchSealed<LivePresenceRow>(designId, "presence"),
       ]);
       setSession((current) => ({
         attempt: current.attempt + 1,
-        live: { ...current.live, elements, page },
+        live: { ...current.live, elements, page, presence },
       }));
     };
     failuresRef.current += 1;

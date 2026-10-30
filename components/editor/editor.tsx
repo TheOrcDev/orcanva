@@ -15,6 +15,7 @@ import { useClipboard } from "@/hooks/use-clipboard";
 import { useEditorShortcuts } from "@/hooks/use-editor-shortcuts";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useOutbox } from "@/hooks/use-outbox";
+import { usePresence } from "@/hooks/use-presence";
 import { useThumbnail } from "@/hooks/use-thumbnail";
 import { createEditorStore } from "@/lib/editor/store";
 import type { EditorInit } from "@/lib/editor/store";
@@ -28,6 +29,7 @@ const EditorShell = ({
   live: LiveConfig | null;
 }) => {
   const { flush: flushSave, setAwaitSync } = useOutbox(live !== null);
+  usePresence(live !== null);
   const flushThumbnail = useThumbnail(hasThumbnail);
   useEditorShortcuts();
   useClipboard();

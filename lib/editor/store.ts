@@ -7,9 +7,14 @@ import {
   writesOf,
 } from "@/lib/collab/changeset";
 import type { EditorDocument, Writes } from "@/lib/collab/changeset";
+import { isDeepEqual } from "@/lib/collab/equal";
+import { loadProfile, saveProfile } from "@/lib/collab/identity";
+import type { Profile } from "@/lib/collab/identity";
 import { entriesFromRows, pageFromRow } from "@/lib/collab/live-rows";
 import type { SaveStatus } from "@/lib/collab/outbox";
 import { assignPositions } from "@/lib/collab/positions";
+import { peersFromRows } from "@/lib/collab/presence";
+import type { DragPreview, LivePresenceRow, Peer } from "@/lib/collab/presence";
 import {
   EMPTY_PENDING,
   addNameWrite,
@@ -77,6 +82,15 @@ export interface EditorState {
   liveStatus: LiveStatus;
   // Re-subscribes the live queries after they stopped (set by the live sync)
   reconnectLive: (() => void) | null;
+  // How this session shows up to others, and what it tells them
+  profile: Profile;
+  pointer: { x: number; y: number } | null;
+  dragPreview: DragPreview | null;
+  // Everyone else on the design right now
+  peers: Peer[];
+  presenceRows: readonly LivePresenceRow[];
+  // Server clock minus this browser's, for judging how fresh presence is
+  serverOffset: number;
   history: History;
   // Everything below is session UI state and never enters undo history
   selectedIds: string[];
@@ -116,6 +130,14 @@ export interface EditorActions {
   // A gesture on these elements started / ended
   hold: (ids: string[]) => void;
   release: (ids: string[]) => void;
+  setProfile: (profile: Profile) => void;
+  // Pointer position in page coordinates (null when off the canvas)
+  setPointer: (point: { x: number; y: number } | null) => void;
+  setDragPreview: (preview: DragPreview | null) => void;
+  applyPresence: (rows: readonly LivePresenceRow[]) => void;
+  // Re-checks who is still around (people time out without new rows)
+  refreshPeers: () => void;
+  setServerOffset: (offset: number) => void;
   select: (ids: string[]) => void;
   clearSelection: () => void;
   setEditingText: (id: string | null) => void;
@@ -165,6 +187,19 @@ const initialDocument = (init: EditorInit): EditorDocument => {
     positions: assignPositions(stored, ids),
   };
 };
+
+// Keeps the previous array when nothing changed, so cursors don't re-render
+const nextPeers = (state: EditorState, rows: readonly LivePresenceRow[]) => {
+  const peers = peersFromRows(
+    rows,
+    state.clientId,
+    Date.now() + state.serverOffset
+  );
+  return isDeepEqual(peers, state.peers) ? state.peers : peers;
+};
+
+const browserStorage = (): Storage | undefined =>
+  typeof window === "undefined" ? undefined : window.localStorage;
 
 // Queues a local edit's writes for the outbox
 const queueWrites = (
@@ -243,6 +278,8 @@ export const createEditorStore = (init: EditorInit) => {
         }
         return reconcile(state, { ...state.synced, ...live }, state.pending);
       }),
+    applyPresence: (rows) =>
+      set((state) => ({ peers: nextPeers(state, rows), presenceRows: rows })),
     assets: init.assets,
     backgroundJobs: [],
     begin: () => set((state) => ({ history: beginTransaction(state.history) })),
@@ -267,6 +304,7 @@ export const createEditorStore = (init: EditorInit) => {
     clientId: createId(),
     designId: init.designId,
     doc,
+    dragPreview: null,
     dropWrites: (batch) =>
       set((state) =>
         reconcile(state, state.synced, dropBatch(state.pending, batch))
@@ -283,7 +321,11 @@ export const createEditorStore = (init: EditorInit) => {
     hold: (ids) => set((state) => ({ held: new Set([...state.held, ...ids]) })),
     liveStatus: "off",
     name: init.name,
+    peers: [],
     pending: EMPTY_PENDING,
+    pointer: null,
+    presenceRows: [],
+    profile: loadProfile(browserStorage()),
     reconnectLive: null,
     redo: () =>
       set((state) => {
@@ -297,6 +339,11 @@ export const createEditorStore = (init: EditorInit) => {
           fileDragActive: false,
           history,
         };
+      }),
+    refreshPeers: () =>
+      set((state) => {
+        const peers = nextPeers(state, state.presenceRows);
+        return peers === state.peers ? state : { peers };
       }),
     release: (ids) =>
       set((state) => {
@@ -331,6 +378,7 @@ export const createEditorStore = (init: EditorInit) => {
     select: (ids) => set({ selectedIds: ids }),
     selectedIds: [],
     seq: 0,
+    serverOffset: 0,
     setBackgroundJob: (elementId, running) =>
       set((state) => {
         const has = state.backgroundJobs.includes(elementId);
@@ -343,6 +391,7 @@ export const createEditorStore = (init: EditorInit) => {
             : state.backgroundJobs.filter((id) => id !== elementId),
         };
       }),
+    setDragPreview: (preview) => set({ dragPreview: preview }),
     setEditingText: (id) => set({ editingTextId: id }),
     setFileDragActive: (active) =>
       set((state) =>
@@ -353,11 +402,26 @@ export const createEditorStore = (init: EditorInit) => {
       set((state) =>
         state.liveStatus === status ? state : { liveStatus: status }
       ),
+    setPointer: (point) =>
+      set((state) => {
+        const same =
+          point === state.pointer ||
+          (point !== null &&
+            state.pointer !== null &&
+            point.x === state.pointer.x &&
+            point.y === state.pointer.y);
+        return same ? state : { pointer: point };
+      }),
+    setProfile: (profile) => {
+      saveProfile(browserStorage(), profile);
+      set({ profile });
+    },
     setReconnectLive: (reconnect) => set({ reconnectLive: reconnect }),
     setSaveStatus: (status) =>
       set((state) =>
         state.saveStatus === status ? state : { saveStatus: status }
       ),
+    setServerOffset: (offset) => set({ serverOffset: offset }),
     setZoom: (zoom) => set({ zoom: clampZoom(zoom), zoomMode: "manual" }),
     settleWrites: (batch, outcome, txid) =>
       set((state) => {

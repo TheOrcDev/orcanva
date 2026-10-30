@@ -1,9 +1,22 @@
 import { z } from "zod";
 
 import { isDesignId } from "@/lib/db/queries/designs";
-import { sealElementsQuery, sealPageQuery } from "@/lib/realtime/server";
+import type { LiveQueryName } from "@/lib/realtime/rows";
+import {
+  sealElementsQuery,
+  sealPageQuery,
+  sealPresenceQuery,
+} from "@/lib/realtime/server";
 
-const renewPayload = z.object({ query: z.enum(["page", "elements"]) });
+const renewPayload = z.object({
+  query: z.enum(["page", "elements", "presence"]),
+});
+
+const SEALERS = {
+  elements: sealElementsQuery,
+  page: sealPageQuery,
+  presence: sealPresenceQuery,
+} satisfies Record<LiveQueryName, (designId: string) => unknown>;
 
 // Sealed queries are bearer tokens: never cache them anywhere
 const NO_STORE = { "Cache-Control": "private, no-store" };
@@ -33,8 +46,7 @@ export const POST = async (
     return json({ error: "Unknown query" }, 422);
   }
 
-  const sealed =
-    parsed.data.query === "page" ? sealPageQuery(id) : sealElementsQuery(id);
+  const sealed = SEALERS[parsed.data.query](id);
   if (!sealed) {
     return json({ error: "Realtime is not configured" }, 503);
   }

@@ -6,6 +6,7 @@ import {
   pgEnum,
   pgTable,
   primaryKey,
+  real,
   text,
   timestamp,
   uuid,
@@ -64,6 +65,28 @@ export const designElements = pgTable(
     updatedBy: uuid("updated_by"),
   },
   (table) => [primaryKey({ columns: [table.designId, table.id] })]
+);
+
+// Who is on a design right now, one row per open editor session: where
+// their pointer is, what they have selected and what they're dragging. Read
+// by a live query, so others see it about as fast as it's written.
+export const designPresence = pgTable(
+  "design_presence",
+  {
+    clientId: uuid("client_id").notNull(),
+    color: text("color").notNull(),
+    designId: uuid("design_id")
+      .notNull()
+      .references(() => designs.id, { onDelete: "cascade" }),
+    drag: jsonb("drag"),
+    name: text("name").notNull(),
+    seenAt: timestamp("seen_at", { withTimezone: true }).notNull().defaultNow(),
+    selection: jsonb("selection").$type<string[]>().notNull().default([]),
+    // Pointer in page coordinates; null while it's off the canvas
+    x: real("x"),
+    y: real("y"),
+  },
+  (table) => [primaryKey({ columns: [table.designId, table.clientId] })]
 );
 
 export const assetStatus = pgEnum("asset_status", ["pending", "ready"]);
