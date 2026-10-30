@@ -81,6 +81,27 @@ describe("editor store", () => {
     expect(order()).toEqual([top.id, rect.id]);
   });
 
+  it("starts connecting only when the server sent live queries", () => {
+    const base = {
+      assets: [],
+      designId: "d",
+      document: createDocument(PAGE),
+      hasThumbnail: false,
+      name: "Test",
+    };
+    expect(createEditorStore(base).getState().liveStatus).toBe("off");
+    const sealed = { capability: "x", expiresAt: 0, queryFingerprint: "f" };
+    const live = {
+      elements: sealed,
+      page: sealed,
+      presence: sealed,
+      url: "wss://realtime.example",
+    };
+    expect(createEditorStore({ ...base, live }).getState().liveStatus).toBe(
+      "connecting"
+    );
+  });
+
   it("clamps zoom and switches to manual mode", () => {
     const { store } = setup();
     store.getState().setZoom(100);

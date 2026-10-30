@@ -28,8 +28,27 @@ export const LiveStatus = () => {
   const status = useEditor((state) => state.liveStatus);
   const reconnect = useEditor((state) => state.reconnectLive);
 
+  // Without Realtime settings the editor still saves, but nobody sees
+  // anyone else's changes until they reload; say so instead of hiding it
   if (status === "off") {
-    return null;
+    return (
+      <Tooltip>
+        <TooltipTrigger render={<span />}>
+          <output className="text-muted-foreground flex items-center gap-1.5 px-2 text-xs">
+            <span
+              aria-hidden
+              className="bg-muted-foreground/50 size-2 rounded-full"
+            />
+            Not live
+          </output>
+        </TooltipTrigger>
+        <TooltipContent>
+          Live collaboration is off on this server (NEON_REALTIME_URL and
+          NEON_REALTIME_SECRET aren&apos;t set). Changes still save; others see
+          them after a reload.
+        </TooltipContent>
+      </Tooltip>
+    );
   }
 
   if (status === "error") {

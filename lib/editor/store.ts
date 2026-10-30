@@ -319,7 +319,7 @@ export const createEditorStore = (init: EditorInit) => {
     held: new Set(),
     history: createHistory(),
     hold: (ids) => set((state) => ({ held: new Set([...state.held, ...ids]) })),
-    liveStatus: "off",
+    liveStatus: init.live ? "connecting" : "off",
     name: init.name,
     peers: [],
     pending: EMPTY_PENDING,
