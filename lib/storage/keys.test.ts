@@ -10,7 +10,10 @@ import {
 describe("storage keys", () => {
   it("builds asset and versioned thumbnail keys", () => {
     expect(assetKey("abc", "image/jpeg")).toBe("assets/abc.jpg");
-    expect(thumbnailKey("design-1", 42)).toBe("thumbnails/design-1/42.jpg");
+    expect(thumbnailKey("design-1", "v1")).toBe("thumbnails/design-1/v1.jpg");
+    expect(thumbnailKey("design-1")).toMatch(
+      /^thumbnails\/design-1\/[0-9a-f-]{36}\.jpg$/u
+    );
   });
 
   it("only serves known prefixes without traversal", () => {

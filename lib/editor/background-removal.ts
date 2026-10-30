@@ -19,13 +19,14 @@ const fetchImage = async (asset: EditorAsset): Promise<Blob> => {
 // library asset linked to its source
 const createCutout = async (
   source: EditorAsset,
+  designId: string,
   onProgress?: (percent: number) => void
 ): Promise<EditorAsset> => {
   const cutout = await cutOutBackground(await fetchImage(source), onProgress);
   const file = new File([cutout.png], `${source.name}${NAME_SUFFIX}.png`, {
     type: "image/png",
   });
-  return uploadImage(await prepareImage(file), {
+  return uploadImage(await prepareImage(file), designId, {
     assetId: source.id,
     variant: "no-background",
   });
@@ -54,7 +55,7 @@ export const removeImageBackground = async (
   try {
     const cutout =
       assets.find((asset) => asset.sourceAssetId === sourceAssetId) ??
-      (await createCutout(source, onProgress));
+      (await createCutout(source, store.getState().designId, onProgress));
     const state = store.getState();
     state.addAsset(cutout);
     // Only swap if the element still shows the image that was processed

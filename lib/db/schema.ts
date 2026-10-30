@@ -129,9 +129,12 @@ export const assets = pgTable(
     key: text("key").notNull().unique(),
     mimeType: text("mime_type").notNull(),
     originalName: text("original_name").notNull(),
-    // The uploader's account; null for uploads made by guests
+    // The uploader's account and whose library it's in; null for uploads
+    // made by guests, which are in nobody's library
     ownerId: uuid("owner_id"),
-    sha256: text("sha256").unique(),
+    // Computed by the browser and never verified, so only ever matched
+    // within one account's own uploads
+    sha256: text("sha256"),
     sizeBytes: integer("size_bytes").notNull(),
     sourceAssetId: uuid("source_asset_id").references(
       (): AnyPgColumn => assets.id,
@@ -143,8 +146,12 @@ export const assets = pgTable(
   },
   (table) => [
     index("assets_created_at_idx").on(table.createdAt),
-    // One cached result per source image and variant
-    uniqueIndex("assets_source_variant_idx").on(
+    index("assets_owner_created_idx").on(table.ownerId, table.createdAt),
+    // One copy of a file per account. Guests (null owner) never collide.
+    uniqueIndex("assets_owner_sha256_idx").on(table.ownerId, table.sha256),
+    // One cached result per account, source image and variant
+    uniqueIndex("assets_owner_source_variant_idx").on(
+      table.ownerId,
       table.sourceAssetId,
       table.variant
     ),

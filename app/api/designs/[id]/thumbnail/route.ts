@@ -40,8 +40,8 @@ export const PUT = async (
     return text("Not found", 404);
   }
 
-  // Versioned key: every thumbnail URL is immutable and safely cacheable
-  const key = thumbnailKey(id, Date.now());
+  // A fresh key: every thumbnail URL is immutable and safely cacheable
+  const key = thumbnailKey(id);
   await putObject(key, body, "image/jpeg");
   await db.update(designs).set({ thumbnailKey: key }).where(eq(designs.id, id));
 

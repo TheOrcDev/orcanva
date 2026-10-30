@@ -5,29 +5,37 @@ import { connection } from "next/server";
 import { EditorLoader } from "@/components/editor/editor-loader";
 import { roleFor } from "@/lib/auth/access";
 import { getViewer } from "@/lib/auth/server";
-import { listReadyAssets } from "@/lib/db/queries/assets";
+import { listDesignAssets, listLibrary } from "@/lib/db/queries/assets";
 import { getDesign, getDesignContent } from "@/lib/db/queries/designs";
 import { getLiveConfig } from "@/lib/realtime/server";
 
 const loadDesign = async (id: string) => {
   await connection();
-  // Sealing is local crypto, so it runs alongside the access check; the
-  // sealed queries only leave the server once the check has passed
-  const [viewer, content, assets, live] = await Promise.all([
-    getViewer(),
+  // Everything loads alongside the access check (sealing is local crypto),
+  // but only leaves the server once the check has passed
+  const viewerLoad = getViewer();
+  const [viewer, content, live, designAssets, library] = await Promise.all([
+    viewerLoad,
     getDesignContent(id),
-    listReadyAssets(),
     getLiveConfig(id),
+    listDesignAssets(id),
+    viewerLoad.then((found) => (found ? listLibrary(found.id) : [])),
   ]);
   const role = content ? roleFor(content.row, viewer?.id ?? null) : null;
   if (!(content && role)) {
     notFound();
   }
+  // The viewer's library first, then what the design shows from others
+  const libraryIds = new Set(library.map((asset) => asset.id));
   return {
-    assets,
+    assets: [
+      ...library,
+      ...designAssets.filter((asset) => !libraryIds.has(asset.id)),
+    ],
     designId: content.row.id,
     document: content.document,
     hasThumbnail: content.row.thumbnailKey !== null,
+    libraryIds: [...libraryIds],
     live,
     name: content.row.name,
     positions: content.positions,

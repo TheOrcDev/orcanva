@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
+import { getViewer } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/client";
 import { assets } from "@/lib/db/schema";
 import { MAX_UPLOAD_BYTES } from "@/lib/storage/keys";
@@ -10,7 +11,8 @@ const text = (body: string, status: number) => new Response(body, { status });
 
 // Fallback upload path: when the browser can't PUT straight to the bucket
 // (CORS not set for this origin, blocked network), the file comes through
-// the app instead. Only reserved, still-pending assets are accepted.
+// the app instead. Only reserved, still-pending assets are accepted, from
+// whoever reserved them.
 export const PUT = async (
   request: Request,
   context: RouteContext<"/api/assets/[id]/file">
@@ -20,12 +22,14 @@ export const PUT = async (
     return text("Not found", 404);
   }
 
+  const viewer = await getViewer();
   const [asset] = await getDb()
     .select()
     .from(assets)
     .where(eq(assets.id, id))
     .limit(1);
-  if (!asset) {
+  // Only whoever reserved the upload may fill it in
+  if (!asset || asset.ownerId !== (viewer?.id ?? null)) {
     return text("Not found", 404);
   }
   if (asset.status === "ready") {

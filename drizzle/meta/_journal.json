@@ -50,6 +50,13 @@
       "when": 1793400266617,
       "tag": "0006_design_ownership",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793400880197,
+      "tag": "0007_per_owner_uploads",
+      "breakpoints": true
     }
   ]
 }

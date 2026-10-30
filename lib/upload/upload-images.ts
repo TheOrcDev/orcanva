@@ -47,13 +47,16 @@ const putToStorage = async (
   }
 };
 
-// Reserve (or dedupe) → PUT straight to the bucket → confirm. `source`
-// links a derived image (e.g. a cutout) to the asset it was made from.
+// Reserve (or dedupe) → PUT straight to the bucket → confirm. Uploads are
+// made from a design the person may edit. `source` links a derived image
+// (e.g. a cutout) to the asset it was made from.
 export const uploadImage = async (
   image: PreparedImage,
+  designId: string,
   source?: CreateUploadSource
 ): Promise<EditorAsset> => {
   const result = await createUpload({
+    designId,
     height: image.height,
     mimeType: image.mimeType,
     originalName: image.name,
@@ -81,7 +84,7 @@ const uploadAndPlace = async (
 ): Promise<UploadFailure | null> => {
   try {
     const prepared = await prepareImage(file);
-    const asset = await uploadImage(prepared);
+    const asset = await uploadImage(prepared, store.getState().designId);
     const state = store.getState();
     state.addAsset(asset);
 

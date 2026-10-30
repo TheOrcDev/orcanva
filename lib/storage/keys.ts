@@ -18,9 +18,12 @@ export const THUMBNAIL_PREFIX = "thumbnails/";
 export const assetKey = (assetId: string, mimeType: UploadMimeType): string =>
   `${ASSET_PREFIX}${assetId}.${UPLOAD_MIME_TYPES[mimeType]}`;
 
-// Versioned per save so every key is immutable and safely cacheable
-export const thumbnailKey = (designId: string, version: number): string =>
-  `${THUMBNAIL_PREFIX}${designId}/${version}.jpg`;
+// A new random key per save: immutable, so safely cacheable, and not
+// guessable from the design id (storage URLs are capabilities)
+export const thumbnailKey = (
+  designId: string,
+  version: string = crypto.randomUUID()
+): string => `${THUMBNAIL_PREFIX}${designId}/${version}.jpg`;
 
 const SAFE_KEY = /^[a-z0-9][a-z0-9/._-]*$/iu;
 

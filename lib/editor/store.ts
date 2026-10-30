@@ -112,7 +112,11 @@ export interface EditorState {
   zoom: number;
   zoomMode: "fit" | "manual";
   saveStatus: SaveStatus;
+  // Every asset the editor can draw: the viewer's library, what the design
+  // shows, and anything looked up since
   assets: EditorAsset[];
+  // The viewer's own uploads, newest first (the Uploads panel)
+  libraryIds: string[];
   // Assets images point at that the server doesn't have (drawn in red)
   missingAssetIds: string[];
   uploadsInFlight: number;
@@ -164,6 +168,7 @@ export interface EditorActions {
   setSaveStatus: (status: SaveStatus) => void;
   // The server no longer lets this person at the design (404)
   loseAccess: () => void;
+  // One of the viewer's own uploads (or cutouts): drawable and in the library
   addAsset: (asset: EditorAsset) => void;
   // Assets looked up after the editor opened (e.g. a collaborator's upload)
   addAssets: (assets: readonly EditorAsset[]) => void;
@@ -184,6 +189,7 @@ export interface EditorInit {
   // Sealed live queries; null when Realtime isn't configured
   live?: LiveConfig | null;
   assets: EditorAsset[];
+  libraryIds: string[];
   hasThumbnail: boolean;
   role: DesignRole;
   visibility: Visibility;
@@ -281,11 +287,19 @@ export const createEditorStore = (init: EditorInit) => {
   return createStore<EditorStore>()((set) => ({
     accessLost: false,
     addAsset: (asset) =>
-      set((state) =>
-        state.assets.some((item) => item.id === asset.id)
-          ? state
-          : { assets: [asset, ...state.assets] }
-      ),
+      set((state) => {
+        const known = state.assets.some((item) => item.id === asset.id);
+        const inLibrary = state.libraryIds.includes(asset.id);
+        if (known && inLibrary) {
+          return state;
+        }
+        return {
+          assets: known ? state.assets : [asset, ...state.assets],
+          libraryIds: inLibrary
+            ? state.libraryIds
+            : [asset.id, ...state.libraryIds],
+        };
+      }),
     addAssets: (assets) =>
       set((state) => {
         const known = new Set(state.assets.map((item) => item.id));
@@ -352,6 +366,7 @@ export const createEditorStore = (init: EditorInit) => {
     held: new Set(),
     history: createHistory(),
     hold: (ids) => set((state) => ({ held: new Set([...state.held, ...ids]) })),
+    libraryIds: init.libraryIds,
     liveStatus: init.live ? "connecting" : "off",
     loseAccess: () =>
       set((state) => (state.accessLost ? state : { accessLost: true })),

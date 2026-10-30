@@ -144,7 +144,7 @@ export const duplicateDesign = async (id: string): Promise<{ id: string }> => {
   ]);
 
   if (source.thumbnailKey) {
-    const key = thumbnailKey(copy.id, Date.now());
+    const key = thumbnailKey(copy.id);
     try {
       await copyObject(source.thumbnailKey, key);
       await db

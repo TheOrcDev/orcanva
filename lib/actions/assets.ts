@@ -3,6 +3,8 @@
 import { and, eq, or } from "drizzle-orm";
 import { z } from "zod";
 
+import { getDesignAccess } from "@/lib/auth/design-access";
+import { getViewer } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/client";
 import { toEditorAsset } from "@/lib/db/queries/assets";
 import { assetVariant, assets } from "@/lib/db/schema";
@@ -22,6 +24,8 @@ const mimeTypes = Object.keys(UPLOAD_MIME_TYPES) as [
 ];
 
 const createUploadInput = z.object({
+  // The design being edited: uploading needs permission to edit it
+  designId: z.uuid(),
   height: z.number().int().positive().max(16_384),
   mimeType: z.enum(mimeTypes),
   originalName: z.string().trim().min(1).max(200),
@@ -44,26 +48,32 @@ export type CreateUploadResult =
   | { status: "exists"; asset: EditorAsset }
   | { status: "upload"; assetId: string; uploadUrl: string };
 
-// An identical file, or the same derived image of the same source
-const findReusable = async ({
-  sha256,
-  source,
-}: CreateUploadInput): Promise<AssetRow | undefined> => {
-  if (!sha256 && !source) {
+// An identical file, or the same derived image of the same source, among
+// the account's own uploads. Hashes and cutouts come from the browser
+// unverified, so nobody else's upload ever stands in for yours; guests have
+// no library and never reuse anything.
+const findReusable = async (
+  ownerId: string | null,
+  { sha256, source }: CreateUploadInput
+): Promise<AssetRow | undefined> => {
+  if (!(ownerId && (sha256 || source))) {
     return;
   }
   const [row] = await getDb()
     .select()
     .from(assets)
     .where(
-      or(
-        sha256 ? eq(assets.sha256, sha256) : undefined,
-        source
-          ? and(
-              eq(assets.sourceAssetId, source.assetId),
-              eq(assets.variant, source.variant)
-            )
-          : undefined
+      and(
+        eq(assets.ownerId, ownerId),
+        or(
+          sha256 ? eq(assets.sha256, sha256) : undefined,
+          source
+            ? and(
+                eq(assets.sourceAssetId, source.assetId),
+                eq(assets.variant, source.variant)
+              )
+            : undefined
+        )
       )
     )
     .limit(1);
@@ -88,8 +98,13 @@ export const createUpload = async (
   input: z.input<typeof createUploadInput>
 ): Promise<CreateUploadResult> => {
   const data = createUploadInput.parse(input);
+  const { role, viewer } = await getDesignAccess(data.designId);
+  if (!role) {
+    throw new Error("Design not found");
+  }
+  const ownerId = viewer?.id ?? null;
 
-  const existing = await findReusable(data);
+  const existing = await findReusable(ownerId, data);
   if (existing) {
     return reuse(existing);
   }
@@ -104,6 +119,7 @@ export const createUpload = async (
       key,
       mimeType: data.mimeType,
       originalName: data.originalName,
+      ownerId,
       sha256: data.sha256,
       sizeBytes: data.size,
       sourceAssetId: data.source?.assetId,
@@ -114,7 +130,7 @@ export const createUpload = async (
     .onConflictDoNothing()
     .returning({ id: assets.id });
   if (!created) {
-    const winner = await findReusable(data);
+    const winner = await findReusable(ownerId, data);
     if (!winner) {
       throw new Error("Could not reserve the upload");
     }
@@ -131,13 +147,15 @@ export const createUpload = async (
 // enforce size) and mark the asset ready.
 export const confirmUpload = async (id: string): Promise<EditorAsset> => {
   const assetId = z.uuid().parse(id);
+  const viewer = await getViewer();
   const db = getDb();
   const [row] = await db
     .select()
     .from(assets)
     .where(eq(assets.id, assetId))
     .limit(1);
-  if (!row) {
+  // Only whoever reserved it (the id itself is the guest's proof)
+  if (!row || row.ownerId !== (viewer?.id ?? null)) {
     throw new Error("Upload not found");
   }
   if (row.status === "ready") {

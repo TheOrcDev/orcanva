@@ -2,7 +2,7 @@
 
 import { RiImageAddLine, RiUploadCloud2Line } from "@remixicon/react";
 import Image from "next/image";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 
 import { useEditor } from "@/components/editor/editor-store-context";
 import { PanelSection } from "@/components/editor/panels/panel-section";
@@ -24,7 +24,14 @@ import { UPLOAD_MIME_TYPES } from "@/lib/storage/keys";
 const ACCEPT = Object.keys(UPLOAD_MIME_TYPES).join(",");
 
 export const UploadsPanel = () => {
-  const assets = useEditor((state) => state.assets);
+  const allAssets = useEditor((state) => state.assets);
+  const libraryIds = useEditor((state) => state.libraryIds);
+  const signedIn = useEditor((state) => state.viewer !== null);
+  // Only the viewer's own uploads, not what others put in the design
+  const assets = useMemo(() => {
+    const byId = new Map(allAssets.map((asset) => [asset.id, asset]));
+    return libraryIds.flatMap((id) => byId.get(id) ?? []);
+  }, [allAssets, libraryIds]);
   const uploading = useEditor((state) => state.uploadsInFlight);
   const upload = useUpload();
   const insert = useInsertElement();
@@ -69,7 +76,9 @@ export const UploadsPanel = () => {
             </EmptyMedia>
             <EmptyTitle>No uploads yet</EmptyTitle>
             <EmptyDescription>
-              Images you upload are saved here for every design.
+              {signedIn
+                ? "Images you upload are saved here for every design."
+                : "Sign in to keep the images you upload for every design."}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
