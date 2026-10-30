@@ -1,6 +1,7 @@
 "use client";
 
-import type Konva from "konva";
+import Konva from "konva";
+import { useEffect, useRef } from "react";
 import { Group } from "react-konva";
 
 import { BoxShapeNode } from "@/components/editor/canvas/box-shape-node";
@@ -23,7 +24,14 @@ export interface ElementNodeProps {
   // A drag started / ended: remote updates to the element wait meanwhile
   onHold: (id: string) => void;
   onRelease: (id: string) => void;
+  // Reports the in-progress drag so others can watch it move
+  onDragPreview: (id: string, position: { x: number; y: number }) => void;
+  // Someone else is dragging this element right now
+  preview: { x: number; y: number } | null;
 }
+
+// Others' drag positions arrive about every 100 ms; gliding hides the steps
+const PREVIEW_GLIDE_SECONDS = 0.1;
 
 const ElementContent = ({ element }: { element: DesignElement }) => {
   switch (element.type) {
@@ -81,12 +89,44 @@ export const ElementNode = ({
   onEditText,
   onHold,
   onRelease,
+  onDragPreview,
+  preview,
 }: ElementNodeProps) => {
   const isText = element.type === "text";
+  const groupRef = useRef<Konva.Group>(null);
+  const previewX = preview?.x;
+  const previewY = preview?.y;
+  const { x: elementX, y: elementY } = element;
+
+  // Show someone else's drag as it happens, then settle on the committed
+  // position once their preview ends
+  useEffect(() => {
+    const group = groupRef.current;
+    if (!group || group.isDragging()) {
+      return;
+    }
+    if (previewX === undefined || previewY === undefined) {
+      group.position({ x: elementX, y: elementY });
+      return;
+    }
+    const tween = new Konva.Tween({
+      duration: PREVIEW_GLIDE_SECONDS,
+      easing: Konva.Easings.Linear,
+      node: group,
+      x: previewX,
+      y: previewY,
+    });
+    tween.play();
+    return () => tween.destroy();
+  }, [previewX, previewY, elementX, elementY]);
+
   const select = () => onSelect(element.id);
   const handleDragStart = () => {
     select();
     onHold(element.id);
+  };
+  const handleDragMove = (event: Konva.KonvaEventObject<DragEvent>) => {
+    onDragPreview(element.id, { x: event.target.x(), y: event.target.y() });
   };
   const handleDragEnd = (event: Konva.KonvaEventObject<DragEvent>) => {
     onMove(element.id, { x: event.target.x(), y: event.target.y() });
@@ -100,6 +140,7 @@ export const ElementNode = ({
 
   return (
     <Group
+      ref={groupRef}
       id={element.id}
       name={ELEMENT_NODE_NAME}
       x={element.x}
@@ -111,6 +152,7 @@ export const ElementNode = ({
       onMouseDown={select}
       onTap={select}
       onDragStart={handleDragStart}
+      onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
       onDblClick={editText}
       onDblTap={editText}

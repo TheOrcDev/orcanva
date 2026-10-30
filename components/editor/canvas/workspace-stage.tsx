@@ -9,6 +9,7 @@ import { usePageNodeRef } from "@/components/editor/canvas-context";
 import { BackgroundNode } from "@/components/editor/canvas/background-node";
 import { ElementNode } from "@/components/editor/canvas/element-node";
 import { LineHandles } from "@/components/editor/canvas/line-handles";
+import { RemoteSelections } from "@/components/editor/canvas/remote-selections";
 import { SelectionTransformer } from "@/components/editor/canvas/selection-transformer";
 import { TextEditOverlay } from "@/components/editor/canvas/text-edit-overlay";
 import { RemoteCursors } from "@/components/editor/collab/remote-cursors";
@@ -32,6 +33,7 @@ import { ASSET_DRAG_TYPE } from "@/lib/editor/drag-data";
 import { MAX_ZOOM, MIN_ZOOM, selectDocument } from "@/lib/editor/store";
 
 const PINCH_ZOOM_SPEED = 0.01;
+const DRAG_PREVIEW_LINGER_MS = 500;
 
 const isAcceptedDrag = (event: DragEvent<HTMLDivElement>) =>
   event.dataTransfer.types.includes("Files") ||
@@ -119,6 +121,8 @@ export const WorkspaceStage = () => {
   const zoom = useEditor((state) => state.zoom);
   const zoomMode = useEditor((state) => state.zoomMode);
   const selectedIds = useEditor((state) => state.selectedIds);
+  const peers = useEditor((state) => state.peers);
+  const held = useEditor((state) => state.held);
   const editingTextId = useEditor((state) => state.editingTextId);
 
   const { height: pageHeight, width: pageWidth } = document;
@@ -192,8 +196,27 @@ export const WorkspaceStage = () => {
     (id: string) => store.getState().hold([id]),
     [store]
   );
+  // A drag's last position keeps going out briefly after the drop, so others
+  // switch from the preview to the committed move without a jump back
+  const previewEndRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
+  useEffect(() => () => clearTimeout(previewEndRef.current), []);
+  const previewDrag = useCallback(
+    (id: string, position: { x: number; y: number }) => {
+      clearTimeout(previewEndRef.current);
+      store.getState().setDragPreview({ elementId: id, ...position });
+    },
+    [store]
+  );
   const releaseElement = useCallback(
-    (id: string) => store.getState().release([id]),
+    (id: string) => {
+      store.getState().release([id]);
+      clearTimeout(previewEndRef.current);
+      previewEndRef.current = setTimeout(() => {
+        store.getState().setDragPreview(null);
+      }, DRAG_PREVIEW_LINGER_MS);
+    },
     [store]
   );
   const holdTransformed = useCallback(
@@ -253,6 +276,15 @@ export const WorkspaceStage = () => {
     });
     store.getState().setZoom(nextZoom);
   };
+
+  // Elements someone else is dragging right now (not ones this window holds)
+  const previews = new Map(
+    peers.flatMap((peer) =>
+      peer.drag && !held.has(peer.drag.elementId)
+        ? [[peer.drag.elementId, peer.drag] as const]
+        : []
+    )
+  );
 
   const selected =
     selectedIds.length === 1
@@ -374,6 +406,8 @@ export const WorkspaceStage = () => {
                   onEditText={editText}
                   onHold={holdElement}
                   onRelease={releaseElement}
+                  onDragPreview={previewDrag}
+                  preview={previews.get(element.id) ?? null}
                 />
               ))}
             </Group>
@@ -384,6 +418,7 @@ export const WorkspaceStage = () => {
                 <LineHandles element={selectedLine} zoom={zoom} />
               </Group>
             ) : null}
+            <RemoteSelections />
             <SelectionTransformer
               element={transformTarget}
               onTransformStart={holdTransformed}
