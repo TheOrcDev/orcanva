@@ -1,38 +1,60 @@
+import { cutOutBackground } from "@/lib/background-removal/cut-out";
 import { findElement, updateElement } from "@/lib/editor/document-ops";
 import type { EditorAsset, EditorStoreApi } from "@/lib/editor/store";
 import { selectDocument } from "@/lib/editor/store";
+import { prepareImage } from "@/lib/upload/prepare-image";
+import { uploadImage } from "@/lib/upload/upload-images";
 
-const requestCutout = async (assetId: string): Promise<EditorAsset> => {
-  const response = await fetch(`/api/assets/${assetId}/remove-background`, {
-    method: "POST",
-  });
-  const body: unknown = await response.json().catch(() => null);
+const NAME_SUFFIX = " (no bg)";
+
+const fetchImage = async (asset: EditorAsset): Promise<Blob> => {
+  const response = await fetch(asset.url);
   if (!response.ok) {
-    const message =
-      body && typeof body === "object" && "error" in body
-        ? String(body.error)
-        : `Request failed with ${response.status}`;
-    throw new Error(message);
+    throw new Error(`Could not load the image (${response.status})`);
   }
-  return body as EditorAsset;
+  return response.blob();
+};
+
+// Runs the model in the browser, then stores the transparent PNG as a new
+// library asset linked to its source
+const createCutout = async (
+  source: EditorAsset,
+  onProgress?: (percent: number) => void
+): Promise<EditorAsset> => {
+  const cutout = await cutOutBackground(await fetchImage(source), onProgress);
+  const file = new File([cutout.png], `${source.name}${NAME_SUFFIX}.png`, {
+    type: "image/png",
+  });
+  return uploadImage(await prepareImage(file), {
+    assetId: source.id,
+    variant: "no-background",
+  });
 };
 
 // Swaps an image element to a background-removed copy of its picture (one
-// undo step). The cutout is a new library asset, so the original survives
-// and "Restore original" can switch back.
+// undo step). The cutout is a new library asset, so the original survives,
+// "Restore original" can switch back, and repeats reuse the stored cutout.
 export const removeImageBackground = async (
   store: EditorStoreApi,
-  elementId: string
+  elementId: string,
+  onProgress?: (percent: number) => void
 ): Promise<EditorAsset> => {
+  const { assets } = store.getState();
   const element = findElement(selectDocument(store.getState()), elementId);
   if (element?.type !== "image") {
     throw new Error("Select an image first");
   }
   const sourceAssetId = element.assetId;
+  const source = assets.find((asset) => asset.id === sourceAssetId);
+  if (!source) {
+    throw new Error("Image not found");
+  }
 
   store.getState().setBackgroundJob(elementId, true);
   try {
-    const cutout = await requestCutout(sourceAssetId);
+    const cutout =
+      assets.find((asset) => asset.sourceAssetId === sourceAssetId) ??
+      (await createCutout(source, onProgress));
     const state = store.getState();
     state.addAsset(cutout);
     // Only swap if the element still shows the image that was processed

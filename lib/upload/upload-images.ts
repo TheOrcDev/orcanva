@@ -1,4 +1,5 @@
 import { confirmUpload, createUpload } from "@/lib/actions/assets";
+import type { CreateUploadSource } from "@/lib/actions/assets";
 import { createImageElement } from "@/lib/document/factories";
 import type { Point } from "@/lib/document/geometry";
 import { insertElement } from "@/lib/editor/document-ops";
@@ -46,14 +47,19 @@ const putToStorage = async (
   }
 };
 
-// Reserve (or dedupe) → PUT straight to the bucket → confirm
-const uploadImage = async (image: PreparedImage): Promise<EditorAsset> => {
+// Reserve (or dedupe) → PUT straight to the bucket → confirm. `source`
+// links a derived image (e.g. a cutout) to the asset it was made from.
+export const uploadImage = async (
+  image: PreparedImage,
+  source?: CreateUploadSource
+): Promise<EditorAsset> => {
   const result = await createUpload({
     height: image.height,
     mimeType: image.mimeType,
     originalName: image.name,
     sha256: image.sha256,
     size: image.blob.size,
+    source,
     width: image.width,
   });
   if (result.status === "exists") {

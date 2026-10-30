@@ -47,24 +47,35 @@ export const BackgroundRemovalButton = ({
     );
   }
 
-  const run = () => {
-    toast
-      .promise(removeImageBackground(store, element.id), {
-        error: (error: unknown) => ({
-          description: error instanceof Error ? error.message : undefined,
-          title: "Couldn't remove the background",
-        }),
-        loading: {
-          description:
-            "Runs on this machine. The first time downloads a ~220 MB AI model.",
-          title: "Removing background…",
-        },
-        success: {
-          description: "Saved to your uploads as a transparent PNG.",
-          title: "Background removed",
-        },
-      })
-      .catch(() => null);
+  // Like toast.promise, but the loading toast also shows download progress
+  const run = async () => {
+    const toastId = toast.add({
+      description:
+        "Runs in your browser. The first time downloads a ~220 MB AI model.",
+      title: "Removing background…",
+      type: "loading",
+    });
+    const onProgress = (percent: number) =>
+      toast.update(toastId, {
+        description:
+          percent < 100
+            ? `Downloading the AI model… ${Math.floor(percent)}%`
+            : "Cutting out the subject…",
+      });
+    try {
+      await removeImageBackground(store, element.id, onProgress);
+      toast.update(toastId, {
+        description: "Saved to your uploads as a transparent PNG.",
+        title: "Background removed",
+        type: "success",
+      });
+    } catch (error) {
+      toast.update(toastId, {
+        description: error instanceof Error ? error.message : undefined,
+        title: "Couldn't remove the background",
+        type: "error",
+      });
+    }
   };
 
   return (
