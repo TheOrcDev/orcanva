@@ -1,19 +1,86 @@
-import { Button } from "@/components/ui/button";
+import { RiLayoutMasonryLine, RiPaletteLine } from "@remixicon/react";
+import { connection } from "next/server";
 
-const Page = () => (
-  <div className="flex min-h-svh p-6">
-    <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-      <div>
-        <h1 className="font-medium">Project ready!</h1>
-        <p>You may now add components and start building.</p>
-        <p>We&apos;ve already added the button component for you.</p>
-        <Button className="mt-2">Button</Button>
-      </div>
-      <div className="text-muted-foreground font-mono text-xs">
-        (Press <kbd>d</kbd> to toggle dark mode)
-      </div>
+import { DesignCard } from "@/components/gallery/design-card";
+import { NewDesignDialog } from "@/components/gallery/new-design-dialog";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { listDesigns } from "@/lib/db/queries/designs";
+import { formatRelativeTime, formatSize } from "@/lib/format";
+import { storageUrl } from "@/lib/storage/keys";
+
+const loadGallery = async () => {
+  // Always read fresh from Neon; this page must never be prerendered
+  await connection();
+  const designs = await listDesigns();
+  const now = new Date();
+  return designs.map((design) => ({
+    editedLabel: formatRelativeTime(design.updatedAt, now),
+    id: design.id,
+    name: design.name,
+    sizeLabel: formatSize(design.width, design.height),
+    thumbnailUrl: design.thumbnailKey ? storageUrl(design.thumbnailKey) : null,
+  }));
+};
+
+const GalleryPage = async () => {
+  const designs = await loadGallery();
+
+  return (
+    <div className="flex min-h-svh flex-col">
+      <header className="border-b">
+        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-6">
+          <div className="flex items-center gap-2">
+            <RiPaletteLine aria-hidden />
+            <span className="font-heading text-lg font-semibold">Orcanva</span>
+          </div>
+          <NewDesignDialog />
+        </div>
+      </header>
+
+      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-6 py-8">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-heading text-2xl font-semibold">Your designs</h1>
+          <p className="text-muted-foreground text-sm">
+            Open a design to keep editing, or duplicate one to use it as a
+            template.
+          </p>
+        </div>
+
+        {designs.length === 0 ? (
+          <Empty className="flex-1">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <RiLayoutMasonryLine />
+              </EmptyMedia>
+              <EmptyTitle>No designs yet</EmptyTitle>
+              <EmptyDescription>
+                Create your first thumbnail. Pick a size and start adding images
+                and text.
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <NewDesignDialog />
+            </EmptyContent>
+          </Empty>
+        ) : (
+          <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {designs.map((design) => (
+              <li key={design.id}>
+                <DesignCard {...design} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </main>
     </div>
-  </div>
-);
+  );
+};
 
-export default Page;
+export default GalleryPage;

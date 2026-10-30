@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { Geist_Mono, Instrument_Sans, Figtree } from "next/font/google";
 
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/toast";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 const figtreeHeading = Figtree({
@@ -18,6 +21,11 @@ const fontMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
 });
+
+export const metadata: Metadata = {
+  description: "Design thumbnails and social images",
+  title: { default: "Orcanva", template: "%s · Orcanva" },
+};
 
 const RootLayout = ({
   children,
@@ -36,7 +44,11 @@ const RootLayout = ({
     )}
   >
     <body>
-      <ThemeProvider>{children}</ThemeProvider>
+      <ThemeProvider>
+        <TooltipProvider>
+          <Toaster>{children}</Toaster>
+        </TooltipProvider>
+      </ThemeProvider>
     </body>
   </html>
 );

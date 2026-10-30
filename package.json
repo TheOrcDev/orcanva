@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "ultracite check",
     "format": "ultracite fix",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "check": "ultracite check",
     "fix": "ultracite fix",
     "prepare": "husky",
