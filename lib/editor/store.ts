@@ -32,6 +32,7 @@ export interface EditorState {
   zoomMode: "fit" | "manual";
   saveStatus: SaveStatus;
   assets: EditorAsset[];
+  uploadsInFlight: number;
 }
 
 export interface EditorActions {
@@ -51,6 +52,7 @@ export interface EditorActions {
   zoomToFit: () => void;
   setSaveStatus: (status: SaveStatus) => void;
   addAsset: (asset: EditorAsset) => void;
+  adjustUploads: (delta: number) => void;
 }
 
 export type EditorStore = EditorState & EditorActions;
@@ -84,6 +86,10 @@ export const createEditorStore = (init: EditorInit) =>
           ? state
           : { assets: [asset, ...state.assets] }
       ),
+    adjustUploads: (delta) =>
+      set((state) => ({
+        uploadsInFlight: Math.max(0, state.uploadsInFlight + delta),
+      })),
     assets: init.assets,
     begin: () => set((state) => ({ history: beginTransaction(state.history) })),
     change: (recipe) =>
@@ -132,6 +138,7 @@ export const createEditorStore = (init: EditorInit) =>
           selectedIds: keepExisting(state.selectedIds, history.present),
         };
       }),
+    uploadsInFlight: 0,
     zoom: 1,
     zoomMode: "fit",
     zoomToFit: () => set({ zoomMode: "fit" }),

@@ -2,6 +2,7 @@
 
 import type Konva from "konva";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { DragEvent } from "react";
 import { Group, Layer, Rect, Stage } from "react-konva";
 
 import { usePageNodeRef } from "@/components/editor/canvas-context";
@@ -12,14 +13,25 @@ import {
   useEditor,
   useEditorStoreApi,
 } from "@/components/editor/editor-store-context";
+import { useUpload } from "@/hooks/use-upload";
+import { createImageElement } from "@/lib/document/factories";
 import { fitZoom } from "@/lib/document/geometry";
 import type { DesignElement } from "@/lib/document/schema";
 import { bakeBoxTransform, bakeTextTransform } from "@/lib/editor/bake";
 import type { NodeTransform } from "@/lib/editor/bake";
-import { replaceElement, updateElement } from "@/lib/editor/document-ops";
+import {
+  insertElement,
+  replaceElement,
+  updateElement,
+} from "@/lib/editor/document-ops";
+import { ASSET_DRAG_TYPE } from "@/lib/editor/drag-data";
 import { MAX_ZOOM, MIN_ZOOM, selectDocument } from "@/lib/editor/store";
 
 const PINCH_ZOOM_SPEED = 0.01;
+
+const isAcceptedDrag = (event: DragEvent<HTMLDivElement>) =>
+  event.dataTransfer.types.includes("Files") ||
+  event.dataTransfer.types.includes(ASSET_DRAG_TYPE);
 
 const isLinear = (element: DesignElement) =>
   element.type === "line" || element.type === "arrow";
@@ -55,6 +67,8 @@ export const WorkspaceStage = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState({ height: 0, width: 0 });
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDropTarget, setIsDropTarget] = useState(false);
+  const upload = useUpload();
 
   const document = useEditor(selectDocument);
   const zoom = useEditor((state) => state.zoom);
@@ -179,11 +193,68 @@ export const WorkspaceStage = () => {
       ? selected
       : null;
 
+  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
+    if (!isAcceptedDrag(event)) {
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setIsDropTarget(true);
+  };
+
+  const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsDropTarget(false);
+    }
+  };
+
+  // Files from the desktop upload; library assets place directly. Both land
+  // where the pointer is, converted from screen to page coordinates.
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    if (!isAcceptedDrag(event)) {
+      return;
+    }
+    event.preventDefault();
+    setIsDropTarget(false);
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const at = {
+      x: (event.clientX - bounds.left - origin.x) / zoom,
+      y: (event.clientY - bounds.top - origin.y) / zoom,
+    };
+
+    const assetId = event.dataTransfer.getData(ASSET_DRAG_TYPE);
+    if (assetId) {
+      const state = store.getState();
+      const asset = state.assets.find((item) => item.id === assetId);
+      if (asset) {
+        const element = createImageElement(
+          asset,
+          { height: pageHeight, width: pageWidth },
+          at
+        );
+        state.change((doc) => insertElement(doc, element));
+        state.select([element.id]);
+      }
+      return;
+    }
+    upload([...event.dataTransfer.files], at).catch(() => null);
+  };
+
   return (
     <div
       ref={containerRef}
       className="bg-muted/60 relative min-h-0 min-w-0 flex-1 overflow-hidden"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
+      {isDropTarget ? (
+        <div className="border-primary bg-primary/5 pointer-events-none absolute inset-3 z-10 flex items-center justify-center rounded-3xl border-2 border-dashed">
+          <span className="bg-background rounded-full px-4 py-2 text-sm font-medium shadow-sm">
+            Drop to add to your design
+          </span>
+        </div>
+      ) : null}
       {viewport.width > 0 && viewport.height > 0 ? (
         <Stage
           width={viewport.width}

@@ -9,8 +9,10 @@ import { EditorStoreProvider } from "@/components/editor/editor-store-context";
 import { ExportPopover } from "@/components/editor/export-popover";
 import { PropertiesPanel } from "@/components/editor/panels/properties-panel";
 import { EditorToolbar } from "@/components/editor/toolbar";
+import { useAssetUrlSync } from "@/hooks/use-asset-url-sync";
 import { useAutosave } from "@/hooks/use-autosave";
 import { useEditorShortcuts } from "@/hooks/use-editor-shortcuts";
+import { usePasteImages } from "@/hooks/use-paste-images";
 import { useThumbnail } from "@/hooks/use-thumbnail";
 import { createEditorStore } from "@/lib/editor/store";
 import type { EditorInit } from "@/lib/editor/store";
@@ -19,6 +21,8 @@ const EditorShell = ({ hasThumbnail }: { hasThumbnail: boolean }) => {
   const flushSave = useAutosave();
   const flushThumbnail = useThumbnail(hasThumbnail);
   useEditorShortcuts();
+  usePasteImages();
+  useAssetUrlSync();
 
   const flush = useCallback(async () => {
     await Promise.all([flushSave(), flushThumbnail()]);

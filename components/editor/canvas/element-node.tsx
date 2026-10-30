@@ -4,6 +4,7 @@ import type Konva from "konva";
 import { Group } from "react-konva";
 
 import { BoxShapeNode } from "@/components/editor/canvas/box-shape-node";
+import { ImageNode } from "@/components/editor/canvas/image-node";
 import type { DesignElement } from "@/lib/document/schema";
 import { ELEMENT_NODE_NAME } from "@/lib/editor/node-names";
 
@@ -19,6 +20,9 @@ const ElementContent = ({ element }: { element: DesignElement }) => {
     case "rect":
     case "ellipse": {
       return <BoxShapeNode element={element} />;
+    }
+    case "image": {
+      return <ImageNode element={element} />;
     }
     default: {
       return null;

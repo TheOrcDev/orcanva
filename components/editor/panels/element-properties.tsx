@@ -14,6 +14,7 @@ import type { RemixiconComponentType } from "@remixicon/react";
 
 import { useEditorStoreApi } from "@/components/editor/editor-store-context";
 import { BoxShapeProperties } from "@/components/editor/panels/box-shape-properties";
+import { ImageProperties } from "@/components/editor/panels/image-properties";
 import { NumberInput } from "@/components/editor/panels/number-input";
 import { PanelSection } from "@/components/editor/panels/panel-section";
 import { TransactionSlider } from "@/components/editor/panels/transaction-slider";
@@ -168,6 +169,9 @@ const TypeProperties = ({ element }: { element: DesignElement }) => {
     case "rect":
     case "ellipse": {
       return <BoxShapeProperties element={element} />;
+    }
+    case "image": {
+      return <ImageProperties element={element} />;
     }
     default: {
       return null;

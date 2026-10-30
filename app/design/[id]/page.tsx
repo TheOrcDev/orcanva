@@ -3,17 +3,18 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import { EditorLoader } from "@/components/editor/editor-loader";
+import { listReadyAssets } from "@/lib/db/queries/assets";
 import { getDesign } from "@/lib/db/queries/designs";
 import { migrateDocument } from "@/lib/document/migrate";
 
 const loadDesign = async (id: string) => {
   await connection();
-  const row = await getDesign(id);
+  const [row, assets] = await Promise.all([getDesign(id), listReadyAssets()]);
   if (!row) {
     notFound();
   }
   return {
-    assets: [],
+    assets,
     designId: row.id,
     document: migrateDocument(row.document),
     hasThumbnail: row.thumbnailKey !== null,
