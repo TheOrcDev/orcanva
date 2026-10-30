@@ -30,7 +30,7 @@ export const createAutosaver = (
   send: SendSave,
   debounceMs = SAVE_DEBOUNCE_MS
 ): Autosaver => {
-  let lastSavedDocument = store.getState().history.present;
+  let lastSavedDocument = store.getState().doc.document;
   let lastSavedName = store.getState().name;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let inFlight: Promise<void> | null = null;
@@ -41,8 +41,7 @@ export const createAutosaver = (
   const isDirty = () => {
     const state = store.getState();
     return (
-      state.history.present !== lastSavedDocument ||
-      state.name !== lastSavedName
+      state.doc.document !== lastSavedDocument || state.name !== lastSavedName
     );
   };
 
@@ -50,7 +49,7 @@ export const createAutosaver = (
     const state = store.getState();
     return {
       designId: state.designId,
-      document: state.history.present,
+      document: state.doc.document,
       name: state.name,
     };
   };

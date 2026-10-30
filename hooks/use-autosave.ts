@@ -18,7 +18,7 @@ export const useAutosave = (): (() => Promise<void>) => {
 
     const unsubscribe = store.subscribe((state, previous) => {
       const changed =
-        state.history.present !== previous.history.present ||
+        state.doc.document !== previous.doc.document ||
         state.name !== previous.name;
       if (!changed || !saver.isDirty()) {
         return;

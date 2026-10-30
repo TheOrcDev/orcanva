@@ -1,95 +1,115 @@
 import { describe, expect, it } from "vitest";
 
+import { EMPTY_CHANGES } from "@/lib/collab/changeset";
+import type { ChangeSet, Entry } from "@/lib/collab/changeset";
+import { createBoxElement } from "@/lib/document/factories";
 import {
-  applyChange,
   beginTransaction,
   canRedo,
   cancelTransaction,
   canUndo,
   createHistory,
   endTransaction,
+  recordChange,
   redo,
   undo,
 } from "@/lib/editor/history";
 
-interface Doc {
-  x: number;
-}
+const PAGE = { height: 720, width: 1280 };
+const base = createBoxElement("rect", PAGE);
 
-const doc = (x: number): Doc => ({ x });
+const at = (x: number): Entry => ({
+  element: { ...base, x },
+  position: "a0",
+});
+
+// One element moving from x = from to x = to
+const move = (from: number, to: number): ChangeSet => ({
+  elements: new Map([[base.id, { after: at(to), before: at(from) }]]),
+  page: null,
+});
+
+const xs = (steps: ChangeSet[]) =>
+  steps.map((step) => {
+    const change = step.elements.get(base.id);
+    return [change?.before?.element.x, change?.after?.element.x];
+  });
 
 describe("history", () => {
   it("records each standalone change as one step", () => {
-    let history = createHistory(doc(0));
-    history = applyChange(history, doc(1));
-    history = applyChange(history, doc(2));
+    let history = createHistory();
+    history = recordChange(history, move(0, 1));
+    history = recordChange(history, move(1, 2));
+    expect(xs(history.past)).toEqual([
+      [0, 1],
+      [1, 2],
+    ]);
 
-    expect(history.past.map((entry) => entry.x)).toEqual([0, 1]);
-    expect(undo(history).present.x).toBe(1);
-    expect(undo(undo(history)).present.x).toBe(0);
+    const first = undo(history);
+    expect(xs([first.step ?? EMPTY_CHANGES])).toEqual([[1, 2]]);
+    expect(xs([undo(first.history).step ?? EMPTY_CHANGES])).toEqual([[0, 1]]);
   });
 
-  it("collapses a transaction into one step back to the pre-gesture state", () => {
-    let history = applyChange(createHistory(doc(0)), doc(10));
-    history = beginTransaction(history);
-    for (const x of [11, 12, 13, 14]) {
-      history = applyChange(history, doc(x));
+  it("collapses a transaction into one step from the pre-gesture state", () => {
+    let history = beginTransaction(createHistory());
+    for (const x of [1, 2, 3]) {
+      history = recordChange(history, move(x - 1, x));
     }
     history = endTransaction(history);
 
-    expect(history.present.x).toBe(14);
-    expect(history.past.map((entry) => entry.x)).toEqual([0, 10]);
-    expect(undo(history).present.x).toBe(10);
+    expect(xs(history.past)).toEqual([[0, 3]]);
+    expect(history.open).toBeNull();
   });
 
-  it("cancels a transaction back to the state when it began", () => {
-    let history = applyChange(createHistory(doc(0)), doc(1));
+  it("hands back a cancelled transaction instead of recording it", () => {
+    let history = recordChange(createHistory(), move(0, 1));
     history = beginTransaction(history);
-    history = applyChange(history, doc(2));
-    history = applyChange(history, doc(3));
-    history = cancelTransaction(history);
+    history = recordChange(history, move(1, 2));
+    history = recordChange(history, move(2, 3));
 
-    expect(history.present.x).toBe(1);
-    expect(history.pending).toBeNull();
-    expect(history.past.map((entry) => entry.x)).toEqual([0]);
+    const { history: after, reverted } = cancelTransaction(history);
+    expect(xs([reverted ?? EMPTY_CHANGES])).toEqual([[1, 3]]);
+    expect(after.open).toBeNull();
+    expect(xs(after.past)).toEqual([[0, 1]]);
   });
 
   it("drops a transaction that changed nothing", () => {
-    const start = createHistory(doc(0));
-    const history = endTransaction(beginTransaction(start));
+    const history = endTransaction(beginTransaction(createHistory()));
     expect(history.past).toHaveLength(0);
     expect(canUndo(history)).toBe(false);
   });
 
   it("closes an open transaction when undoing mid-gesture", () => {
-    let history = beginTransaction(createHistory(doc(0)));
-    history = applyChange(history, doc(5));
+    let history = beginTransaction(createHistory());
+    history = recordChange(history, move(0, 5));
     expect(canUndo(history)).toBe(true);
 
-    history = undo(history);
-    expect(history.present.x).toBe(0);
-    expect(history.pending).toBeNull();
-    expect(redo(history).present.x).toBe(5);
+    const undone = undo(history);
+    expect(xs([undone.step ?? EMPTY_CHANGES])).toEqual([[0, 5]]);
+    expect(undone.history.open).toBeNull();
+    expect(xs([redo(undone.history).step ?? EMPTY_CHANGES])).toEqual([[0, 5]]);
   });
 
   it("clears redo after a new change and caps history length", () => {
-    let history = createHistory(doc(0));
-    history = applyChange(history, doc(1));
-    history = undo(history);
+    let history = recordChange(createHistory(), move(0, 1));
+    ({ history } = undo(history));
     expect(canRedo(history)).toBe(true);
-
-    history = applyChange(history, doc(2));
+    history = recordChange(history, move(0, 2));
     expect(canRedo(history)).toBe(false);
 
-    let capped = createHistory(doc(0));
+    let capped = createHistory();
     for (let x = 1; x <= 10; x += 1) {
-      capped = applyChange(capped, doc(x), 3);
+      capped = recordChange(capped, move(x - 1, x), 3);
     }
-    expect(capped.past.map((entry) => entry.x)).toEqual([7, 8, 9]);
+    expect(xs(capped.past)).toEqual([
+      [7, 8],
+      [8, 9],
+      [9, 10],
+    ]);
   });
 
-  it("ignores identity changes", () => {
-    const history = createHistory(doc(0));
-    expect(applyChange(history, history.present)).toBe(history);
+  it("ignores empty change sets", () => {
+    const history = createHistory();
+    expect(recordChange(history, EMPTY_CHANGES)).toBe(history);
   });
 });

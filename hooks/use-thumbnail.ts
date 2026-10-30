@@ -27,7 +27,7 @@ export const useThumbnail = (hasThumbnail: boolean): (() => Promise<void>) => {
     thumbnailerRef.current = thumbnailer;
 
     const unsubscribe = store.subscribe((state, previous) => {
-      if (state.history.present !== previous.history.present) {
+      if (state.doc.document !== previous.doc.document) {
         thumbnailer.schedule();
       }
     });

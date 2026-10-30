@@ -1,110 +1,129 @@
-// Undo/redo over immutable snapshots. A transaction (begin → transient
-// changes → end) collapses a drag, slider scrub, or typing burst into a
-// single undo step whose "before" is the state when the transaction began.
+import {
+  EMPTY_CHANGES,
+  isEmptyChangeSet,
+  mergeChangeSets,
+} from "@/lib/collab/changeset";
+import type { ChangeSet } from "@/lib/collab/changeset";
 
-export interface History<T> {
-  past: T[];
-  present: T;
-  future: T[];
-  // Snapshot taken at begin(); null when no transaction is open
-  pending: T | null;
+// Undo/redo as change sets rather than document snapshots, so undoing
+// re-applies only your own edits on top of whatever others changed since.
+// A transaction (begin → transient changes → end) collapses a drag, slider
+// scrub, or typing burst into a single step.
+export interface History {
+  past: ChangeSet[];
+  future: ChangeSet[];
+  // Changes collected since begin(); null when no transaction is open
+  open: ChangeSet | null;
 }
 
 export const HISTORY_LIMIT = 100;
 
-export const createHistory = <T>(present: T): History<T> => ({
+export const createHistory = (): History => ({
   future: [],
+  open: null,
   past: [],
-  pending: null,
-  present,
 });
 
-const pushPast = <T>(past: T[], entry: T, limit: number): T[] => {
+const pushPast = (
+  past: ChangeSet[],
+  entry: ChangeSet,
+  limit: number
+): ChangeSet[] => {
   const next = [...past, entry];
   return next.length > limit ? next.slice(next.length - limit) : next;
 };
 
-export const isInTransaction = <T>(history: History<T>): boolean =>
-  history.pending !== null;
+export const isInTransaction = (history: History): boolean =>
+  history.open !== null;
 
-export const beginTransaction = <T>(history: History<T>): History<T> =>
-  history.pending === null ? { ...history, pending: history.present } : history;
+export const beginTransaction = (history: History): History =>
+  history.open === null ? { ...history, open: EMPTY_CHANGES } : history;
 
-export const endTransaction = <T>(
-  history: History<T>,
+export const endTransaction = (
+  history: History,
   limit = HISTORY_LIMIT
-): History<T> => {
-  if (history.pending === null) {
+): History => {
+  if (history.open === null) {
     return history;
   }
-  if (history.pending === history.present) {
-    return { ...history, pending: null };
+  if (isEmptyChangeSet(history.open)) {
+    return { ...history, open: null };
   }
   return {
     future: [],
-    past: pushPast(history.past, history.pending, limit),
-    pending: null,
-    present: history.present,
+    open: null,
+    past: pushPast(history.past, history.open, limit),
   };
 };
 
-// Abandons an open transaction, restoring the state from when it began
-export const cancelTransaction = <T>(history: History<T>): History<T> =>
-  history.pending === null
-    ? history
-    : { ...history, pending: null, present: history.pending };
-
-// Inside a transaction the change is transient; otherwise it is one step
-export const applyChange = <T>(
-  history: History<T>,
-  next: T,
+// Records a local edit: folded into the open transaction, otherwise one step
+export const recordChange = (
+  history: History,
+  changes: ChangeSet,
   limit = HISTORY_LIMIT
-): History<T> => {
-  if (next === history.present) {
+): History => {
+  if (isEmptyChangeSet(changes)) {
     return history;
   }
-  if (history.pending !== null) {
-    return { ...history, present: next };
+  if (history.open !== null) {
+    return { ...history, open: mergeChangeSets(history.open, changes) };
   }
   return {
     future: [],
-    past: pushPast(history.past, history.present, limit),
-    pending: null,
-    present: next,
+    open: null,
+    past: pushPast(history.past, changes, limit),
   };
 };
 
-export const canUndo = <T>(history: History<T>): boolean =>
+// Abandons the open transaction; the caller reverts what it changed
+export const cancelTransaction = (
+  history: History
+): { history: History; reverted: ChangeSet | null } => {
+  if (history.open === null) {
+    return { history, reverted: null };
+  }
+  return {
+    history: { ...history, open: null },
+    reverted: isEmptyChangeSet(history.open) ? null : history.open,
+  };
+};
+
+export const canUndo = (history: History): boolean =>
   history.past.length > 0 ||
-  (history.pending !== null && history.pending !== history.present);
+  (history.open !== null && !isEmptyChangeSet(history.open));
 
-export const canRedo = <T>(history: History<T>): boolean =>
-  history.future.length > 0;
+export const canRedo = (history: History): boolean => history.future.length > 0;
 
-export const undo = <T>(history: History<T>): History<T> => {
+// Steps back; `step` is the change set to revert (null when there is none)
+export const undo = (
+  history: History
+): { history: History; step: ChangeSet | null } => {
   const settled = endTransaction(history);
-  const previous = settled.past.at(-1);
-  if (previous === undefined) {
-    return settled;
+  const step = settled.past.at(-1);
+  if (step === undefined) {
+    return { history: settled, step: null };
   }
   return {
-    future: [settled.present, ...settled.future],
-    past: settled.past.slice(0, -1),
-    pending: null,
-    present: previous,
+    history: {
+      future: [step, ...settled.future],
+      open: null,
+      past: settled.past.slice(0, -1),
+    },
+    step,
   };
 };
 
-export const redo = <T>(history: History<T>): History<T> => {
+// Steps forward; `step` is the change set to re-apply
+export const redo = (
+  history: History
+): { history: History; step: ChangeSet | null } => {
   const settled = endTransaction(history);
-  const [next, ...rest] = settled.future;
-  if (next === undefined) {
-    return settled;
+  const [step, ...rest] = settled.future;
+  if (step === undefined) {
+    return { history: settled, step: null };
   }
   return {
-    future: rest,
-    past: [...settled.past, settled.present],
-    pending: null,
-    present: next,
+    history: { future: rest, open: null, past: [...settled.past, step] },
+    step,
   };
 };

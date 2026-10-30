@@ -1,12 +1,15 @@
 import { createStore } from "zustand/vanilla";
 
+import { applyWrites, diffDocument, writesFor } from "@/lib/collab/changeset";
+import type { EditorDocument } from "@/lib/collab/changeset";
+import { assignPositions } from "@/lib/collab/positions";
 import type { DesignDocument } from "@/lib/document/schema";
 import {
-  applyChange,
   beginTransaction,
   cancelTransaction,
   createHistory,
   endTransaction,
+  recordChange,
   redo,
   undo,
 } from "@/lib/editor/history";
@@ -27,7 +30,9 @@ export interface EditorAsset {
 export interface EditorState {
   designId: string;
   name: string;
-  history: History<DesignDocument>;
+  // The rendered document and each element's z-order key
+  doc: EditorDocument;
+  history: History;
   // Everything below is session UI state and never enters undo history
   selectedIds: string[];
   editingTextId: string | null;
@@ -72,6 +77,8 @@ export interface EditorInit {
   designId: string;
   name: string;
   document: DesignDocument;
+  // Stored z-order keys by element id; generated when missing
+  positions?: Record<string, string>;
   assets: EditorAsset[];
   hasThumbnail: boolean;
 }
@@ -87,6 +94,15 @@ const keepExisting = (ids: string[], document: DesignDocument): string[] => {
   const existing = new Set(document.elements.map((element) => element.id));
   const kept = ids.filter((id) => existing.has(id));
   return kept.length === ids.length ? ids : kept;
+};
+
+const initialDocument = (init: EditorInit): EditorDocument => {
+  const ids = init.document.elements.map((element) => element.id);
+  const stored = new Map(Object.entries(init.positions ?? {}));
+  return {
+    document: init.document,
+    positions: assignPositions(stored, ids),
+  };
 };
 
 export const createEditorStore = (init: EditorInit) =>
@@ -106,12 +122,14 @@ export const createEditorStore = (init: EditorInit) =>
     begin: () => set((state) => ({ history: beginTransaction(state.history) })),
     change: (recipe) =>
       set((state) => {
-        const next = recipe(state.history.present);
-        if (next === state.history.present) {
+        const next = recipe(state.doc.document);
+        if (next === state.doc.document) {
           return state;
         }
+        const { changes, editor } = diffDocument(state.doc, next);
         return {
-          history: applyChange(state.history, next),
+          doc: editor,
+          history: recordChange(state.history, changes),
           selectedIds: keepExisting(state.selectedIds, next),
         };
       }),
@@ -120,28 +138,37 @@ export const createEditorStore = (init: EditorInit) =>
         state.selectedIds.length === 0 ? state : { selectedIds: [] }
       ),
     designId: init.designId,
+    doc: initialDocument(init),
     editingTextId: null,
     end: () => set((state) => ({ history: endTransaction(state.history) })),
     fileDragActive: false,
-    history: createHistory(init.document),
+    history: createHistory(),
     name: init.name,
     redo: () =>
       set((state) => {
-        const history = redo(state.history);
+        const { history, step } = redo(state.history);
+        const doc = step
+          ? applyWrites(state.doc, writesFor(step, "redo", state.doc))
+          : state.doc;
         return {
+          doc,
           editingTextId: null,
           fileDragActive: false,
           history,
-          selectedIds: keepExisting(state.selectedIds, history.present),
+          selectedIds: keepExisting(state.selectedIds, doc.document),
         };
       }),
     rename: (name) => set({ name }),
     rollback: () =>
       set((state) => {
-        const history = cancelTransaction(state.history);
+        const { history, reverted } = cancelTransaction(state.history);
+        const doc = reverted
+          ? applyWrites(state.doc, writesFor(reverted, "undo", state.doc))
+          : state.doc;
         return {
+          doc,
           history,
-          selectedIds: keepExisting(state.selectedIds, history.present),
+          selectedIds: keepExisting(state.selectedIds, doc.document),
         };
       }),
     saveStatus: "saved",
@@ -169,12 +196,16 @@ export const createEditorStore = (init: EditorInit) =>
     setZoom: (zoom) => set({ zoom: clampZoom(zoom), zoomMode: "manual" }),
     undo: () =>
       set((state) => {
-        const history = undo(state.history);
+        const { history, step } = undo(state.history);
+        const doc = step
+          ? applyWrites(state.doc, writesFor(step, "undo", state.doc))
+          : state.doc;
         return {
+          doc,
           editingTextId: null,
           fileDragActive: false,
           history,
-          selectedIds: keepExisting(state.selectedIds, history.present),
+          selectedIds: keepExisting(state.selectedIds, doc.document),
         };
       }),
     uploadsInFlight: 0,
@@ -186,4 +217,4 @@ export const createEditorStore = (init: EditorInit) =>
 export type EditorStoreApi = ReturnType<typeof createEditorStore>;
 
 export const selectDocument = (state: EditorStore): DesignDocument =>
-  state.history.present;
+  state.doc.document;

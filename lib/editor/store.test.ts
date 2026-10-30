@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createBoxElement, createDocument } from "@/lib/document/factories";
 import {
   insertElement,
+  moveElementTo,
   removeElements,
   updateElement,
 } from "@/lib/editor/document-ops";
@@ -50,6 +51,34 @@ describe("editor store", () => {
     store.getState().select([rect.id]);
     store.getState().change((doc) => removeElements(doc, [rect.id]));
     expect(store.getState().selectedIds).toEqual([]);
+  });
+
+  it("restores a deleted element at its old place in the stack", () => {
+    const { rect, store } = setup();
+    const top = createBoxElement("ellipse", PAGE);
+    store.getState().change((doc) => insertElement(doc, top));
+    store.getState().change((doc) => removeElements(doc, [rect.id]));
+
+    store.getState().undo();
+    const ids = selectDocument(store.getState()).elements.map(
+      (element) => element.id
+    );
+    expect(ids).toEqual([rect.id, top.id]);
+  });
+
+  it("undoes a reorder", () => {
+    const { rect, store } = setup();
+    const top = createBoxElement("ellipse", PAGE);
+    store.getState().change((doc) => insertElement(doc, top));
+    store.getState().change((doc) => moveElementTo(doc, rect.id, 1));
+    const order = () =>
+      selectDocument(store.getState()).elements.map((element) => element.id);
+    expect(order()).toEqual([top.id, rect.id]);
+
+    store.getState().undo();
+    expect(order()).toEqual([rect.id, top.id]);
+    store.getState().redo();
+    expect(order()).toEqual([top.id, rect.id]);
   });
 
   it("clamps zoom and switches to manual mode", () => {
