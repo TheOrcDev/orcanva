@@ -8,6 +8,7 @@ A personal, Canva-style editor for YouTube thumbnails and social images.
 - Text with 40 curated Google Fonts, inline editing, outline, drop shadow, and highlight effects
 - Shapes, lines, arrows, solid or gradient backgrounds, and a drag-to-reorder layers panel
 - Undo/redo, autosave, and download as PNG, JPG, or WebP at exact pixel size (1× or 2×)
+- **Live collaboration**: open a design in several windows (or on several machines) and see everyone's cursors, selections, and edits as they happen
 - A gallery of every design with previews; **Use as template** copies one so you can change the content
 
 Built with Next.js 16, React 19, Konva, Tailwind v4, shadcn/ui (Base UI), Drizzle, and Neon (Postgres + Object Storage). There is no authentication yet: don't deploy it publicly without protecting it.
@@ -58,6 +59,8 @@ npx neon@latest env pull --project-id <project> --service realtime --file .env.l
 
 Without them the editor still works and saves, just without live updates.
 
+Allowed origins are left at the default (any origin): the app has no accounts yet, so the real gate is the sealed query, a short-lived token for one design's rows that only this server can mint.
+
 ### Run
 
 ```bash
@@ -97,7 +100,11 @@ Uses [BEN2](https://huggingface.co/onnx-community/BEN2-ONNX), whose weights are 
 ## How it fits together
 
 - `lib/document/` is the versioned, zod-validated design document (elements, background, size) with migrations and factories.
-- `lib/editor/` holds the per-editor zustand store, transactional undo history (a drag, slider scrub, or text edit is one step), autosave, and transform baking.
+- `lib/editor/` holds the per-editor zustand store, transactional undo history (a drag, slider scrub, or text edit is one step), and transform baking.
 - `components/editor/canvas/` is the Konva workspace. Exports render an offscreen clone of the page at exact size after fonts and images load (`lib/export/`).
-- Designs autosave to `PUT /api/designs/[id]`. Gallery thumbnails upload to `PUT /api/designs/[id]/thumbnail`.
+- Each element is its own row in `design_elements` with a fractional-index `position` for z-order, so people editing different elements never overwrite each other (`lib/collab/positions.ts`). Edits become per-element change sets (`lib/collab/changeset.ts`); undo replays your own change sets on top of the current document, so it never reverts someone else's work.
+- The outbox (`lib/collab/outbox.ts`) sends writes about every 100 ms to `POST /api/designs/[id]/changes`, which applies a batch in one statement and returns its transaction id. Creates upsert, updates only touch rows that still exist (a delete wins over a concurrent edit), and the last write to an element wins.
+- Live updates come from three [Neon Realtime](https://neon.com/docs/realtime/overview) live queries per design (page row, element rows, presence rows), sealed on the server (`lib/realtime/server.ts`) and renewed through `POST /api/designs/[id]/live`. The editor shows the server's rows with its own unconfirmed writes on top (`lib/collab/sync-state.ts`) and keeps each write there until its transaction comes back on the live query, so a lagging result after a reconnect can't hide your own edits. If the connection drops for good, a watchdog starts a fresh session.
+- Cursors, selections, and in-progress drags are rows in `design_presence`, written about 10 times a second while you move (`PUT /api/designs/[id]/presence`, with a heartbeat every 5 s) and read by the presence live query. Positions are in page coordinates, so they line up at any zoom.
+- Gallery thumbnails upload to `PUT /api/designs/[id]/thumbnail`, rendered by whichever window made the change.
 - Uploads are deduplicated by SHA-256 and form one library shared by every design.
