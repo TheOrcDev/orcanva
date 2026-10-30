@@ -28,7 +28,7 @@ const elementsQuery = (designId: string) =>
 
 const presenceQuery = (designId: string) =>
   rawSql<LivePresenceRow>(
-    "SELECT client_id, name, color, x, y, selection, drag, seen_at FROM design_presence WHERE design_id = $1",
+    "SELECT client_id, name, color, image, x, y, selection, drag, seen_at FROM design_presence WHERE design_id = $1",
     [designId]
   );
 

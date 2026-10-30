@@ -5,6 +5,8 @@ export interface LivePresenceRow {
   client_id: string;
   name: string;
   color: string;
+  // Avatar URL of a signed-in person (set by the server); null for guests
+  image: string | null;
   x: number | null;
   y: number | null;
   selection: unknown;
@@ -35,6 +37,7 @@ export interface Peer {
   clientId: string;
   name: string;
   color: string;
+  image: string | null;
   cursor: { x: number; y: number } | null;
   selection: string[];
   drag: DragPreview | null;
@@ -54,6 +57,10 @@ export const dragPreviewSchema = z.object({
 });
 
 const selectionSchema = z.array(z.string().min(1).max(64)).max(500);
+
+// Only https avatars (they come from the auth provider via the server)
+const avatarUrl = (image: unknown): string | null =>
+  typeof image === "string" && image.startsWith("https://") ? image : null;
 
 const comparePeers = (a: Peer, b: Peer) =>
   a.name.localeCompare(b.name) || a.clientId.localeCompare(b.clientId);
@@ -80,6 +87,7 @@ export const peersFromRows = (
         cursor:
           row.x === null || row.y === null ? null : { x: row.x, y: row.y },
         drag: drag.success ? drag.data : null,
+        image: avatarUrl(row.image),
         name: row.name,
         selection: selection.success ? selection.data : [],
       };

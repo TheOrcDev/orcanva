@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useId, useState } from "react";
 import type { KeyboardEvent } from "react";
 
@@ -18,46 +19,99 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { toast } from "@/components/ui/toast";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { authClient, authErrorMessage } from "@/lib/auth/client";
+import type { Profile } from "@/lib/collab/identity";
 import {
   MAX_PROFILE_NAME,
   PROFILE_COLORS,
   initials,
   isLightColor,
 } from "@/lib/collab/identity";
+import type { EditorStoreApi } from "@/lib/editor/store";
 import { cn } from "@/lib/utils";
 
 const MAX_SHOWN = 4;
 
-const Initials = ({ name, color }: { name: string; color: string }) => (
+// An account picture when the person has one, otherwise their initials
+const Initials = ({
+  name,
+  color,
+  image,
+}: {
+  name: string;
+  color: string;
+  image: string | null;
+}) => (
   <span
     aria-hidden
     className={cn(
-      "ring-background flex size-7 items-center justify-center rounded-full bg-(--peer-color) text-xs font-semibold ring-2",
+      "ring-background relative flex size-7 items-center justify-center overflow-hidden rounded-full bg-(--peer-color) text-xs font-semibold ring-2",
       isLightColor(color) ? "text-black" : "text-white"
     )}
     style={{ "--peer-color": color }}
   >
-    {initials(name)}
+    {image ? (
+      <Image
+        src={image}
+        alt=""
+        fill
+        unoptimized
+        sizes="28px"
+        referrerPolicy="no-referrer"
+        className="object-cover"
+      />
+    ) : (
+      initials(name)
+    )}
   </span>
 );
+
+// Changes the account's name; on failure puts the old one back and says so
+const renameAccount = async (
+  store: EditorStoreApi,
+  name: string,
+  previous: Profile
+) => {
+  try {
+    const { error } = await authClient.updateUser({ name });
+    if (error) {
+      throw error;
+    }
+  } catch (error) {
+    store.getState().setProfile(previous);
+    toast.add({
+      description: authErrorMessage(error, "Try again in a moment."),
+      title: "Couldn't change your name",
+      type: "error",
+    });
+  }
+};
 
 // Your own avatar: change the name and color others see
 const ProfileEditor = () => {
   const store = useEditorStoreApi();
   const profile = useEditor((state) => state.profile);
+  const viewer = useEditor((state) => state.viewer);
   const [draft, setDraft] = useState<string | null>(null);
   const id = useId();
 
   const commit = () => {
     const name = draft?.trim().slice(0, MAX_PROFILE_NAME);
     setDraft(null);
-    if (name && name !== profile.name) {
-      store.getState().setProfile({ ...profile, name });
+    if (!name || name === profile.name) {
+      return;
+    }
+    const previous = profile;
+    store.getState().setProfile({ ...profile, name });
+    // Signed in, the name is the account's: change it everywhere
+    if (viewer) {
+      renameAccount(store, name, previous).catch(() => null);
     }
   };
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -77,13 +131,19 @@ const ProfileEditor = () => {
           />
         }
       >
-        <Initials name={profile.name} color={profile.color} />
+        <Initials
+          name={profile.name}
+          color={profile.color}
+          image={viewer?.image ?? null}
+        />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72">
         <PopoverHeader>
           <PopoverTitle>How others see you</PopoverTitle>
           <PopoverDescription>
-            Your cursor and avatar on this design.
+            {viewer
+              ? "Your cursor and avatar on shared designs. The name is your account's."
+              : "Your cursor and avatar on this design."}
           </PopoverDescription>
         </PopoverHeader>
         <FieldGroup>
@@ -140,7 +200,11 @@ export const PresenceAvatars = () => {
         {shown.map((peer) => (
           <Tooltip key={peer.clientId}>
             <TooltipTrigger render={<span />}>
-              <Initials name={peer.name} color={peer.color} />
+              <Initials
+                name={peer.name}
+                color={peer.color}
+                image={peer.image}
+              />
             </TooltipTrigger>
             <TooltipContent>{peer.name} is here</TooltipContent>
           </Tooltip>

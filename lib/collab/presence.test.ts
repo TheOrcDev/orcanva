@@ -19,6 +19,7 @@ const row = (overrides: Partial<LivePresenceRow>): LivePresenceRow => ({
   client_id: "peer",
   color: "#e5484d",
   drag: null,
+  image: null,
   name: "Grom",
   seen_at: new Date(NOW - 1000),
   selection: [],
@@ -45,6 +46,21 @@ describe("peersFromRows", () => {
     expect(peers.map((peer) => peer.name)).toEqual(["Durotan", "Thrall"]);
     expect(peers[0]?.cursor).toBeNull();
     expect(peers[1]?.cursor).toEqual({ x: 10, y: 20 });
+  });
+
+  it("keeps https avatars only", () => {
+    const peers = peersFromRows(
+      [
+        row({ client_id: "a", image: "https://lh3.example.com/a.png" }),
+        row({ client_id: "b", image: "http://insecure.example/b.png" }),
+      ],
+      "me",
+      NOW
+    );
+    expect(peers.map((peer) => peer.image)).toEqual([
+      "https://lh3.example.com/a.png",
+      null,
+    ]);
   });
 
   it("ignores malformed selection and drag data", () => {

@@ -28,6 +28,9 @@ const json = (body: unknown, status = 200) => Response.json(body, { status });
 // Both writes go through the `design` CTE, which only finds the design when
 // the viewer may edit it. Client ids are visible to everyone on the design,
 // so a row only ever updates for the same account (or guest) that made it.
+// The account and avatar come from the session; the name stays the one the
+// person picked (it starts as their account name), since guests can type
+// any name anyway.
 export const PUT = async (
   request: Request,
   context: RouteContext<"/api/designs/[id]/presence">
@@ -71,12 +74,14 @@ export const PUT = async (
     ),
     written AS (
       INSERT INTO design_presence
-        (design_id, client_id, user_id, name, color, x, y, selection, drag, seen_at)
-      SELECT design.id, ${clientId}::uuid, ${viewerId}::uuid, ${name}, ${color},
+        (design_id, client_id, user_id, image, name, color, x, y, selection, drag, seen_at)
+      SELECT design.id, ${clientId}::uuid, ${viewerId}::uuid, ${viewer?.image ?? null},
+        ${name}, ${color},
         ${x}::real, ${y}::real, ${JSON.stringify(selection)}::jsonb,
         ${drag ? JSON.stringify(drag) : null}::jsonb, now()
       FROM design
       ON CONFLICT (design_id, client_id) DO UPDATE SET
+        image = excluded.image,
         name = excluded.name,
         color = excluded.color,
         x = excluded.x,

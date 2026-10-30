@@ -9,7 +9,11 @@ import {
 } from "@/lib/collab/changeset";
 import type { EditorDocument, Writes } from "@/lib/collab/changeset";
 import { isDeepEqual } from "@/lib/collab/equal";
-import { loadProfile, saveProfile } from "@/lib/collab/identity";
+import {
+  MAX_PROFILE_NAME,
+  loadProfile,
+  saveProfile,
+} from "@/lib/collab/identity";
 import type { Profile } from "@/lib/collab/identity";
 import { entriesFromRows, pageFromRow } from "@/lib/collab/live-rows";
 import type { SaveStatus } from "@/lib/collab/outbox";
@@ -238,6 +242,14 @@ const nextPeers = (state: EditorState, rows: readonly LivePresenceRow[]) => {
 const browserStorage = (): Storage | undefined =>
   typeof window === "undefined" ? undefined : window.localStorage;
 
+// Signed in: the account's name in this browser's color. Guests: the
+// random orc name this browser keeps.
+const initialProfile = (viewer: EditorViewer | null): Profile => {
+  const stored = loadProfile(browserStorage());
+  const name = viewer?.name.trim().slice(0, MAX_PROFILE_NAME);
+  return name ? { ...stored, name } : stored;
+};
+
 // Queues a local edit's writes for the outbox
 const queueWrites = (
   state: EditorState,
@@ -400,7 +412,7 @@ export const createEditorStore = (init: EditorInit) => {
     pending: EMPTY_PENDING,
     pointer: null,
     presenceRows: [],
-    profile: loadProfile(browserStorage()),
+    profile: initialProfile(init.viewer),
     reconnectLive: null,
     redo: () =>
       set((state) => {
@@ -489,7 +501,12 @@ export const createEditorStore = (init: EditorInit) => {
         return same ? state : { pointer: point };
       }),
     setProfile: (profile) => {
-      saveProfile(browserStorage(), profile);
+      // A signed-in name belongs to the account; this browser keeps the
+      // color, and the guest name for when nobody is signed in
+      const stored = init.viewer
+        ? { ...loadProfile(browserStorage()), color: profile.color }
+        : profile;
+      saveProfile(browserStorage(), stored);
       set({ profile });
     },
     setReconnectLive: (reconnect) => set({ reconnectLive: reconnect }),
