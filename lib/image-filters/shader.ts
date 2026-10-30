@@ -12,9 +12,11 @@ void main() {
 }
 `;
 
-// Works on straight (not premultiplied) colour and leaves alpha alone, so
-// cut-outs keep their transparency. Every step is skipped at its neutral
-// value by the maths itself; the order follows a photo editor's pipeline.
+// Textures hold premultiplied colour, so filtering and mip levels never mix
+// in the colour of transparent pixels; each read turns it back into
+// straight colour. Alpha passes through untouched, so cut-outs keep their
+// transparency. Every step is neutral at its default value by the maths
+// itself; the order follows a photo editor's pipeline.
 export const ADJUST_SHADER = `#version 300 es
 precision highp float;
 
@@ -47,16 +49,22 @@ float hash(vec2 p) {
   return fract((p3.x + p3.y) * p3.z);
 }
 
+vec4 read(vec2 uv) {
+  vec4 color = texture(u_image, uv);
+  color.rgb = color.a > 0.0 ? color.rgb / color.a : vec3(0.0);
+  return color;
+}
+
 void main() {
-  vec4 source = texture(u_image, v_uv);
+  vec4 source = read(v_uv);
   vec3 c = source.rgb;
 
   // Unsharp mask against the four neighbours
   vec3 neighbours = (
-    texture(u_image, v_uv + vec2(u_texel.x, 0.0)).rgb +
-    texture(u_image, v_uv - vec2(u_texel.x, 0.0)).rgb +
-    texture(u_image, v_uv + vec2(0.0, u_texel.y)).rgb +
-    texture(u_image, v_uv - vec2(0.0, u_texel.y)).rgb
+    read(v_uv + vec2(u_texel.x, 0.0)).rgb +
+    read(v_uv - vec2(u_texel.x, 0.0)).rgb +
+    read(v_uv + vec2(0.0, u_texel.y)).rgb +
+    read(v_uv - vec2(0.0, u_texel.y)).rgb
   ) * 0.25;
   c = clamp(c + (c - neighbours) * u_sharpen, 0.0, 1.0);
 
@@ -91,5 +99,40 @@ void main() {
   c += (hash(gl_FragCoord.xy) - 0.5) * u_grain;
 
   outColor = vec4(clamp(c, 0.0, 1.0), source.a);
+}
+`;
+
+// One direction of a Gaussian blur, run horizontally then vertically at a
+// reduced size: the first pass reads the photo's prefiltered mip level, so
+// a wide blur needs only a few taps. Colour stays premultiplied throughout.
+export const BLUR_SHADER = `#version 300 es
+precision highp float;
+
+in vec2 v_uv;
+out vec4 outColor;
+
+uniform sampler2D u_image;
+// One reduced-size pixel along this pass's direction, in texture units
+uniform vec2 u_step;
+// Standard deviation in reduced-size pixels
+uniform float u_sigma;
+// Mip level to read: log2 of the downscale on the first pass, 0 after
+uniform float u_lod;
+
+const int MAX_RADIUS = 12;
+
+void main() {
+  int radius = int(min(float(MAX_RADIUS), ceil(u_sigma * 3.0)));
+  vec4 sum = vec4(0.0);
+  float total = 0.0;
+  for (int i = -MAX_RADIUS; i <= MAX_RADIUS; i++) {
+    if (i < -radius || i > radius) {
+      continue;
+    }
+    float weight = exp(-float(i * i) / (2.0 * u_sigma * u_sigma));
+    sum += textureLod(u_image, v_uv + u_step * float(i), u_lod) * weight;
+    total += weight;
+  }
+  outColor = sum / total;
 }
 `;

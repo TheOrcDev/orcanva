@@ -19,9 +19,6 @@ import {
   withoutAdjustments,
 } from "@/lib/image-filters/edit";
 
-// Not drawn yet: blur needs its own render passes
-const SHOWN = ADJUSTMENT_ORDER.filter((key) => key !== "blur");
-
 const signed = (value: number) => {
   if (value > 0) {
     return `+${value}`;
@@ -51,7 +48,7 @@ export const ImageAdjustments = ({ element }: { element: ImageElement }) => {
         </Button>
       }
     >
-      {SHOWN.map((key) => {
+      {ADJUSTMENT_ORDER.map((key) => {
         const { label, min } = ADJUSTMENTS[key];
         return (
           <TransactionSlider
