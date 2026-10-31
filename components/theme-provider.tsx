@@ -1,7 +1,10 @@
 "use client";
 
 import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes";
+import { usePathname } from "next/navigation";
 import * as React from "react";
+
+import { isMarketingPath } from "@/lib/routes";
 
 const isTypingTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) {
@@ -22,11 +25,16 @@ const isInTypeahead = (target: EventTarget | null) =>
   target.closest('[role="menu"], [role="listbox"]') !== null;
 
 // Plain "d" toggles light/dark everywhere, including the editor (its own
-// shortcuts never use a bare "d"; duplicate is ⌘D)
+// shortcuts never use a bare "d"; duplicate is ⌘D). A forced theme can't be
+// toggled, so it does nothing there instead of changing the saved theme.
 const ThemeHotkey = () => {
-  const { resolvedTheme, setTheme } = useTheme();
+  const { forcedTheme, resolvedTheme, setTheme } = useTheme();
 
   React.useEffect(() => {
+    if (forcedTheme) {
+      return;
+    }
+
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.repeat) {
         return;
@@ -52,25 +60,32 @@ const ThemeHotkey = () => {
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [resolvedTheme, setTheme]);
+  }, [forcedTheme, resolvedTheme, setTheme]);
 
   return null;
 };
 
+// Marketing pages are designed light-only. (Turning on cacheComponents would
+// make usePathname here need a Suspense boundary.)
 const ThemeProvider = ({
   children,
   ...props
-}: React.ComponentProps<typeof NextThemesProvider>) => (
-  <NextThemesProvider
-    attribute="class"
-    defaultTheme="system"
-    enableSystem
-    disableTransitionOnChange
-    {...props}
-  >
-    <ThemeHotkey />
-    {children}
-  </NextThemesProvider>
-);
+}: React.ComponentProps<typeof NextThemesProvider>) => {
+  const pathname = usePathname();
+
+  return (
+    <NextThemesProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+      forcedTheme={isMarketingPath(pathname) ? "light" : undefined}
+      {...props}
+    >
+      <ThemeHotkey />
+      {children}
+    </NextThemesProvider>
+  );
+};
 
 export { ThemeProvider };

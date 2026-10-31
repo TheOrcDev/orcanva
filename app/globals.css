@@ -77,9 +77,43 @@
   --sidebar-ring: oklch(0.58 0.031 107.3);
 }
 
+/* Landing page palette and type scale. Light only, so outside :root/.dark,
+   and nothing here touches the spacing or radius scales the app relies on */
+@theme {
+  --color-ink: #1b0624;
+  --color-espresso: #160f0c;
+  --color-ash: #766a7c;
+  --color-graphite: #444444;
+  --color-pebble: #898683;
+  --color-linen: #f7f7f5;
+  --color-bone: #edece7;
+  --color-fog: #eeeeee;
+
+  --text-display-lg: 5rem;
+  --text-display-lg--line-height: 1;
+  --text-display-lg--letter-spacing: -0.06em;
+  --text-display: 4.5rem;
+  --text-display--line-height: 1;
+  --text-display--letter-spacing: -0.06em;
+  --text-heading-lg: 2.75rem;
+  --text-heading-lg--line-height: 1.1;
+  --text-heading-lg--letter-spacing: -0.05em;
+  --text-heading: 2rem;
+  --text-heading--line-height: 1.2;
+  --text-heading--letter-spacing: -0.03em;
+  --text-subheading: 1.5rem;
+  --text-subheading--line-height: 1.3;
+  --text-subheading--letter-spacing: -0.02em;
+  --text-body-lg: 1.25rem;
+  --text-body-lg--line-height: 1.4;
+  --text-body-lg--letter-spacing: -0.01em;
+}
+
 @theme inline {
   --font-sans: var(--font-sans);
   --font-heading: var(--font-heading);
+  /* next/font sets --font-inter on the marketing layout, not on :root */
+  --font-landing: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -132,4 +166,9 @@
   html {
     @apply font-sans;
   }
+}
+
+/* The landing's linen canvas reaches into the overscroll area too */
+html:has([data-landing]) body {
+  background-color: var(--color-linen);
 }
