@@ -34,5 +34,14 @@ export default defineConfig({
         "react/todo": "off",
       },
     },
+    {
+      // next/og renders share images without a stylesheet: inline styles and
+      // literal colours are the only way to style them
+      files: ["**/opengraph-image.tsx", "**/twitter-image.tsx"],
+      rules: {
+        "shadcn/no-inline-styles": "off",
+        "shadcn/no-raw-colors": "off",
+      },
+    },
   ],
 });

@@ -6,7 +6,10 @@ import { PillLink } from "@/components/landing/pill-link";
 import { signInUrl } from "@/lib/auth/redirect";
 import { STUDIO_PATH } from "@/lib/routes";
 
-const SECTIONS = [{ href: "#features", label: "Features" }];
+const SECTIONS = [
+  { href: "#features", label: "Features" },
+  { href: "#collaboration", label: "Collaboration" },
+];
 
 // The same for everyone, so the page stays static: signing in from here
 // lands in the studio, and someone already signed in is sent straight on
