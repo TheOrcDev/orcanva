@@ -6,15 +6,31 @@ import { PillLink } from "@/components/landing/pill-link";
 import { signInUrl } from "@/lib/auth/redirect";
 import { STUDIO_PATH } from "@/lib/routes";
 
+const SECTIONS = [{ href: "#features", label: "Features" }];
+
 // The same for everyone, so the page stays static: signing in from here
 // lands in the studio, and someone already signed in is sent straight on
 export const SiteNav = () => (
   <header className="absolute inset-x-0 top-0 z-10">
-    <Container className="flex h-18 items-center justify-between gap-6">
-      <Link href="/" aria-label="Orcanva home">
+    <Container className="flex h-18 items-center justify-between gap-6 md:grid md:grid-cols-3">
+      <Link href="/" aria-label="Orcanva home" className="justify-self-start">
         <Logo />
       </Link>
-      <div className="flex items-center gap-2">
+      <nav
+        aria-label="Main"
+        className="text-graphite hidden items-center gap-8 justify-self-center text-sm md:flex"
+      >
+        {SECTIONS.map((section) => (
+          <a
+            key={section.href}
+            href={section.href}
+            className="hover:text-ink transition-colors"
+          >
+            {section.label}
+          </a>
+        ))}
+      </nav>
+      <div className="flex items-center gap-2 justify-self-end">
         <PillLink
           href={signInUrl(STUDIO_PATH)}
           variant="ghost"

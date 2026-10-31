@@ -14,9 +14,12 @@ export const Hero = () => (
       className="to-linen absolute inset-x-0 bottom-0 -z-10 h-1/3 bg-linear-to-b from-transparent"
     />
     <Container className="flex flex-col items-center gap-6 pt-32 pb-48 text-center md:pt-36">
-      <p className="bg-espresso rounded-full px-3 py-1.5 text-xs text-white">
+      <a
+        href="#features"
+        className="bg-espresso hover:bg-espresso/85 outline-espresso rounded-full px-3 py-1.5 text-xs text-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+      >
         New · Filters and blur for every image
-      </p>
+      </a>
       <h1 className="text-heading-lg md:text-display lg:text-display-lg max-w-4xl font-normal text-balance">
         Thumbnails worth the click.
       </h1>
