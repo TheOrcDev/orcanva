@@ -1,25 +1,23 @@
-import { RiArrowRightLine, RiPaletteLine } from "@remixicon/react";
+import type { Metadata } from "next";
 
-import { Container } from "@/components/landing/container";
-import { PillLink } from "@/components/landing/pill-link";
-import { STUDIO_PATH } from "@/lib/routes";
+import { Hero } from "@/components/landing/hero";
+import { SiteNav } from "@/components/landing/site-nav";
+import { SizesStrip } from "@/components/landing/sizes-strip";
+
+export const metadata: Metadata = {
+  description:
+    "A calm editor for YouTube thumbnails and social images: background removal in your browser, curated fonts, filters, and live collaboration.",
+  title: { absolute: "Orcanva · Thumbnails worth the click" },
+};
 
 const LandingPage = () => (
-  <main>
-    <Container className="flex min-h-svh flex-col items-center justify-center gap-8 text-center">
-      <div className="flex items-center gap-2">
-        <RiPaletteLine aria-hidden className="size-5" />
-        <span className="text-lg font-medium">Orcanva</span>
-      </div>
-      <h1 className="text-heading-lg md:text-display lg:text-display-lg font-normal text-balance">
-        Thumbnails worth the click.
-      </h1>
-      <PillLink href={STUDIO_PATH} size="lg">
-        Open Studio
-        <RiArrowRightLine aria-hidden />
-      </PillLink>
-    </Container>
-  </main>
+  <>
+    <SiteNav />
+    <main>
+      <Hero />
+      <SizesStrip />
+    </main>
+  </>
 );
 
 export default LandingPage;
