@@ -12,7 +12,8 @@ A personal, Canva-style editor for YouTube thumbnails and social images.
 - **Live collaboration**: open a design in several windows (or on several machines) and see everyone's cursors, selections, and edits as they happen
 - **Accounts** (Google or email + password): your designs are private unless you make them public, and your uploads form your own library
 - **Public designs** anyone can open and edit together, signed in or not; only their owner can rename, delete, or make them private
-- A gallery of your designs and everyone's public ones, with previews; **Use as template** makes a private copy you can change
+- The **studio**: a gallery of your designs and everyone's public ones, with previews; **Use as template** makes a private copy you can change
+- A landing page that explains all of the above
 
 Built with Next.js 16, React 19, Konva, Tailwind v4, shadcn/ui (Base UI), Drizzle, and Neon (Postgres, Auth, Realtime, and Object Storage).
 
@@ -96,6 +97,8 @@ Allowed origins are left at the default (any origin): the real gate is the seale
 pnpm dev
 ```
 
+The landing page is at `/`, the studio at `/studio`, and the editor at `/design/[id]`.
+
 ### Background removal
 
 Uses [BEN2](https://huggingface.co/onnx-community/BEN2-ONNX), whose weights are MIT-licensed so commercial use is fine, through [Transformers.js](https://huggingface.co/docs/transformers.js) on the visitor's GPU via WebGPU (recent Chrome, Edge, or Safari on a GPU with half-precision support). It runs in a Web Worker, not on the server: at its fixed 1024px input it needs several GB of memory, more than serverless functions get. The first removal downloads the model (~220 MB) into the browser's cache. After that, each image takes a few seconds. The cutout is uploaded as a new transparent PNG in your library and linked to its source, so repeating the removal is instant and **Restore original** can switch back.
@@ -138,6 +141,7 @@ Uses [BEN2](https://huggingface.co/onnx-community/BEN2-ONNX), whose weights are 
 - Live updates come from three [Neon Realtime](https://neon.com/docs/realtime/overview) live queries per design (page row, element rows, presence rows), sealed on the server (`lib/realtime/server.ts`) and renewed through `POST /api/designs/[id]/live`. The editor shows the server's rows with its own unconfirmed writes on top (`lib/collab/sync-state.ts`) and keeps each write there until its transaction comes back on the live query, so a lagging result after a reconnect can't hide your own edits. If the connection drops for good, a watchdog starts a fresh session.
 - Cursors, selections, and in-progress drags are rows in `design_presence`, written about 10 times a second while you move (`PUT /api/designs/[id]/presence`, with a heartbeat every 5 s) and read by the presence live query. Positions are in page coordinates, so they line up at any zoom.
 - Image filters are data on the element (`filter`: a preset id, its intensity, and the slider values), never baked into the file, so they sync, undo, and copy like any other property. A WebGL2 shader (`lib/image-filters/`) draws the photo through them into a canvas that Konva shows instead of the photo; exports share that canvas. Filtered pixels are kept at up to twice the element's page size, which covers retina screens and the 2× export. Browsers without WebGL2 show images unfiltered.
+- The landing page (`app/(marketing)/`) is prerendered and reads no session, so it's the same for everyone; signing in from it lands in the studio (`STUDIO_PATH` in `lib/routes.ts`). It's always light: the root `ThemeProvider` forces light on marketing paths (`isMarketingPath`), and the page uses only its own colour and type tokens (`ink`, `linen`, `bone`, `text-display`, … in `app/globals.css`), never the app's themed ones, so client navigation never flashes it dark. The hero painting is a coded placeholder (`components/landing/assets/hero-landscape.svg`); swap the real artwork in at `components/landing/hero-landscape.tsx`. The share image is `app/(marketing)/opengraph-image.tsx`, built at build time with Inter Medium from `assets/fonts/` (OFL); `proxy.ts` skips `/opengraph-image-*` so crawlers aren't sent to sign-in.
 - Gallery thumbnails upload to `PUT /api/designs/[id]/thumbnail`, rendered by whichever window made the change.
 - Files are served through `/api/storage/*` with immutable caching and random keys, so a storage URL works as a capability: whoever has one can load that image, the way a design's collaborators need to. Thumbnails get a fresh random key on every save, and another when a design goes private.
 - Uploads belong to the account that made them and form its library, shared by all of its designs; a design also loads whatever its images show from other people's uploads. Uploading needs edit access to the design it's made from. Files are deduplicated by SHA-256 within one account only, since the hash comes from the browser. Guests' uploads have no owner and stay out of every library.
