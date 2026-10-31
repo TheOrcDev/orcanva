@@ -7,7 +7,7 @@ export const Collaboration = () => (
     aria-labelledby="collaboration-heading"
     className="pb-20 md:pb-30"
   >
-    <Container className="grid items-center gap-12 md:grid-cols-2">
+    <Container className="grid items-center gap-12 lg:grid-cols-2">
       <div className="flex flex-col gap-6">
         <h2
           id="collaboration-heading"

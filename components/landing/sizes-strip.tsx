@@ -21,7 +21,7 @@ export const SizesStrip = () => (
       <h2 id="sizes-heading" className="text-ash text-sm">
         Every size, exact to the pixel
       </h2>
-      <ul className="flex flex-wrap justify-center gap-x-12 gap-y-6">
+      <ul className="grid grid-cols-2 gap-x-12 gap-y-6 sm:grid-cols-3 lg:grid-cols-6">
         {sizes.map((preset) => (
           <li key={preset.id} className="flex flex-col items-center gap-1">
             <span className="text-graphite">{preset.label}</span>

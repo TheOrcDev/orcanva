@@ -16,7 +16,11 @@ const SECTIONS = [
 export const SiteNav = () => (
   <header className="absolute inset-x-0 top-0 z-10">
     <Container className="flex h-18 items-center justify-between gap-6 md:grid md:grid-cols-3">
-      <Link href="/" aria-label="Orcanva home" className="justify-self-start">
+      <Link
+        href="/"
+        aria-label="Orcanva home"
+        className="outline-espresso justify-self-start rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2"
+      >
         <Logo />
       </Link>
       <nav
@@ -27,7 +31,7 @@ export const SiteNav = () => (
           <a
             key={section.href}
             href={section.href}
-            className="hover:text-ink transition-colors"
+            className="hover:text-ink outline-espresso rounded-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             {section.label}
           </a>
