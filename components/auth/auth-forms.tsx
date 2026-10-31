@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient, authErrorMessage } from "@/lib/auth/client";
 import { MAX_PROFILE_NAME } from "@/lib/collab/identity";
+import { STUDIO_PATH } from "@/lib/routes";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -32,7 +33,7 @@ const field = (data: FormData, name: string) => {
 };
 
 const withNext = (path: string, next: string) =>
-  next === "/" ? path : `${path}?next=${encodeURIComponent(next)}`;
+  next === STUDIO_PATH ? path : `${path}?next=${encodeURIComponent(next)}`;
 
 // Runs an auth call, which reports failure by throwing or by resolving with
 // `{ error }`, and keeps its message for the form

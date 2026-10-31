@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { safeNext, signInUrl } from "@/lib/auth/redirect";
+import { STUDIO_PATH } from "@/lib/routes";
 
 describe("safeNext", () => {
   it("keeps paths on this site", () => {
@@ -19,7 +20,7 @@ describe("safeNext", () => {
       null,
       undefined,
     ]) {
-      expect(safeNext(next)).toBe("/");
+      expect(safeNext(next)).toBe(STUDIO_PATH);
     }
   });
 
@@ -30,7 +31,8 @@ describe("safeNext", () => {
 
 describe("signInUrl", () => {
   it("comes back to the page it was opened from", () => {
-    expect(signInUrl("/")).toBe("/auth/sign-in");
+    expect(signInUrl(STUDIO_PATH)).toBe("/auth/sign-in");
+    expect(signInUrl("/")).toBe("/auth/sign-in?next=%2F");
     expect(signInUrl("/design/abc")).toBe("/auth/sign-in?next=%2Fdesign%2Fabc");
   });
 });

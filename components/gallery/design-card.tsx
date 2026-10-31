@@ -63,6 +63,7 @@ import {
 } from "@/lib/actions/designs";
 import type { Visibility } from "@/lib/auth/access";
 import { signInUrl } from "@/lib/auth/redirect";
+import { STUDIO_PATH } from "@/lib/routes";
 
 export interface DesignCardProps {
   id: string;
@@ -225,7 +226,9 @@ export const DesignCard = ({
                     Use as template
                   </DropdownMenuItem>
                 ) : (
-                  <DropdownMenuItem render={<Link href={signInUrl("/")} />}>
+                  <DropdownMenuItem
+                    render={<Link href={signInUrl(STUDIO_PATH)} />}
+                  >
                     <RiFileCopy2Line />
                     Sign in to use as template
                   </DropdownMenuItem>

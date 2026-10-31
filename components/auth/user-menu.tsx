@@ -20,6 +20,7 @@ import { toast } from "@/components/ui/toast";
 import { authClient } from "@/lib/auth/client";
 import { signInUrl } from "@/lib/auth/redirect";
 import { initials } from "@/lib/collab/identity";
+import { STUDIO_PATH } from "@/lib/routes";
 
 export interface UserMenuViewer {
   name: string;
@@ -59,7 +60,7 @@ export const UserMenu = ({ viewer }: { viewer: UserMenuViewer | null }) => {
       try {
         await authClient.signOut();
         // A full load, so nothing of this account stays on screen
-        window.location.assign("/");
+        window.location.assign(STUDIO_PATH);
       } catch {
         toast.add({ title: "Couldn't sign you out", type: "error" });
       }

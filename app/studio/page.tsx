@@ -4,6 +4,7 @@ import {
   RiPaletteLine,
   RiUserLine,
 } from "@remixicon/react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
@@ -21,11 +22,15 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { signInUrl } from "@/lib/auth/redirect";
 import { getViewer } from "@/lib/auth/server";
 import { listOwnDesigns, listPublicDesigns } from "@/lib/db/queries/designs";
 import type { DesignSummary } from "@/lib/db/queries/designs";
 import { formatRelativeTime, formatSize } from "@/lib/format";
+import { STUDIO_PATH } from "@/lib/routes";
 import { storageUrl } from "@/lib/storage/keys";
+
+export const metadata: Metadata = { title: "Studio" };
 
 type Card = Omit<DesignCardProps, "signedIn">;
 
@@ -60,7 +65,7 @@ const CreateButton = ({ signedIn }: { signedIn: boolean }) =>
   signedIn ? (
     <NewDesignDialog />
   ) : (
-    <Button render={<Link href="/auth/sign-in" />}>
+    <Button render={<Link href={signInUrl(STUDIO_PATH)} />}>
       <RiUserLine data-icon="inline-start" />
       Sign in to create
     </Button>
@@ -100,7 +105,7 @@ const CardGrid = ({
   </ul>
 );
 
-const GalleryPage = async () => {
+const StudioPage = async () => {
   const { own, shared, viewer } = await loadGallery();
   const signedIn = viewer !== null;
 
@@ -108,10 +113,10 @@ const GalleryPage = async () => {
     <div className="flex min-h-svh flex-col">
       <header className="border-b">
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-6">
-          <div className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <RiPaletteLine aria-hidden />
             <h1 className="font-heading text-lg font-semibold">Orcanva</h1>
-          </div>
+          </Link>
           <div className="flex items-center gap-2">
             <CreateButton signedIn={signedIn} />
             <UserMenu viewer={viewer} />
@@ -181,4 +186,4 @@ const GalleryPage = async () => {
   );
 };
 
-export default GalleryPage;
+export default StudioPage;

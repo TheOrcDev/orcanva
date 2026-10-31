@@ -15,6 +15,7 @@ import {
   MAX_CANVAS_SIZE,
   MIN_CANVAS_SIZE,
 } from "@/lib/document/schema";
+import { STUDIO_PATH } from "@/lib/routes";
 import { thumbnailKey } from "@/lib/storage/keys";
 import { copyObject, deleteObject } from "@/lib/storage/s3";
 
@@ -65,7 +66,7 @@ export const createDesign = async (
   if (!row) {
     throw new Error("Could not create design");
   }
-  revalidatePath("/");
+  revalidatePath(STUDIO_PATH);
   return { id: row.id };
 };
 
@@ -84,7 +85,7 @@ export const renameDesign = async (
   if (!row) {
     throw new Error("Design not found");
   }
-  revalidatePath("/");
+  revalidatePath(STUDIO_PATH);
 };
 
 export const deleteDesign = async (id: string): Promise<void> => {
@@ -101,7 +102,7 @@ export const deleteDesign = async (id: string): Promise<void> => {
   if (row.thumbnailKey) {
     await deleteObject(row.thumbnailKey);
   }
-  revalidatePath("/");
+  revalidatePath(STUDIO_PATH);
 };
 
 const visibilityInput = z.object({ id: z.uuid(), visibility });
@@ -136,7 +137,7 @@ export const setDesignVisibility = async (
       // The next edit renders a preview under a fresh key anyway
     }
   }
-  revalidatePath("/");
+  revalidatePath(STUDIO_PATH);
 };
 
 const COPY_SUFFIX = " copy";
@@ -200,6 +201,6 @@ export const duplicateDesign = async (id: string): Promise<{ id: string }> => {
     }
   }
 
-  revalidatePath("/");
+  revalidatePath(STUDIO_PATH);
   return { id: copy.id };
 };

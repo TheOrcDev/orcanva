@@ -2,6 +2,7 @@ import type { NeonAuth } from "@neon/auth/next/server";
 import type { NextRequest } from "next/server";
 
 import { getAuth } from "@/lib/auth/server";
+import { STUDIO_PATH } from "@/lib/routes";
 
 let middleware: ReturnType<NeonAuth["middleware"]> | undefined;
 
@@ -14,7 +15,9 @@ export const proxy = async (request: NextRequest) => {
   if (request.headers.has("next-action")) {
     return;
   }
-  middleware ??= getAuth().middleware({ publicRoutes: ["/", "/design"] });
+  middleware ??= getAuth().middleware({
+    publicRoutes: ["/", STUDIO_PATH, "/design"],
+  });
   return await middleware(request);
 };
 

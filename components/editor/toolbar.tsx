@@ -38,6 +38,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { canRedo, canUndo } from "@/lib/editor/history";
+import { STUDIO_PATH } from "@/lib/routes";
 
 const ZOOM_STEP = 1.25;
 const ZOOM_PRESETS = [0.25, 0.5, 1, 2];
@@ -128,7 +129,7 @@ export const EditorToolbar = ({
   const leave = () => {
     startLeaving(async () => {
       await flush();
-      router.push("/");
+      router.push(STUDIO_PATH);
     });
   };
 
@@ -140,7 +141,7 @@ export const EditorToolbar = ({
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Back to designs"
+              aria-label="Back to studio"
               disabled={isLeaving}
               onClick={leave}
             />
@@ -148,7 +149,7 @@ export const EditorToolbar = ({
         >
           {isLeaving ? <Spinner /> : <RiArrowLeftLine />}
         </TooltipTrigger>
-        <TooltipContent>Back to designs</TooltipContent>
+        <TooltipContent>Back to studio</TooltipContent>
       </Tooltip>
       <DesignNameInput />
       <Separator orientation="vertical" className="mx-1 h-6" />

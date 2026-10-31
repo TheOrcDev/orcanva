@@ -1,10 +1,12 @@
+import { STUDIO_PATH } from "@/lib/routes";
+
 const ORIGIN = "https://orcanva.invalid";
 
 // Where to go after signing in: only a path on this site, so a crafted
 // ?next= can't send people somewhere else
 export const safeNext = (
   next: string | null | undefined,
-  fallback = "/"
+  fallback = STUDIO_PATH
 ): string => {
   if (!next?.startsWith("/") || next.startsWith("//")) {
     return fallback;
@@ -22,6 +24,6 @@ export const safeNext = (
 
 // The sign-in page, coming back to `path` afterwards
 export const signInUrl = (path: string): string =>
-  path === "/"
+  path === STUDIO_PATH
     ? "/auth/sign-in"
     : `/auth/sign-in?next=${encodeURIComponent(path)}`;

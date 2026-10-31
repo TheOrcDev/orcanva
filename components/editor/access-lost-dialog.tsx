@@ -12,6 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { STUDIO_PATH } from "@/lib/routes";
 
 // Shown when the server stops letting this person at the design: its owner
 // made it private or deleted it while they were editing
@@ -31,8 +32,8 @@ export const AccessLostDialog = () => {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogAction render={<Link href="/" />}>
-            Back to designs
+          <AlertDialogAction render={<Link href={STUDIO_PATH} />}>
+            Back to studio
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
