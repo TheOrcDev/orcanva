@@ -3,7 +3,7 @@
 import { RiAddLine } from "@remixicon/react";
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactElement, ReactNode } from "react";
 
 import { SizePicker, parseCanvasDimension } from "@/components/size-picker";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,15 @@ import { toast } from "@/components/ui/toast";
 import { createDesign } from "@/lib/actions/designs";
 import { DEFAULT_PRESET, findPresetBySize } from "@/lib/document/presets";
 
-export const NewDesignDialog = () => {
+// Opened by a plain "New design" button unless `render` and `children` give
+// another trigger, like the sidebar's
+export const NewDesignDialog = ({
+  render,
+  children,
+}: {
+  render?: ReactElement;
+  children?: ReactNode;
+}) => {
   const router = useRouter();
   const id = useId();
   const [name, setName] = useState("");
@@ -73,9 +81,13 @@ export const NewDesignDialog = () => {
 
   return (
     <Dialog>
-      <DialogTrigger render={<Button />}>
-        <RiAddLine data-icon="inline-start" />
-        New design
+      <DialogTrigger render={render ?? <Button />}>
+        {children ?? (
+          <>
+            <RiAddLine data-icon="inline-start" />
+            New design
+          </>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl">
         <form className="flex flex-col gap-6" onSubmit={handleSubmit}>

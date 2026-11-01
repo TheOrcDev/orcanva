@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, isNull, ne, or } from "drizzle-orm";
+import { and, desc, eq, or } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { z } from "zod";
 
@@ -55,25 +55,16 @@ const summaries = () =>
     .from(designs)
     .leftJoin(authUsers, eq(authUsers.id, designs.ownerId));
 
-// Everything the account owns, public or private
-export const listOwnDesigns = (ownerId: string): Promise<DesignSummary[]> =>
+// The account's private designs
+export const listPrivateDesigns = (ownerId: string): Promise<DesignSummary[]> =>
   summaries()
-    .where(eq(designs.ownerId, ownerId))
+    .where(and(eq(designs.ownerId, ownerId), eq(designs.visibility, "private")))
     .orderBy(desc(designs.updatedAt));
 
-// Everyone's public designs, minus the viewer's own (listed above them)
-export const listPublicDesigns = (
-  viewerId: string | null
-): Promise<DesignSummary[]> =>
+// Everyone's public designs, the viewer's own included
+export const listPublicDesigns = (): Promise<DesignSummary[]> =>
   summaries()
-    .where(
-      and(
-        eq(designs.visibility, "public"),
-        viewerId
-          ? or(ne(designs.ownerId, viewerId), isNull(designs.ownerId))
-          : undefined
-      )
-    )
+    .where(eq(designs.visibility, "public"))
     .orderBy(desc(designs.updatedAt))
     .limit(PUBLIC_GALLERY_LIMIT);
 

@@ -15,11 +15,14 @@ import {
   MAX_CANVAS_SIZE,
   MIN_CANVAS_SIZE,
 } from "@/lib/document/schema";
-import { STUDIO_PATH } from "@/lib/routes";
 import { thumbnailKey } from "@/lib/storage/keys";
 import { copyObject, deleteObject } from "@/lib/storage/s3";
 
 // Server Actions are public endpoints: each one checks the session itself
+// Every page in the studio's sidebar layout (app/(studio)): a change to a
+// design can move it between the galleries
+const refreshStudio = () => revalidatePath("/(studio)", "layout");
+
 const requireViewer = async (): Promise<Viewer> => {
   const viewer = await getViewer();
   if (!viewer) {
@@ -66,7 +69,7 @@ export const createDesign = async (
   if (!row) {
     throw new Error("Could not create design");
   }
-  revalidatePath(STUDIO_PATH);
+  refreshStudio();
   return { id: row.id };
 };
 
@@ -85,7 +88,7 @@ export const renameDesign = async (
   if (!row) {
     throw new Error("Design not found");
   }
-  revalidatePath(STUDIO_PATH);
+  refreshStudio();
 };
 
 export const deleteDesign = async (id: string): Promise<void> => {
@@ -102,7 +105,7 @@ export const deleteDesign = async (id: string): Promise<void> => {
   if (row.thumbnailKey) {
     await deleteObject(row.thumbnailKey);
   }
-  revalidatePath(STUDIO_PATH);
+  refreshStudio();
 };
 
 const visibilityInput = z.object({ id: z.uuid(), visibility });
@@ -137,7 +140,7 @@ export const setDesignVisibility = async (
       // The next edit renders a preview under a fresh key anyway
     }
   }
-  revalidatePath(STUDIO_PATH);
+  refreshStudio();
 };
 
 const COPY_SUFFIX = " copy";
@@ -201,6 +204,6 @@ export const duplicateDesign = async (id: string): Promise<{ id: string }> => {
     }
   }
 
-  revalidatePath(STUDIO_PATH);
+  refreshStudio();
   return { id: copy.id };
 };

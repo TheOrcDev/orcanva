@@ -7,7 +7,6 @@ import {
 } from "@remixicon/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useTransition } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -20,11 +19,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { toast } from "@/components/ui/toast";
-import { authClient } from "@/lib/auth/client";
+import { useSignOut } from "@/hooks/use-sign-out";
 import { signInUrl } from "@/lib/auth/redirect";
 import { initials } from "@/lib/collab/identity";
-import { SETTINGS_PATH, STUDIO_PATH } from "@/lib/routes";
+import { SETTINGS_PATH } from "@/lib/routes";
 
 export interface UserMenuViewer {
   name: string;
@@ -50,7 +48,7 @@ export const UserAvatar = ({
 // "Sign in" for guests; the account, settings and sign-out for everyone else
 export const UserMenu = ({ viewer }: { viewer: UserMenuViewer | null }) => {
   const pathname = usePathname();
-  const [isPending, startTransition] = useTransition();
+  const { isPending, signOut } = useSignOut();
 
   if (!viewer) {
     return (
@@ -60,18 +58,6 @@ export const UserMenu = ({ viewer }: { viewer: UserMenuViewer | null }) => {
       </Button>
     );
   }
-
-  const handleSignOut = () => {
-    startTransition(async () => {
-      try {
-        await authClient.signOut();
-        // A full load, so nothing of this account stays on screen
-        window.location.assign(STUDIO_PATH);
-      } catch {
-        toast.add({ title: "Couldn't sign you out", type: "error" });
-      }
-    });
-  };
 
   return (
     <DropdownMenu>
@@ -101,7 +87,7 @@ export const UserMenu = ({ viewer }: { viewer: UserMenuViewer | null }) => {
             <RiSettings3Line />
             Settings
           </DropdownMenuItem>
-          <DropdownMenuItem disabled={isPending} onClick={handleSignOut}>
+          <DropdownMenuItem disabled={isPending} onClick={signOut}>
             <RiLogoutBoxRLine />
             Sign out
           </DropdownMenuItem>

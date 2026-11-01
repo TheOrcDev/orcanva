@@ -9,6 +9,7 @@ import {
   RiLockLine,
   RiMoreLine,
   RiPencilLine,
+  RiUserLine,
 } from "@remixicon/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -186,10 +187,11 @@ export const DesignCard = ({
         </CardTitle>
         <CardDescription>
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            {canManage ? (
+            {/* Among everyone's public designs, mark the viewer's own */}
+            {canManage && visibility === "public" ? (
               <Badge variant="secondary">
-                {visibility === "public" ? <RiGlobalLine /> : <RiLockLine />}
-                {visibility === "public" ? "Public" : "Private"}
+                <RiUserLine />
+                Yours
               </Badge>
             ) : null}
             <span>
