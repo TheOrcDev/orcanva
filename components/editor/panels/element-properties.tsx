@@ -20,6 +20,7 @@ import { ImageProperties } from "@/components/editor/panels/image-properties";
 import { LineProperties } from "@/components/editor/panels/line-properties";
 import { NumberInput } from "@/components/editor/panels/number-input";
 import { PanelSection } from "@/components/editor/panels/panel-section";
+import { TextEffectPicker } from "@/components/editor/panels/text-effect-picker";
 import { TextProperties } from "@/components/editor/panels/text-properties";
 import { TransactionSlider } from "@/components/editor/panels/transaction-slider";
 import { useAlign } from "@/hooks/use-align";
@@ -124,6 +125,7 @@ const TypeProperties = ({ element }: { element: DesignElement }) => {
       return (
         <>
           <TextProperties element={element} />
+          <TextEffectPicker element={element} />
           <EffectsProperties element={element} />
         </>
       );

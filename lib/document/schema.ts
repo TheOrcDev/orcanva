@@ -149,6 +149,17 @@ export const textGradientSchema = z.object({
   stops: z.array(gradientStopSchema).min(2).max(8),
 });
 
+// One Canva-style effect (hollow, splice, echo, glitch, neon, lift). The
+// kind is a plain string so a client that doesn't know a newer one still
+// keeps the text (it draws it plainly).
+export const textEffectSchema = z.object({
+  angle: z.number().min(0).max(360),
+  color,
+  intensity: z.number().min(0).max(100),
+  kind: z.string().min(1).max(32),
+  offsetEm: z.number().min(0).max(1),
+});
+
 export const textAlignSchema = z.enum(["left", "center", "right"]);
 
 export const textElementSchema = z.object({
@@ -157,6 +168,8 @@ export const textElementSchema = z.object({
   // Bends the text along a circle, -100 (smile) to 100 (rainbow); 0 is
   // straight, as is all text saved before curving
   curve: z.number().min(-100).max(100).default(0),
+  // Text saved before effects has none
+  effect: textEffectSchema.nullable().default(null),
   fill: color,
   // Replaces the fill when set; text saved before gradients has none
   fillGradient: textGradientSchema.nullable().default(null),
@@ -247,6 +260,7 @@ export type TextStroke = z.infer<typeof textStrokeSchema>;
 export type TextShadow = z.infer<typeof textShadowSchema>;
 export type TextHighlight = z.infer<typeof textHighlightSchema>;
 export type TextGradient = z.infer<typeof textGradientSchema>;
+export type TextEffect = z.infer<typeof textEffectSchema>;
 export type RectElement = z.infer<typeof rectElementSchema>;
 export type EllipseElement = z.infer<typeof ellipseElementSchema>;
 export type LineElement = z.infer<typeof lineElementSchema>;

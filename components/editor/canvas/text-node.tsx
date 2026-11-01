@@ -7,7 +7,11 @@ import { Rect, Shape } from "react-konva";
 import { useEditor } from "@/components/editor/editor-store-context";
 import { useFontReady } from "@/hooks/use-font-ready";
 import { gradientPoints } from "@/lib/document/geometry";
-import type { TextElement, TextGradient } from "@/lib/document/schema";
+import type {
+  TextEffect,
+  TextElement,
+  TextGradient,
+} from "@/lib/document/schema";
 import {
   FALLBACK_FAMILIES,
   cssFamily,
@@ -23,6 +27,7 @@ import {
 import type { TextPaint } from "@/lib/text/canvas";
 import { curveText } from "@/lib/text/curve";
 import type { CurvedLayout } from "@/lib/text/curve";
+import { paintWithEffect } from "@/lib/text/effects";
 import { layoutText } from "@/lib/text/layout";
 import type { StyledRun, TextLayout, TextStyle } from "@/lib/text/layout";
 
@@ -51,7 +56,30 @@ export interface TextShapeInput {
   gradient: TextGradient | null;
   // Bent along a circle (one line) when not 0
   curve: number;
+  effect: TextEffect | null;
+  // The element's font size, which effect offsets are relative to
+  fontSize: number;
 }
+
+// Paints the text through its effect: `paintOnce` draws it with a paint
+const paintThroughEffect = (
+  context: CanvasRenderingContext2D,
+  input: TextShapeInput,
+  paint: TextPaint,
+  paintOnce: (paint: TextPaint) => void
+) =>
+  paintWithEffect({
+    context,
+    draw: (pass, dx, dy) => {
+      context.save();
+      context.translate(dx, dy);
+      paintOnce(pass);
+      context.restore();
+    },
+    effect: input.effect,
+    fontSize: input.fontSize,
+    paint,
+  });
 
 // The part of the box the drawn text covers, which a gradient spans
 interface InkBox {
@@ -147,7 +175,9 @@ const drawText = (context: Konva.Context, shape: Konva.Shape) => {
           }),
         }
       : input.paint;
-    paintCurvedText(native, curved, () => paint);
+    paintThroughEffect(native, input, paint, (pass) =>
+      paintCurvedText(native, curved, () => pass)
+    );
     return;
   }
   const layout = textLayoutOf(shape);
@@ -157,7 +187,9 @@ const drawText = (context: Konva.Context, shape: Konva.Shape) => {
         fill: gradientFill(native, input.gradient, inkOfLines(layout)),
       }
     : input.paint;
-  paintTextLayout(native, layout, () => paint);
+  paintThroughEffect(native, input, paint, (pass) =>
+    paintTextLayout(native, layout, () => pass)
+  );
 };
 
 // Clicks anywhere in the text's box hit it, as with Konva's Text
@@ -218,6 +250,8 @@ export const TextNode = ({ element }: { element: TextElement }) => {
     return {
       align: element.align,
       curve,
+      effect: element.effect,
+      fontSize,
       gradient: element.fillGradient,
       lineHeight: element.lineHeight,
       paint: {
@@ -229,6 +263,7 @@ export const TextNode = ({ element }: { element: TextElement }) => {
     };
   }, [
     curve,
+    element.effect,
     element.align,
     element.fill,
     element.fillGradient,
