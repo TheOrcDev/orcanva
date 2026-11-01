@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 import { useEditorStoreApi } from "@/components/editor/editor-store-context";
 import {
-  arrangeElement,
+  arrangeElements,
   duplicateElements,
   findElement,
   removeElements,
@@ -55,9 +55,9 @@ const arrangeSelection = (
   store: EditorStoreApi,
   direction: ArrangeDirection
 ) => {
-  const [id] = store.getState().selectedIds;
-  if (id) {
-    store.getState().change((doc) => arrangeElement(doc, id, direction));
+  const ids = editableSelection(store);
+  if (ids.length > 0) {
+    store.getState().change((doc) => arrangeElements(doc, ids, direction));
   }
 };
 

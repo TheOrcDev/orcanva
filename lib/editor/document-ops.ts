@@ -144,6 +144,53 @@ export const arrangeElement = (
   return moveElementTo(document, id, targets[direction]);
 };
 
+// Puts a moving element past its neighbour when the neighbour stays
+const swapIfMoving = (
+  elements: DesignElement[],
+  from: number,
+  to: number,
+  isMoving: (element: DesignElement | undefined) => boolean
+) => {
+  const moving = elements[from];
+  const neighbour = elements[to];
+  if (moving && neighbour && isMoving(moving) && !isMoving(neighbour)) {
+    elements[from] = neighbour;
+    elements[to] = moving;
+  }
+};
+
+// Moves several elements a step up or down the stack, or to an end of it,
+// keeping their order among themselves. Elements next to each other move as
+// one block.
+export const arrangeElements = (
+  document: DesignDocument,
+  ids: readonly string[],
+  direction: ArrangeDirection
+): DesignDocument => {
+  const selected = new Set(ids);
+  const isSelected = (element: DesignElement | undefined) =>
+    element !== undefined && selected.has(element.id);
+  let elements = [...document.elements];
+  if (direction === "front" || direction === "back") {
+    const moving = elements.filter((element) => isSelected(element));
+    const rest = elements.filter((element) => !isSelected(element));
+    elements =
+      direction === "front" ? [...rest, ...moving] : [...moving, ...rest];
+  } else if (direction === "forward") {
+    for (let index = elements.length - 2; index >= 0; index -= 1) {
+      swapIfMoving(elements, index, index + 1, isSelected);
+    }
+  } else {
+    for (let index = 1; index < elements.length; index += 1) {
+      swapIfMoving(elements, index, index - 1, isSelected);
+    }
+  }
+  const unchanged = elements.every(
+    (element, index) => element === document.elements[index]
+  );
+  return unchanged ? document : { ...document, elements };
+};
+
 export const setBackground = (
   document: DesignDocument,
   background: Background

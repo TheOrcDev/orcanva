@@ -1,18 +1,17 @@
 "use client";
 
 import {
-  RiBringForward,
-  RiBringToFront,
   RiDeleteBinLine,
   RiFileCopyLine,
   RiLockLine,
   RiLockUnlockLine,
-  RiSendBackward,
-  RiSendToBack,
 } from "@remixicon/react";
-import type { RemixiconComponentType } from "@remixicon/react";
 
 import { useEditorStoreApi } from "@/components/editor/editor-store-context";
+import {
+  ALIGN_ACTIONS,
+  ARRANGE_ACTIONS,
+} from "@/components/editor/panels/arrange-actions";
 import { BoxShapeProperties } from "@/components/editor/panels/box-shape-properties";
 import { EffectsProperties } from "@/components/editor/panels/effects-properties";
 import { IconAction } from "@/components/editor/panels/icon-action";
@@ -22,6 +21,7 @@ import { NumberInput } from "@/components/editor/panels/number-input";
 import { PanelSection } from "@/components/editor/panels/panel-section";
 import { TextProperties } from "@/components/editor/panels/text-properties";
 import { TransactionSlider } from "@/components/editor/panels/transaction-slider";
+import { useAlign } from "@/hooks/use-align";
 import { useUpdateElement } from "@/hooks/use-selected-element";
 import type { DesignElement } from "@/lib/document/schema";
 import {
@@ -39,38 +39,6 @@ const TYPE_LABELS: Record<DesignElement["type"], string> = {
   rect: "Rectangle",
   text: "Text",
 };
-
-const ARRANGE_ACTIONS: {
-  direction: ArrangeDirection;
-  label: string;
-  shortcut: string;
-  icon: RemixiconComponentType;
-}[] = [
-  {
-    direction: "front",
-    icon: RiBringToFront,
-    label: "Bring to front",
-    shortcut: "⇧⌘]",
-  },
-  {
-    direction: "forward",
-    icon: RiBringForward,
-    label: "Bring forward",
-    shortcut: "⌘]",
-  },
-  {
-    direction: "backward",
-    icon: RiSendBackward,
-    label: "Send backward",
-    shortcut: "⌘[",
-  },
-  {
-    direction: "back",
-    icon: RiSendToBack,
-    label: "Send to back",
-    shortcut: "⇧⌘[",
-  },
-];
 
 const hasBox = (
   element: DesignElement
@@ -163,6 +131,7 @@ const TypeProperties = ({ element }: { element: DesignElement }) => {
 export const ElementProperties = ({ element }: { element: DesignElement }) => {
   const store = useEditorStoreApi();
   const update = useUpdateElement(element.id);
+  const { align } = useAlign();
 
   const arrange = (direction: ArrangeDirection) =>
     store
@@ -228,6 +197,17 @@ export const ElementProperties = ({ element }: { element: DesignElement }) => {
 
       <PanelSection title="Position">
         <GeometryFields element={element} />
+        <div className="flex flex-wrap gap-1">
+          {ALIGN_ACTIONS.map((action) => (
+            <IconAction
+              key={action.edge}
+              label={`${action.label} to page`}
+              icon={action.icon}
+              disabled={element.locked}
+              onClick={() => align([element.id], action.edge, "page")}
+            />
+          ))}
+        </div>
       </PanelSection>
 
       <TypeProperties element={element} />
