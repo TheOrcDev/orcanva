@@ -15,3 +15,9 @@ export const MY_PUBLIC_DESIGNS_PATH = `${PUBLIC_DESIGNS_PATH}?owner=${OWNER_MINE
 
 // The signed-in person's profile: name and picture
 export const SETTINGS_PATH = "/settings";
+
+// /new/<size preset id> makes a private design at that size and opens it,
+// after signing in. The landing's pages link to it from each size.
+export const NEW_DESIGN_PATH = "/new";
+export const newDesignPath = (presetId: string): string =>
+  `${NEW_DESIGN_PATH}/${presetId}`;

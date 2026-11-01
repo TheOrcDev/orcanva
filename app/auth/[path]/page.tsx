@@ -31,7 +31,10 @@ export const generateMetadata = async (
   props: PageProps<"/auth/[path]">
 ): Promise<Metadata> => {
   const { path } = await props.params;
-  return { title: isAuthView(path) ? TITLES[path] : "Not found" };
+  return {
+    robots: { index: false },
+    title: isAuthView(path) ? TITLES[path] : "Not found",
+  };
 };
 
 const AuthPage = async (props: PageProps<"/auth/[path]">) => {

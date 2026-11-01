@@ -5,6 +5,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 const figtreeHeading = Figtree({
@@ -23,10 +24,17 @@ const fontMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  description: "Design thumbnails and social images",
+  applicationName: SITE_NAME,
+  description:
+    "A free design editor for YouTube thumbnails and social images, right in your browser.",
   // Share images and canonical URLs resolve against production
-  metadataBase: new URL("https://www.orcanva.app"),
-  title: { default: "Orcanva", template: "%s · Orcanva" },
+  metadataBase: new URL(SITE_URL),
+  // Pages that set `openGraph` replace this whole object, so none do: the
+  // title and description come from each page's own
+  openGraph: { locale: "en_US", siteName: SITE_NAME, type: "website" },
+  title: { default: SITE_NAME, template: `%s · ${SITE_NAME}` },
+  // X reads the share image from og:image, but needs this to show it large
+  twitter: { card: "summary_large_image" },
 };
 
 const RootLayout = ({

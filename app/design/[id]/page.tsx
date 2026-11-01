@@ -53,7 +53,11 @@ export const generateMetadata = async (
   const { id } = await props.params;
   const [design, viewer] = await Promise.all([getDesign(id), getViewer()]);
   const visible = design && roleFor(design, viewer?.id ?? null);
-  return { title: visible ? design.name : "Design not found" };
+  // The editor draws in the browser, so a crawler sees an empty page
+  return {
+    robots: { index: false },
+    title: visible ? design.name : "Design not found",
+  };
 };
 
 const DesignPage = async (props: PageProps<"/design/[id]">) => {

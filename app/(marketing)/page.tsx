@@ -9,11 +9,10 @@ import { SizesStrip } from "@/components/landing/sizes-strip";
 import { Stats } from "@/components/landing/stats";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/" },
   description:
     "From idea to design in minutes: every size from Story to 4K, background removal in your browser, curated fonts, filters, and live collaboration.",
   title: { absolute: "Orcanva · From idea to design in minutes" },
-  // X reads the share image from og:image, but needs this to show it large
-  twitter: { card: "summary_large_image" },
 };
 
 const LandingPage = () => (
