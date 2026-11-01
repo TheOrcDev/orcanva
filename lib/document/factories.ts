@@ -74,6 +74,7 @@ export const createImageElement = (
     ...baseFields(asset.name ?? "Image"),
     assetId: asset.id,
     cornerRadius: 0,
+    crop: null,
     filter: null,
     flipX: false,
     flipY: false,

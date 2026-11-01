@@ -5,8 +5,9 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import type { RefObject } from "react";
 
 import { toast } from "@/components/ui/toast";
+import { cropToPixels, fullPhotoSize } from "@/lib/document/crop";
 import type { Size } from "@/lib/document/geometry";
-import type { ImageFilter } from "@/lib/document/schema";
+import type { ImageCrop, ImageFilter } from "@/lib/document/schema";
 import { filterOutputSize } from "@/lib/image-filters/output-size";
 import { maxFilterSide, renderFilter } from "@/lib/image-filters/renderer";
 import { resolveFilter, toUniforms } from "@/lib/image-filters/resolve";
@@ -36,12 +37,14 @@ const release = (canvas: HTMLCanvasElement | null) => {
 // photo as its `image` prop; when the element has a filter, a canvas with the
 // filter applied replaces it on the node. The canvas is redrawn in place on
 // every change (no allocation per slider tick) and the export clone shares
-// it, so downloads and thumbnails come out filtered too.
+// it, so downloads and thumbnails come out filtered too. The crop is set
+// here as well, in pixels of whichever of the two is drawn.
 export const useFilteredImage = (
   nodeRef: RefObject<Konva.Image | null>,
   image: HTMLImageElement | undefined,
   filter: ImageFilter | null,
-  box: Size
+  box: Size,
+  crop: ImageCrop | null
 ) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   // Unfiltered photos never touch the GPU
@@ -49,10 +52,15 @@ export const useFilteredImage = (
     image && resolveFilter(filter)
       ? filterOutputSize(
           { height: image.naturalHeight, width: image.naturalWidth },
-          box,
+          // Cropped in, the whole photo is drawn bigger than the box
+          fullPhotoSize(box, crop),
           maxFilterSide()
         )
       : null;
+  const cropX = crop?.x ?? 0;
+  const cropY = crop?.y ?? 0;
+  const cropWidth = crop?.width ?? 1;
+  const cropHeight = crop?.height ?? 1;
   const outputWidth = output?.width ?? 0;
   const outputHeight = output?.height ?? 0;
 
@@ -79,12 +87,28 @@ export const useFilteredImage = (
     if (node.image() !== source) {
       node.image(source);
     }
+    node.crop(
+      cropToPixels(
+        { height: cropHeight, width: cropWidth, x: cropX, y: cropY },
+        { height: source.height, width: source.width }
+      )
+    );
     if (source === image) {
       // Hand the pixels back as soon as the filter is gone
       release(canvasRef.current);
     }
     node.getLayer()?.batchDraw();
-  }, [nodeRef, image, filter, outputWidth, outputHeight]);
+  }, [
+    nodeRef,
+    image,
+    filter,
+    outputWidth,
+    outputHeight,
+    cropX,
+    cropY,
+    cropWidth,
+    cropHeight,
+  ]);
 
   useEffect(() => () => release(canvasRef.current), []);
 };

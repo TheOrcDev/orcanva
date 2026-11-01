@@ -74,10 +74,30 @@ export const imageFilterSchema = z.object({
   strength: z.number().min(0).max(100),
 });
 
+const fraction = z.number().min(0).max(1);
+
+// The part of the photo that shows, as fractions of its width and height.
+// Fractions survive swapping in a background-removed cutout and apply to a
+// filtered copy of any size.
+export const imageCropSchema = z
+  .object({
+    height: fraction.positive(),
+    width: fraction.positive(),
+    x: fraction,
+    y: fraction,
+  })
+  .refine(
+    (crop) =>
+      crop.x + crop.width <= 1 + 1e-6 && crop.y + crop.height <= 1 + 1e-6,
+    { message: "Crop must stay inside the photo" }
+  );
+
 export const imageElementSchema = z.object({
   ...baseElement,
   assetId: z.uuid(),
   cornerRadius: z.number().min(0),
+  // null = the whole photo; images saved before cropping have no field
+  crop: imageCropSchema.nullable().default(null),
   // null = untouched; images saved before filters existed have no field
   filter: imageFilterSchema.nullable().default(null),
   flipX: z.boolean(),
@@ -188,6 +208,7 @@ export type GradientStop = z.infer<typeof gradientStopSchema>;
 export type ImageElement = z.infer<typeof imageElementSchema>;
 export type ImageAdjustments = z.infer<typeof imageAdjustmentsSchema>;
 export type ImageFilter = z.infer<typeof imageFilterSchema>;
+export type ImageCrop = z.infer<typeof imageCropSchema>;
 export type TextElement = z.infer<typeof textElementSchema>;
 export type TextAlign = z.infer<typeof textAlignSchema>;
 export type TextStroke = z.infer<typeof textStrokeSchema>;

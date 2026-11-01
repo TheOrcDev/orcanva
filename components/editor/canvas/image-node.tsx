@@ -21,8 +21,8 @@ export const ImageNode = ({ element }: { element: ImageElement }) => {
   );
   const { image, status } = useAssetImage(url);
   const imageRef = useRef<Konva.Image>(null);
-  const { cornerRadius, filter, flipX, flipY, height, width } = element;
-  useFilteredImage(imageRef, image, filter, { height, width });
+  const { cornerRadius, crop, filter, flipX, flipY, height, width } = element;
+  useFilteredImage(imageRef, image, filter, { height, width }, crop);
 
   if (!image) {
     return (
