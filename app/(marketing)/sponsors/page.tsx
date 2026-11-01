@@ -7,11 +7,11 @@ import { SiteNav } from "@/components/landing/site-nav";
 import { LogoMark } from "@/components/logo-mark";
 import {
   beHereSlotCount,
+  formatMonthlyPrice,
   SPONSOR_EMAIL,
   SPONSOR_TIERS,
   SPONSORS,
   SPONSORS_PATH,
-  sponsorMailto,
 } from "@/lib/sponsors";
 import type { Sponsor, SponsorTier, SponsorTierId } from "@/lib/sponsors";
 import { cn } from "@/lib/utils";
@@ -75,13 +75,14 @@ const TierSection = ({ tier }: { tier: SponsorTier }) => {
 
   return (
     <section aria-labelledby={`${tier.id}-heading`}>
-      <div className="border-b pb-3">
+      <div className="text-muted-foreground flex items-baseline justify-between gap-4 border-b pb-3 text-xs">
         <h2
           id={`${tier.id}-heading`}
-          className="text-muted-foreground text-xs font-semibold tracking-widest uppercase"
+          className="font-semibold tracking-widest uppercase"
         >
           {tier.label}
         </h2>
+        <p className="tabular-nums">{formatMonthlyPrice(tier)}</p>
       </div>
       <div className={cn("grid gap-3 pt-4", TIER_GRID[tier.id])}>
         {sponsors.map((sponsor) => (
@@ -90,8 +91,8 @@ const TierSection = ({ tier }: { tier: SponsorTier }) => {
         {Array.from({ length: emptySlots }, (_, index) => (
           <a
             key={index}
-            href={sponsorMailto(tier)}
-            aria-label={`Become a ${tier.label} sponsor`}
+            href={tier.checkoutUrl}
+            aria-label={`Become a ${tier.label} sponsor for ${formatMonthlyPrice(tier)}`}
             className={cn(
               "text-muted-foreground hover:border-foreground/40 hover:text-foreground focus-visible:outline-ring flex items-center justify-center rounded-2xl border border-dashed px-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2",
               TIER_SLOT_HEIGHT[tier.id]

@@ -1,11 +1,13 @@
 // The sponsors page, after videorc.com/sponsors: rank-ordered tiers, each a
-// grid of sponsor logos topped up with empty "Be here" slots that ask to
-// sponsor. There's no checkout yet, so a slot opens an email for its tier,
-// and a sponsor goes live by being added to SPONSORS below.
+// grid of sponsor logos topped up with empty "Be here" slots that open the
+// tier's checkout. Each tier is a monthly subscription sold through a Stripe
+// Payment Link on the OrcDev account (products tagged project=orcanva), which
+// asks for the name and site to show. A sponsor goes live by being added to
+// SPONSORS below.
 
 export const SPONSORS_PATH = "/sponsors";
 
-export const SPONSOR_EMAIL = "orc@videorc.com";
+export const SPONSOR_EMAIL = "orc@orcdev.com";
 
 export const SPONSOR_TIER_IDS = [
   "diamond",
@@ -19,15 +21,41 @@ export type SponsorTierId = (typeof SPONSOR_TIER_IDS)[number];
 export interface SponsorTier {
   id: SponsorTierId;
   label: string;
+  monthlyUsd: number;
+  checkoutUrl: string;
   // Desktop columns; the grid is two rows of them while it has room
   columns: number;
 }
 
 export const SPONSOR_TIERS: readonly SponsorTier[] = [
-  { columns: 2, id: "diamond", label: "Diamond" },
-  { columns: 3, id: "platinum", label: "Platinum" },
-  { columns: 4, id: "gold", label: "Gold" },
-  { columns: 6, id: "silver", label: "Silver" },
+  {
+    checkoutUrl: "https://buy.stripe.com/5kQ7sLbZ885cgzb8vf7g401",
+    columns: 2,
+    id: "diamond",
+    label: "Diamond",
+    monthlyUsd: 1000,
+  },
+  {
+    checkoutUrl: "https://buy.stripe.com/4gM00j7IS3OWfv74eZ7g402",
+    columns: 3,
+    id: "platinum",
+    label: "Platinum",
+    monthlyUsd: 500,
+  },
+  {
+    checkoutUrl: "https://buy.stripe.com/bJecN5bZ82KS82F9zj7g403",
+    columns: 4,
+    id: "gold",
+    label: "Gold",
+    monthlyUsd: 250,
+  },
+  {
+    checkoutUrl: "https://buy.stripe.com/3cI28raV42KS4Qt8vf7g404",
+    columns: 6,
+    id: "silver",
+    label: "Silver",
+    monthlyUsd: 100,
+  },
 ];
 
 export interface Sponsor {
@@ -57,7 +85,12 @@ export const beHereSlotCount = (
   return columns - (sponsorCount % columns);
 };
 
-export const sponsorMailto = (tier: SponsorTier): string => {
-  const subject = `${tier.label} sponsorship for Orcanva`;
-  return `mailto:${SPONSOR_EMAIL}?subject=${encodeURIComponent(subject)}`;
-};
+const usd = new Intl.NumberFormat("en-US", {
+  currency: "USD",
+  maximumFractionDigits: 0,
+  style: "currency",
+});
+
+// "$1,000/mo"
+export const formatMonthlyPrice = (tier: SponsorTier): string =>
+  `${usd.format(tier.monthlyUsd)}/mo`;

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { beHereSlotCount, SPONSOR_TIERS, sponsorMailto } from "@/lib/sponsors";
+import {
+  beHereSlotCount,
+  formatMonthlyPrice,
+  SPONSOR_TIERS,
+} from "@/lib/sponsors";
 
 describe("beHereSlotCount", () => {
   it("fills two empty rows when a tier has no sponsors", () => {
@@ -21,11 +25,9 @@ describe("beHereSlotCount", () => {
   });
 });
 
-describe("sponsorMailto", () => {
-  it("names the tier in the subject", () => {
+describe("formatMonthlyPrice", () => {
+  it("shows whole dollars a month", () => {
     const [diamond] = SPONSOR_TIERS;
-    expect(sponsorMailto(diamond)).toBe(
-      "mailto:orc@videorc.com?subject=Diamond%20sponsorship%20for%20Orcanva"
-    );
+    expect(formatMonthlyPrice(diamond)).toBe("$1,000/mo");
   });
 });
