@@ -4,6 +4,7 @@ import type Konva from "konva";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import { Rect, Shape } from "react-konva";
 
+import { useEditor } from "@/components/editor/editor-store-context";
 import { useFontReady } from "@/hooks/use-font-ready";
 import { gradientPoints } from "@/lib/document/geometry";
 import type { TextElement, TextGradient } from "@/lib/document/schema";
@@ -13,8 +14,15 @@ import {
   getFont,
   nearestWeight,
 } from "@/lib/fonts/catalog";
-import { canvasFont, canvasMeasurer, paintTextLayout } from "@/lib/text/canvas";
+import {
+  canvasFont,
+  canvasMeasurer,
+  paintCurvedText,
+  paintTextLayout,
+} from "@/lib/text/canvas";
 import type { TextPaint } from "@/lib/text/canvas";
+import { curveText } from "@/lib/text/curve";
+import type { CurvedLayout } from "@/lib/text/curve";
 import { layoutText } from "@/lib/text/layout";
 import type { StyledRun, TextLayout, TextStyle } from "@/lib/text/layout";
 
@@ -41,15 +49,18 @@ export interface TextShapeInput {
   paint: TextPaint;
   // Fills the text across its box instead of the paint's fill
   gradient: TextGradient | null;
+  // Bent along a circle (one line) when not 0
+  curve: number;
 }
 
-// A gradient across the drawn text (not the whole wrap box), like a page
-// background across the page
-const gradientFill = (
-  context: CanvasRenderingContext2D,
-  gradient: TextGradient,
-  layout: TextLayout
-): CanvasGradient => {
+// The part of the box the drawn text covers, which a gradient spans
+interface InkBox {
+  left: number;
+  width: number;
+  height: number;
+}
+
+const inkOfLines = (layout: TextLayout): InkBox => {
   let left = Number.POSITIVE_INFINITY;
   let right = 0;
   for (const line of layout.lines) {
@@ -57,14 +68,25 @@ const gradientFill = (
     right = Math.max(right, line.x + line.width);
   }
   const from = Number.isFinite(left) ? left : 0;
-  const { end, start } = gradientPoints(gradient.angle, {
+  return {
     height: layout.height,
+    left: from,
     width: Math.max(1, right - from),
-  });
+  };
+};
+
+// A gradient across the drawn text (not the whole wrap box), like a page
+// background across the page
+const gradientFill = (
+  context: CanvasRenderingContext2D,
+  gradient: TextGradient,
+  ink: InkBox
+): CanvasGradient => {
+  const { end, start } = gradientPoints(gradient.angle, ink);
   const fill = context.createLinearGradient(
-    from + start.x,
+    ink.left + start.x,
     start.y,
-    from + end.x,
+    ink.left + end.x,
     end.y
   );
   for (const stop of gradient.stops.toSorted((a, b) => a.offset - b.offset)) {
@@ -94,12 +116,46 @@ export const textLayoutOf = (node: Konva.Node): TextLayout => {
   return layout;
 };
 
+const curvedLayouts = new WeakMap<
+  Konva.Node,
+  { input: TextShapeInput; layout: CurvedLayout }
+>();
+
+export const curvedLayoutOf = (node: Konva.Node): CurvedLayout => {
+  const input = node.getAttr("textInput") as TextShapeInput;
+  const cached = curvedLayouts.get(node);
+  if (cached?.input === input) {
+    return cached.layout;
+  }
+  const layout = curveText(input.runs, input.curve, canvasMeasurer);
+  curvedLayouts.set(node, { input, layout });
+  return layout;
+};
+
 const drawText = (context: Konva.Context, shape: Konva.Shape) => {
   const input = shape.getAttr("textInput") as TextShapeInput;
   const native = context._context;
+  if (input.curve !== 0) {
+    const curved = curvedLayoutOf(shape);
+    const paint = input.gradient
+      ? {
+          ...input.paint,
+          fill: gradientFill(native, input.gradient, {
+            height: curved.height,
+            left: 0,
+            width: curved.width,
+          }),
+        }
+      : input.paint;
+    paintCurvedText(native, curved, () => paint);
+    return;
+  }
   const layout = textLayoutOf(shape);
   const paint = input.gradient
-    ? { ...input.paint, fill: gradientFill(native, input.gradient, layout) }
+    ? {
+        ...input.paint,
+        fill: gradientFill(native, input.gradient, inkOfLines(layout)),
+      }
     : input.paint;
   paintTextLayout(native, layout, () => paint);
 };
@@ -142,7 +198,12 @@ export const TextNode = ({ element }: { element: TextElement }) => {
     weight,
   });
 
-  const { fontSize, highlight, shadow, stroke } = element;
+  const { fontSize, shadow, stroke } = element;
+  // Typing straightens curved text, so the caret lines up with it
+  const editing = useEditor((state) => state.editingTextId === element.id);
+  const curve = editing ? 0 : element.curve;
+  // A highlight hugs lines, which curved text doesn't have
+  const highlight = curve === 0 ? element.highlight : null;
   const padding = highlight ? highlight.paddingEm * fontSize : 0;
   const family = ready ? cssFamily(font) : FALLBACK_FAMILIES[font.category];
   const letterSpacing = element.letterSpacingEm * fontSize;
@@ -156,6 +217,7 @@ export const TextNode = ({ element }: { element: TextElement }) => {
     };
     return {
       align: element.align,
+      curve,
       gradient: element.fillGradient,
       lineHeight: element.lineHeight,
       paint: {
@@ -166,6 +228,7 @@ export const TextNode = ({ element }: { element: TextElement }) => {
       runs: [{ style, text }],
     };
   }, [
+    curve,
     element.align,
     element.fill,
     element.fillGradient,
@@ -180,19 +243,24 @@ export const TextNode = ({ element }: { element: TextElement }) => {
     weight,
   ]);
 
-  const height = useMemo(
-    () =>
-      layoutText(
-        input.runs,
-        {
-          align: input.align,
-          lineHeight: input.lineHeight,
-          width: element.width,
-        },
-        canvasMeasurer
-      ).height,
-    [input, element.width]
-  );
+  // Straight text wraps at the element's width; curved text is as big as
+  // its arc
+  const size = useMemo(() => {
+    if (input.curve !== 0) {
+      const curved = curveText(input.runs, input.curve, canvasMeasurer);
+      return { height: curved.height, width: curved.width };
+    }
+    const layout = layoutText(
+      input.runs,
+      {
+        align: input.align,
+        lineHeight: input.lineHeight,
+        width: element.width,
+      },
+      canvasMeasurer
+    );
+    return { height: layout.height, width: element.width };
+  }, [input, element.width]);
 
   // Sized after every render because it depends on measured text
   useLayoutEffect(() => {
@@ -219,8 +287,10 @@ export const TextNode = ({ element }: { element: TextElement }) => {
         ref={textRef}
         name={TEXT_BODY_NAME}
         textInput={input}
-        width={element.width}
-        height={height}
+        // An arc stays centred where the straight text was
+        x={(element.width - size.width) / 2}
+        width={size.width}
+        height={size.height}
         fill={element.fill}
         sceneFunc={drawText}
         hitFunc={hitText}

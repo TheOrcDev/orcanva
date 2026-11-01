@@ -39,7 +39,11 @@ const anchorsFor = (element: DesignElement): string[] => {
   if (element.locked) {
     return [];
   }
-  return element.type === "text" ? TEXT_ANCHORS : ALL_ANCHORS;
+  if (element.type === "text") {
+    // Curved text has no wrap width to change, only a size
+    return element.curve === 0 ? TEXT_ANCHORS : CORNER_ANCHORS;
+  }
+  return ALL_ANCHORS;
 };
 
 // Images and text keep their ratio (Shift frees it); shapes are free

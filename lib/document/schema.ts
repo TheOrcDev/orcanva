@@ -154,6 +154,9 @@ export const textAlignSchema = z.enum(["left", "center", "right"]);
 export const textElementSchema = z.object({
   ...baseElement,
   align: textAlignSchema,
+  // Bends the text along a circle, -100 (smile) to 100 (rainbow); 0 is
+  // straight, as is all text saved before curving
+  curve: z.number().min(-100).max(100).default(0),
   fill: color,
   // Replaces the fill when set; text saved before gradients has none
   fillGradient: textGradientSchema.nullable().default(null),

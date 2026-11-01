@@ -8,7 +8,7 @@ A free and open-source, Canva-style editor for YouTube thumbnails and social ima
 - **Frames**: circles, stars, hearts and more from the Shapes tab; drop a photo on one (or drag an image onto it) to fill it, double-click to move or zoom it inside, and resizing keeps the photo covering the frame
 - One-click **Remove background** for any image, run by an open-source model in your browser (no API key, no per-image cost)
 - Instagram-style **filters** for images: 11 one-tap looks previewed on your own photo, with an intensity slider, plus brightness, contrast, highlights, shadows, saturation, warmth, tint, fade, vignette, sharpen, grain, and blur
-- Text with 40 curated Google Fonts, inline editing, solid or gradient fills, outline, drop shadow, and highlight effects
+- Text with 40 curated Google Fonts, inline editing, solid or gradient fills, curved text, outline, drop shadow, and highlight effects
 - Shapes, lines, arrows, solid or gradient backgrounds, and a drag-to-reorder layers panel
 - **Select several** elements with Shift-click, ⌘A, or a box dragged across empty canvas, then move, scale (from the corners) or rotate them together; align them to each other or to the page, space them evenly, and bring them forward or back as a block
 - **Groups** (⌘G): a group selects, moves, scales, aligns and duplicates as one; click a grouped element again to change just that one

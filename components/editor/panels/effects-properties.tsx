@@ -67,6 +67,17 @@ export const EffectsProperties = ({ element }: { element: TextElement }) => {
 
   return (
     <>
+      <PanelSection title="Curve">
+        <TransactionSlider
+          label="Curve"
+          value={element.curve}
+          min={-100}
+          max={100}
+          format={(curve) => (curve === 0 ? "Straight" : String(curve))}
+          onChange={(curve) => update({ curve })}
+        />
+      </PanelSection>
+
       <EffectToggle
         title="Outline"
         enabled={stroke !== null}

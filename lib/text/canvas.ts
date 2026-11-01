@@ -1,3 +1,4 @@
+import type { CurvedLayout } from "@/lib/text/curve";
 import type {
   FontBox,
   Measurer,
@@ -108,5 +109,31 @@ export const paintTextLayout = <S extends TextStyle>(
         x += context.measureText(segment).width + piece.style.letterSpacing;
       }
     }
+  }
+};
+
+// Paints curved text letter by letter, each turned along the arc
+export const paintCurvedText = <S extends TextStyle>(
+  context: CanvasRenderingContext2D,
+  layout: CurvedLayout<S>,
+  paintOf: (style: S) => TextPaint
+) => {
+  context.textBaseline = "alphabetic";
+  context.textAlign = "left";
+  context.lineJoin = "round";
+  for (const glyph of layout.glyphs) {
+    const paint = paintOf(glyph.style);
+    context.save();
+    context.translate(glyph.x, glyph.y);
+    context.rotate(glyph.rotation);
+    context.font = glyph.style.font;
+    context.fillStyle = paint.fill;
+    if (paint.stroke && paint.strokeWidth > 0) {
+      context.strokeStyle = paint.stroke;
+      context.lineWidth = paint.strokeWidth;
+      context.strokeText(glyph.text, -glyph.width / 2, 0);
+    }
+    context.fillText(glyph.text, -glyph.width / 2, 0);
+    context.restore();
   }
 };

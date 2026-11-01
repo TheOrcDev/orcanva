@@ -98,11 +98,12 @@ const bakeTransform = (
     }
     case "text": {
       const textNode = (node as Konva.Group).findOne(`.${TEXT_BODY_NAME}`);
-      return bakeTextTransform(
-        element,
-        transform,
-        textNode?.width() ?? element.width
-      );
+      // Curved text draws at its arc's size; its wrap width just scales
+      const liveWidth =
+        element.curve === 0
+          ? (textNode?.width() ?? element.width)
+          : element.width;
+      return bakeTextTransform(element, transform, liveWidth);
     }
     case "line":
     case "arrow": {

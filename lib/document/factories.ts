@@ -203,6 +203,7 @@ export const createTextElement = (
   return {
     ...baseFields(config.name),
     align: "center",
+    curve: 0,
     fill: "#111111",
     fillGradient: null,
     fontId: config.fontId,
