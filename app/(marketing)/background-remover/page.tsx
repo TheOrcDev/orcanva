@@ -7,6 +7,7 @@ import { CardList } from "@/components/landing/card-list";
 import { Container } from "@/components/landing/container";
 import { Faq } from "@/components/landing/faq";
 import { PageIntro } from "@/components/landing/page-intro";
+import { RelatedPages } from "@/components/landing/related-pages";
 import { SiteFooter } from "@/components/landing/site-footer";
 import { SiteNav } from "@/components/landing/site-nav";
 import { JsonLd } from "@/components/seo/json-ld";
@@ -135,6 +136,9 @@ const BackgroundRemoverPage = () => (
       </Container>
       <Container>
         <Faq entries={FAQ} />
+      </Container>
+      <Container>
+        <RelatedPages current={BACKGROUND_REMOVER_PATH} />
       </Container>
     </main>
     <SiteFooter />

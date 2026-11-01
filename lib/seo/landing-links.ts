@@ -2,6 +2,7 @@ import {
   BACKGROUND_REMOVER_PATH,
   CANVA_ALTERNATIVE_PATH,
   IMAGE_SIZES_PATH,
+  REMOVE_AI_METADATA_PATH,
   REMOVE_BG_ALTERNATIVE_PATH,
 } from "@/lib/routes";
 import { SIZE_PAGES, sizePagePath } from "@/lib/seo/size-pages";
@@ -15,6 +16,7 @@ export interface LandingLink {
 // and the sitemap reads them
 export const TOOL_LINKS: readonly LandingLink[] = [
   { href: BACKGROUND_REMOVER_PATH, label: "Background remover" },
+  { href: REMOVE_AI_METADATA_PATH, label: "AI metadata remover" },
   ...SIZE_PAGES.map((page) => ({ href: sizePagePath(page), label: page.name })),
   { href: IMAGE_SIZES_PATH, label: "Social media image sizes" },
 ];
