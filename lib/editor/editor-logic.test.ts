@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createBoxElement,
   createDocument,
+  createImageElement,
   createLinearElement,
   createTextElement,
 } from "@/lib/document/factories";
@@ -10,6 +11,8 @@ import type { DesignDocument, TextElement } from "@/lib/document/schema";
 import {
   bakeBoxTransform,
   bakeLineTransform,
+  cropToEdge,
+  edgeOfAnchor,
   bakeTextTransform,
   normalizeRotation,
 } from "@/lib/editor/bake";
@@ -194,5 +197,38 @@ describe("bakeLineTransform", () => {
     expect([x1, y1]).toEqual([0, 0]);
     expect(x2).toBeCloseTo(0);
     expect(y2).toBeCloseTo(200);
+  });
+});
+
+describe("cropToEdge", () => {
+  const ASSET = {
+    height: 600,
+    id: "8a5b3f4e-1c2d-4e5f-8a9b-0c1d2e3f4a5b",
+    width: 800,
+  };
+  const photo = { ...createImageElement(ASSET, PAGE), height: 300, width: 400 };
+
+  it("crops the side that moves and stops at the photo's edge", () => {
+    expect(cropToEdge(photo, "right", 300)).toEqual({
+      crop: { height: 1, width: 0.75, x: 0, y: 0 },
+      size: 300,
+    });
+    const left = cropToEdge(photo, "left", 100);
+    expect(left.crop).toEqual({ height: 1, width: 0.25, x: 0.75, y: 0 });
+    // Back out past the edge: the whole photo, no further
+    const cropped = { ...photo, crop: left.crop, width: 100 };
+    expect(cropToEdge(cropped, "left", 900)).toEqual({ crop: null, size: 400 });
+    expect(edgeOfAnchor("top-center")).toBe("top");
+    expect(edgeOfAnchor("top-left")).toBeNull();
+  });
+
+  it("crops the mirrored side of a flipped photo", () => {
+    const flipped = { ...photo, flipX: true };
+    expect(cropToEdge(flipped, "right", 100).crop).toEqual({
+      height: 1,
+      width: 0.25,
+      x: 0.75,
+      y: 0,
+    });
   });
 });

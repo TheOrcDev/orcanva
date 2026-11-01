@@ -4,7 +4,7 @@ A free and open-source, Canva-style editor for YouTube thumbnails and social ima
 
 - Pick a canvas size (YouTube thumbnail, Full HD, 4K, square, story, … or custom)
 - Upload images (button, drag from the desktop, or paste a screenshot) and move, scale, rotate, and flip them
-- **Crop** photos: double-click one (or press Crop) to drag the frame's handles, slide the photo under it and zoom; Enter keeps it, Esc puts it back
+- **Crop** photos: drag a side handle to crop that side, or double-click one (or press Crop) to drag the frame's handles, slide the photo under it and zoom; Enter keeps it, Esc puts it back
 - One-click **Remove background** for any image, run by an open-source model in your browser (no API key, no per-image cost)
 - Instagram-style **filters** for images: 11 one-tap looks previewed on your own photo, with an intensity slider, plus brightness, contrast, highlights, shadows, saturation, warmth, tint, fade, vignette, sharpen, grain, and blur
 - Text with 40 curated Google Fonts, inline editing, outline, drop shadow, and highlight effects
@@ -142,7 +142,7 @@ Uses [BEN2](https://huggingface.co/onnx-community/BEN2-ONNX), whose weights are 
 | ⌘] / ⌘[ (⇧ for front/back) | Bring forward / send backward |
 | Enter or double-click | Edit selected text |
 | Double-click an image | Crop it (Enter keeps the crop, Esc cancels) |
-| Shift while resizing | Images: free stretch; shapes: keep ratio |
+| Shift while resizing | Shapes: keep ratio (photos always keep theirs; their side handles crop) |
 | ⌘ while dragging | Place freely, without snapping |
 | ⌘+ / ⌘− / ⌘0 | Zoom in / out / fit |
 | Scroll / pinch (⌘-scroll) | Pan / zoom at pointer |

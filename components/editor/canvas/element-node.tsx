@@ -7,13 +7,19 @@ import { Group } from "react-konva";
 import { BoxShapeNode } from "@/components/editor/canvas/box-shape-node";
 import { ImageNode } from "@/components/editor/canvas/image-node";
 import { LineNode } from "@/components/editor/canvas/line-node";
+import { SELECTION_HANDLES_NAME } from "@/components/editor/canvas/selection-transformer";
 import {
   HIGHLIGHT_NODE_NAME,
   TextNode,
   layoutHighlight,
 } from "@/components/editor/canvas/text-node";
-import type { DesignElement } from "@/lib/document/schema";
-import { MIN_ELEMENT_SIZE } from "@/lib/editor/bake";
+import { cropToPixels } from "@/lib/document/crop";
+import type {
+  DesignElement,
+  ImageCrop,
+  ImageElement,
+} from "@/lib/document/schema";
+import { MIN_ELEMENT_SIZE, cropToEdge, edgeOfAnchor } from "@/lib/editor/bake";
 import { ELEMENT_NODE_NAME } from "@/lib/editor/node-names";
 
 interface Position {
@@ -66,14 +72,18 @@ const ElementContent = ({ element }: { element: DesignElement }) => {
 
 const SIDE_ANCHORS = new Set(["middle-left", "middle-right"]);
 
+// The handle the selection is being resized by
+const activeAnchor = (node: Konva.Node): string | null =>
+  node
+    .getStage()
+    ?.findOne<Konva.Transformer>(`.${SELECTION_HANDLES_NAME}`)
+    ?.getActiveAnchor() ?? null;
+
 // Side handles on text change the wrap width instead of squashing glyphs:
 // fold the horizontal scale into the Text width while the drag is live.
 const rewrapText = (event: Konva.KonvaEventObject<Event>) => {
   const group = event.currentTarget as Konva.Group;
-  const transformer = group.getStage()?.findOne("Transformer") as
-    | Konva.Transformer
-    | undefined;
-  if (!SIDE_ANCHORS.has(transformer?.getActiveAnchor() ?? "")) {
+  if (!SIDE_ANCHORS.has(activeAnchor(group) ?? "")) {
     return;
   }
   const text = group.findOne("Text");
@@ -87,6 +97,54 @@ const rewrapText = (event: Konva.KonvaEventObject<Event>) => {
   if (highlight) {
     layoutHighlight(text as Konva.Text, highlight);
   }
+};
+
+// Where a side-handle crop has got to, kept on the photo's node until the
+// gesture is baked
+export const LIVE_CROP_ATTR = "liveCrop";
+
+export interface LiveCrop {
+  crop: ImageCrop | null;
+  width: number;
+  height: number;
+}
+
+// Side handles on a photo crop it instead of stretching it: fold the scale
+// into the photo's size and crop while the drag is live. `element` is the
+// photo as the gesture started.
+const recropImage = (
+  event: Konva.KonvaEventObject<Event>,
+  element: ImageElement
+) => {
+  const group = event.currentTarget as Konva.Group;
+  const edge = edgeOfAnchor(activeAnchor(group));
+  const image = group.findOne<Konva.Image>("Image");
+  const source = image?.image();
+  // The photo, or its filtered copy (see useFilteredImage)
+  const drawn =
+    source instanceof HTMLImageElement || source instanceof HTMLCanvasElement
+      ? source
+      : null;
+  if (!(edge && image && drawn)) {
+    return;
+  }
+  const horizontal = edge === "left" || edge === "right";
+  const size = horizontal
+    ? image.width() * Math.abs(group.scaleX())
+    : image.height() * Math.abs(group.scaleY());
+  const { crop, size: allowed } = cropToEdge(element, edge, size);
+  const width = horizontal ? allowed : image.width();
+  const height = horizontal ? image.height() : allowed;
+  group.scale({ x: 1, y: 1 });
+  image.width(width);
+  image.height(height);
+  image.position({
+    x: element.flipX ? width : 0,
+    y: element.flipY ? height : 0,
+  });
+  image.crop(cropToPixels(crop, { height: drawn.height, width: drawn.width }));
+  const live: LiveCrop = { crop, height, width };
+  image.setAttr(LIVE_CROP_ATTR, live);
 };
 
 // Every element is a Group positioned at its top-left corner. The Group is
@@ -168,7 +226,13 @@ export const ElementNode = ({
       onDragEnd={handleDragEnd}
       onDblClick={edit}
       onDblTap={edit}
-      onTransform={isText ? rewrapText : undefined}
+      onTransform={(event) => {
+        if (element.type === "text") {
+          rewrapText(event);
+        } else if (element.type === "image") {
+          recropImage(event, element);
+        }
+      }}
     >
       <ElementContent element={element} />
     </Group>

@@ -1,5 +1,12 @@
+import {
+  clampCrop,
+  cropOrFull,
+  isFullCrop,
+  mirrorCrop,
+} from "@/lib/document/crop";
 import type {
   BoxShapeElement,
+  ImageCrop,
   ImageElement,
   LinearElement,
   TextElement,
@@ -97,4 +104,70 @@ export const bakeLineTransform = (
     x: transform.x,
     y: transform.y,
   };
+};
+
+export type ImageEdge = "left" | "right" | "top" | "bottom";
+
+const EDGE_OF_ANCHOR: Record<string, ImageEdge> = {
+  "bottom-center": "bottom",
+  "middle-left": "left",
+  "middle-right": "right",
+  "top-center": "top",
+};
+
+// The side a Transformer side handle moves, or null for corners
+export const edgeOfAnchor = (anchor: string | null): ImageEdge | null =>
+  anchor === null ? null : (EDGE_OF_ANCHOR[anchor] ?? null);
+
+const isHorizontal = (edge: ImageEdge) => edge === "left" || edge === "right";
+
+// How wide (left/right) or tall (top/bottom) a photo's frame can get by
+// moving one side before it runs out of photo
+export const roomToEdge = (element: ImageElement, edge: ImageEdge): number => {
+  const visible = mirrorCrop(
+    cropOrFull(element.crop),
+    element.flipX,
+    element.flipY
+  );
+  const horizontal = isHorizontal(edge);
+  const size = horizontal ? element.width : element.height;
+  const start = horizontal ? visible.x : visible.y;
+  const fraction = horizontal ? visible.width : visible.height;
+  const full = size / fraction;
+  return edge === "right" || edge === "bottom"
+    ? (1 - start) * full
+    : (start + fraction) * full;
+};
+
+// Moving one side of a photo crops it on that side: the photo stays where
+// it is and shows more or less of itself, up to its own edge. `size` is the
+// frame's new width (left/right) or height (top/bottom).
+export const cropToEdge = (
+  element: ImageElement,
+  edge: ImageEdge,
+  size: number
+): { crop: ImageCrop | null; size: number } => {
+  const visible = mirrorCrop(
+    cropOrFull(element.crop),
+    element.flipX,
+    element.flipY
+  );
+  const horizontal = isHorizontal(edge);
+  const fraction = horizontal ? visible.width : visible.height;
+  const start = horizontal ? visible.x : visible.y;
+  const full = (horizontal ? element.width : element.height) / fraction;
+  const allowed = Math.min(
+    Math.max(MIN_ELEMENT_SIZE, size),
+    roomToEdge(element, edge)
+  );
+  const next = allowed / full;
+  const nextStart =
+    edge === "left" || edge === "top" ? start + fraction - next : start;
+  const cropped = clampCrop(
+    horizontal
+      ? { ...visible, width: next, x: nextStart }
+      : { ...visible, height: next, y: nextStart }
+  );
+  const crop = mirrorCrop(cropped, element.flipX, element.flipY);
+  return { crop: isFullCrop(crop) ? null : crop, size: allowed };
 };

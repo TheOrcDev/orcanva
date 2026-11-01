@@ -11,10 +11,15 @@ import {
 } from "@/components/editor/canvas/snap-targets";
 import { useEditorStoreApi } from "@/components/editor/editor-store-context";
 import type { Point, Rect } from "@/lib/document/geometry";
-import type { DesignElement } from "@/lib/document/schema";
+import type { DesignElement, ImageElement } from "@/lib/document/schema";
+import { edgeOfAnchor, roomToEdge } from "@/lib/editor/bake";
 import type { NodeTransform } from "@/lib/editor/bake";
 import { SNAP_DISTANCE_PX, snapResize } from "@/lib/editor/snapping";
 import { selectDocument } from "@/lib/editor/store";
+
+// Other code finds the selection's handles by this name (there are other
+// Transformers on the stage: others' selections and outlines)
+export const SELECTION_HANDLES_NAME = "selection-handles";
 
 const ROTATION_SNAPS = [0, 45, 90, 135, 180, 225, 270, 315];
 const MIN_SCREEN_SIZE = 8;
@@ -73,6 +78,56 @@ export interface TransformedElement {
   transform: NodeTransform;
   node: Konva.Node;
 }
+
+interface Box {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+}
+
+// A photo's side handle crops, so it can't pull the frame past the photo's
+// own edge. Boxes are in stage pixels and rotate around their top-left
+// corner; the side opposite the handle stays put.
+const limitToPhoto = (
+  box: Box,
+  element: ImageElement,
+  anchor: string | null,
+  zoom: number
+): Box => {
+  const edge = edgeOfAnchor(anchor);
+  if (!edge) {
+    return box;
+  }
+  const room = roomToEdge(element, edge) * zoom;
+  const cos = Math.cos(box.rotation);
+  const sin = Math.sin(box.rotation);
+  if (edge === "left" || edge === "right") {
+    const over = box.width - room;
+    if (over <= 0) {
+      return box;
+    }
+    const shift = edge === "left" ? over : 0;
+    return {
+      ...box,
+      width: room,
+      x: box.x + shift * cos,
+      y: box.y + shift * sin,
+    };
+  }
+  const over = box.height - room;
+  if (over <= 0) {
+    return box;
+  }
+  const shift = edge === "top" ? over : 0;
+  return {
+    ...box,
+    height: room,
+    x: box.x - shift * sin,
+    y: box.y + shift * cos,
+  };
+};
 
 export interface SelectionTransformerProps {
   // One element (lines and arrows alone use endpoint handles instead), or
@@ -176,6 +231,19 @@ export const SelectionTransformer = ({
     return toStage.point(result.point);
   };
 
+  const boundBox = (oldBox: Box, newBox: Box): Box => {
+    const limited = limitBox(oldBox, newBox);
+    if (single?.type !== "image" || limited === oldBox) {
+      return limited;
+    }
+    return limitToPhoto(
+      limited,
+      single,
+      transformerRef.current?.getActiveAnchor() ?? null,
+      pageNodeRef.current?.scaleX() ?? 1
+    );
+  };
+
   // A multi-selection holds only editable elements; it scales from its
   // corners, keeping its ratio, so text and lines scale evenly
   const locked = single ? single.locked : elements.length === 0;
@@ -183,13 +251,14 @@ export const SelectionTransformer = ({
   return (
     <Transformer
       ref={transformerRef}
+      name={SELECTION_HANDLES_NAME}
       anchorCornerRadius={3}
       anchorFill="#ffffff"
       anchorSize={9}
       anchorStroke={ACCENT}
       borderStroke={ACCENT}
       anchorDragBoundFunc={snapAnchor}
-      boundBoxFunc={limitBox}
+      boundBoxFunc={boundBox}
       enabledAnchors={single ? anchorsFor(single) : CORNER_ANCHORS}
       flipEnabled={false}
       ignoreStroke
