@@ -9,8 +9,11 @@ import { buttonVariants } from "@/components/ui/button";
 import { FONT_CATALOG } from "@/lib/fonts/catalog";
 import { STUDIO_PATH } from "@/lib/routes";
 
+// The bottom padding gives the product shot's shadow room to fade out before
+// overflow-hidden clips it; the matching negative margin keeps the next
+// section where it was.
 export const Hero = () => (
-  <section className="relative isolate overflow-hidden">
+  <section className="relative isolate -mb-16 overflow-hidden pb-16">
     {/* The painting keeps its own height, never shorter than 1040px and
         pinned to the top, so the sun stays put however tall the screen or
         this section is. The copy reaches down past the sun and the product
