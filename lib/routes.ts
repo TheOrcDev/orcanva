@@ -9,5 +9,9 @@ export const PRIVATE_DESIGNS_PATH = "/studio/private";
 // Everyone's public designs, the viewer's own included
 export const PUBLIC_DESIGNS_PATH = "/studio/public";
 
+// ?owner= on the public designs, narrowing them to the viewer's own
+export const OWNER_MINE = "mine";
+export const MY_PUBLIC_DESIGNS_PATH = `${PUBLIC_DESIGNS_PATH}?owner=${OWNER_MINE}`;
+
 // The signed-in person's profile: name and picture
 export const SETTINGS_PATH = "/settings";

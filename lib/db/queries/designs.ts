@@ -61,12 +61,18 @@ export const listPrivateDesigns = (ownerId: string): Promise<DesignSummary[]> =>
     .where(and(eq(designs.ownerId, ownerId), eq(designs.visibility, "private")))
     .orderBy(desc(designs.updatedAt));
 
-// Everyone's public designs, the viewer's own included
-export const listPublicDesigns = (): Promise<DesignSummary[]> =>
-  summaries()
-    .where(eq(designs.visibility, "public"))
-    .orderBy(desc(designs.updatedAt))
-    .limit(PUBLIC_GALLERY_LIMIT);
+// Everyone's public designs (the newest ones), the viewer's own included;
+// with `ownerId`, all of that account's
+export const listPublicDesigns = ({
+  ownerId,
+}: { ownerId?: string } = {}): Promise<DesignSummary[]> => {
+  const query = summaries().orderBy(desc(designs.updatedAt));
+  return ownerId
+    ? query.where(
+        and(eq(designs.visibility, "public"), eq(designs.ownerId, ownerId))
+      )
+    : query.where(eq(designs.visibility, "public")).limit(PUBLIC_GALLERY_LIMIT);
+};
 
 export const getDesign = async (id: string): Promise<DesignRow | null> => {
   if (!isDesignId(id)) {
