@@ -49,6 +49,7 @@ import {
   undo,
 } from "@/lib/editor/history";
 import type { History } from "@/lib/editor/history";
+import type { SnapGuide } from "@/lib/editor/snapping";
 import type {
   LiveConfig,
   LiveElementRow,
@@ -113,6 +114,8 @@ export interface EditorState {
   // Everything below is session UI state and never enters undo history
   selectedIds: string[];
   editingTextId: string | null;
+  // Lines shown while something snaps during a drag
+  guides: SnapGuide[];
   zoom: number;
   zoomMode: "fit" | "manual";
   saveStatus: SaveStatus;
@@ -165,6 +168,7 @@ export interface EditorActions {
   select: (ids: string[]) => void;
   clearSelection: () => void;
   setEditingText: (id: string | null) => void;
+  setGuides: (guides: SnapGuide[]) => void;
   setZoom: (zoom: number) => void;
   // Fit mode recomputes zoom from the viewport without leaving fit mode
   setFitZoom: (zoom: number) => void;
@@ -392,6 +396,7 @@ export const createEditorStore = (init: EditorInit) => {
     editingTextId: null,
     end: () => set((state) => ({ history: endTransaction(state.history) })),
     fileDragActive: false,
+    guides: [],
     held: new Set(),
     history: createHistory(),
     hold: (ids) => set((state) => ({ held: new Set([...state.held, ...ids]) })),
@@ -486,6 +491,10 @@ export const createEditorStore = (init: EditorInit) => {
         state.fileDragActive === active ? state : { fileDragActive: active }
       ),
     setFitZoom: (zoom) => set({ zoom: clampZoom(zoom) }),
+    setGuides: (guides) =>
+      set((state) =>
+        guides.length === 0 && state.guides.length === 0 ? state : { guides }
+      ),
     setLiveStatus: (status) =>
       set((state) =>
         state.liveStatus === status ? state : { liveStatus: status }

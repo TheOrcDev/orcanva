@@ -8,6 +8,7 @@ A personal, Canva-style editor for YouTube thumbnails and social images.
 - Instagram-style **filters** for images: 11 one-tap looks previewed on your own photo, with an intensity slider, plus brightness, contrast, highlights, shadows, saturation, warmth, tint, fade, vignette, sharpen, grain, and blur
 - Text with 40 curated Google Fonts, inline editing, outline, drop shadow, and highlight effects
 - Shapes, lines, arrows, solid or gradient backgrounds, and a drag-to-reorder layers panel
+- **Smart guides**: dragged elements snap their edges and centres to the page and to each other
 - Undo/redo, autosave, and download as PNG, JPG, or WebP at exact pixel size (1× or 2×)
 - **Live collaboration**: open a design in several windows (or on several machines) and see everyone's cursors, selections, and edits as they happen
 - **Accounts** (Google or email + password): your designs are private unless you make them public, and your uploads form your own library; change your name and avatar under Settings in the account menu
@@ -127,6 +128,7 @@ Uses [BEN2](https://huggingface.co/onnx-community/BEN2-ONNX), whose weights are 
 | ⌘] / ⌘[ (⇧ for front/back) | Bring forward / send backward |
 | Enter or double-click | Edit selected text |
 | Shift while resizing | Images: free stretch; shapes: keep ratio |
+| ⌘ while dragging | Place freely, without snapping |
 | ⌘+ / ⌘− / ⌘0 | Zoom in / out / fit |
 | Scroll / pinch (⌘-scroll) | Pan / zoom at pointer |
 

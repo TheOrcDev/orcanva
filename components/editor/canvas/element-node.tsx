@@ -26,6 +26,12 @@ export interface ElementNodeProps {
   onRelease: (id: string) => void;
   // Reports the in-progress drag so others can watch it move
   onDragPreview: (id: string, position: { x: number; y: number }) => void;
+  // Where the dragged node may go, in stage pixels (snapping)
+  onDragBound: (
+    id: string,
+    position: { x: number; y: number },
+    event: unknown
+  ) => { x: number; y: number };
   // Someone else is dragging this element right now
   preview: { x: number; y: number } | null;
 }
@@ -90,6 +96,7 @@ export const ElementNode = ({
   onHold,
   onRelease,
   onDragPreview,
+  onDragBound,
   preview,
 }: ElementNodeProps) => {
   const isText = element.type === "text";
@@ -149,6 +156,9 @@ export const ElementNode = ({
       opacity={element.opacity}
       visible={element.visible}
       draggable={!element.locked}
+      dragBoundFunc={(position, event) =>
+        onDragBound(element.id, position, event)
+      }
       onMouseDown={select}
       onTap={select}
       onDragStart={handleDragStart}

@@ -11,6 +11,7 @@ import { ElementNode } from "@/components/editor/canvas/element-node";
 import { LineHandles } from "@/components/editor/canvas/line-handles";
 import { RemoteSelections } from "@/components/editor/canvas/remote-selections";
 import { SelectionTransformer } from "@/components/editor/canvas/selection-transformer";
+import { SnapGuides } from "@/components/editor/canvas/snap-guides";
 import { TextEditOverlay } from "@/components/editor/canvas/text-edit-overlay";
 import { RemoteCursors } from "@/components/editor/collab/remote-cursors";
 import {
@@ -21,6 +22,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useUpload } from "@/hooks/use-upload";
 import { createImageElement } from "@/lib/document/factories";
 import { fitZoom } from "@/lib/document/geometry";
+import type { Point, Rect as Box } from "@/lib/document/geometry";
 import type { DesignElement } from "@/lib/document/schema";
 import { bakeBoxTransform, bakeTextTransform } from "@/lib/editor/bake";
 import type { NodeTransform } from "@/lib/editor/bake";
@@ -30,6 +32,13 @@ import {
   updateElement,
 } from "@/lib/editor/document-ops";
 import { ASSET_DRAG_TYPE } from "@/lib/editor/drag-data";
+import {
+  NO_SNAP,
+  SNAP_DISTANCE_PX,
+  offsetRect,
+  snapBox,
+  unionRect,
+} from "@/lib/editor/snapping";
 import { MAX_ZOOM, MIN_ZOOM, selectDocument } from "@/lib/editor/store";
 
 const PINCH_ZOOM_SPEED = 0.01;
@@ -46,6 +55,25 @@ const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
   event.preventDefault();
   event.dataTransfer.dropEffect = "copy";
 };
+
+// A drag in progress: what moves, from where, and what it can snap to
+interface SnapSession {
+  // The page point under the pointer when it went down
+  press: Point;
+  // Each moving element's position when the drag began
+  starts: Map<string, Point>;
+  // Around everything that moves, in page coordinates
+  box: Box;
+  // The page and every other visible element
+  targets: Box[];
+}
+
+// Boxes as the selection handles draw them
+const BOX_OPTIONS = { skipShadow: true, skipStroke: true } as const;
+
+// Holding ⌘ or Ctrl while dragging places things freely
+const isFreeMove = (event: unknown) =>
+  event instanceof MouseEvent && (event.metaKey || event.ctrlKey);
 
 const isLinear = (element: DesignElement) =>
   element.type === "line" || element.type === "arrow";
@@ -219,6 +247,106 @@ export const WorkspaceStage = () => {
     },
     [store]
   );
+
+  // Where the pointer went down, in stage pixels. Drags measure from it, so
+  // every element of a selection moves by the same snapped amount even though
+  // Konva drags each one with its own pointer offset.
+  const pressRef = useRef<Point | null>(null);
+  const snapRef = useRef<SnapSession | null>(null);
+
+  const startSnapping = useCallback(
+    (ids: string[]) => {
+      const page = pageNodeRef.current;
+      const press = pressRef.current;
+      snapRef.current = null;
+      if (!(page && press)) {
+        return;
+      }
+      const boxOf = (node: Konva.Node) =>
+        node.getClientRect({ relativeTo: page, ...BOX_OPTIONS });
+      const moving = new Set(ids);
+      const starts = new Map<string, Point>();
+      const boxes: Box[] = [];
+      for (const id of ids) {
+        const node = page.findOne(`#${id}`);
+        if (node) {
+          starts.set(id, node.position());
+          boxes.push(boxOf(node));
+        }
+      }
+      const { elements, height, width } = selectDocument(store.getState());
+      const targets: Box[] = [{ height, width, x: 0, y: 0 }];
+      for (const element of elements) {
+        const node =
+          element.visible && !moving.has(element.id)
+            ? page.findOne(`#${element.id}`)
+            : undefined;
+        if (node) {
+          targets.push(boxOf(node));
+        }
+      }
+      const box = unionRect(boxes);
+      if (box) {
+        snapRef.current = {
+          box,
+          press: page.getAbsoluteTransform().copy().invert().point(press),
+          starts,
+          targets,
+        };
+      }
+    },
+    [pageNodeRef, store]
+  );
+
+  const stopSnapping = useCallback(() => {
+    snapRef.current = null;
+    store.getState().setGuides([]);
+  }, [store]);
+
+  // Konva asks where a dragged node may go (in stage pixels)
+  const boundDrag = useCallback(
+    (id: string, position: Point, event: unknown): Point => {
+      const page = pageNodeRef.current;
+      const session = snapRef.current;
+      const start = session?.starts.get(id);
+      const pointer = page?.getStage()?.getPointerPosition();
+      if (!(page && session && start && pointer)) {
+        return position;
+      }
+      const toStage = page.getAbsoluteTransform();
+      const now = toStage.copy().invert().point(pointer);
+      const moved = { x: now.x - session.press.x, y: now.y - session.press.y };
+      const snap = isFreeMove(event)
+        ? NO_SNAP
+        : snapBox(
+            offsetRect(session.box, moved),
+            session.targets,
+            SNAP_DISTANCE_PX / page.scaleX()
+          );
+      store.getState().setGuides(snap.guides);
+      return toStage.point({
+        x: start.x + moved.x + snap.dx,
+        y: start.y + moved.y + snap.dy,
+      });
+    },
+    [pageNodeRef, store]
+  );
+
+  const beginDrag = useCallback(
+    (id: string) => {
+      holdElement(id);
+      startSnapping([id]);
+    },
+    [holdElement, startSnapping]
+  );
+  const endDrag = useCallback(
+    (id: string) => {
+      releaseElement(id);
+      stopSnapping();
+    },
+    [releaseElement, stopSnapping]
+  );
+
   const holdTransformed = useCallback(
     (element: DesignElement) => holdElement(element.id),
     [holdElement]
@@ -236,6 +364,7 @@ export const WorkspaceStage = () => {
   const handleStageMouseDown = (
     event: Konva.KonvaEventObject<MouseEvent | TouchEvent>
   ) => {
+    pressRef.current = event.target.getStage()?.getPointerPosition() ?? null;
     if (event.target === event.target.getStage()) {
       clearSelection();
     }
@@ -404,8 +533,9 @@ export const WorkspaceStage = () => {
                   onSelect={selectElement}
                   onMove={moveElement}
                   onEditText={editText}
-                  onHold={holdElement}
-                  onRelease={releaseElement}
+                  onHold={beginDrag}
+                  onRelease={endDrag}
+                  onDragBound={boundDrag}
                   onDragPreview={previewDrag}
                   preview={previews.get(element.id) ?? null}
                 />
@@ -419,6 +549,7 @@ export const WorkspaceStage = () => {
               </Group>
             ) : null}
             <RemoteSelections />
+            <SnapGuides origin={origin} zoom={zoom} />
             <SelectionTransformer
               element={transformTarget}
               onTransformStart={holdTransformed}
