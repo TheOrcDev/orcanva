@@ -24,7 +24,7 @@ const [figtreeMedium, figtreeSemiBold, instrumentSans, painting] =
     asset("hero-landscape-og.jpg"),
   ]);
 
-// --foreground by day
+// --foreground by day, the same plum as the ink on primary (the orc's eyes)
 const FOREGROUND = "#1f1322";
 
 const OpengraphImage = () =>
@@ -61,7 +61,19 @@ const OpengraphImage = () =>
             stroke="#9c7096"
             strokeWidth="1"
           />
+          <path
+            d="M6.47 9.6C5.11 9.28 3.91 8.8 2.95 8c.32 1.68 1.28 3.12 2.48 4zM17.53 9.6c1.36-.32 2.56-.8 3.52-1.6-.32 1.68-1.28 3.12-2.48 4z"
+            fill="#f19b89"
+          />
           <path d="M5 13.5a7 7 0 0 1 14 0z" fill="#f19b89" />
+          <path
+            d="M8.1 9.1l2.8.8c-.1.8-.7 1.2-1.5 1.2-.9 0-1.4-.8-1.3-2zM15.9 9.1l-2.8.8c.1.8.7 1.2 1.5 1.2.9 0 1.4-.8 1.3-2z"
+            fill={FOREGROUND}
+          />
+          <path
+            d="M8 13.5c-.2-.8-.3-1.4-.2-2.3 1.1.6 1.9 1.4 2.2 2.3zM16 13.5c.2-.8.3-1.4.2-2.3-1.1.6-1.9 1.4-2.2 2.3z"
+            fill="#fef4e5"
+          />
           <rect
             x="1.9"
             y="13.5"

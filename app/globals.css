@@ -7,9 +7,10 @@
 /* The palette for the whole site, landing included, comes from the hero
    painting and the logo: warm paper and plum ink by day, the dusk sky at
    night. The primary is the logo's coral sun in both themes, with plum ink
-   on it. Every text pair passes AA. The logo's mauve frame and lavender
-   water have no role of their own, so they get --logo-* tokens; at night
-   they swap lightness, like the dusk painting. The favicon (app/icon.svg)
+   on it; the orc's eyes in the logo's sun are that ink too. Every text pair
+   passes AA. The logo's mauve frame, lavender water and ivory tusks have no
+   role of their own, so they get --logo-* tokens; at night the frame and
+   water swap lightness, like the dusk painting. The favicon (app/icon.svg)
    and the share image keep literal copies. */
 :root {
   --background: oklch(0.983 0.005 75);
@@ -48,6 +49,7 @@
   --sidebar-ring: oklch(0.6 0.077 331);
   --logo-frame: oklch(0.602 0.077 331);
   --logo-water: oklch(0.773 0.048 311);
+  --logo-tusk: oklch(0.97 0.022 78);
 }
 
 .dark {
@@ -116,6 +118,7 @@
   --font-heading: var(--font-heading);
   --color-logo-frame: var(--logo-frame);
   --color-logo-water: var(--logo-water);
+  --color-logo-tusk: var(--logo-tusk);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
