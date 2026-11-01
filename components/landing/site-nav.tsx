@@ -5,10 +5,13 @@ import { Logo } from "@/components/landing/logo";
 import { buttonVariants } from "@/components/ui/button";
 import { signInUrl } from "@/lib/auth/redirect";
 import { STUDIO_PATH } from "@/lib/routes";
+import { SPONSORS_PATH } from "@/lib/sponsors";
 
+// Rooted at / so they work from the sponsors page too
 const SECTIONS = [
-  { href: "#features", label: "Features" },
-  { href: "#collaboration", label: "Collaboration" },
+  { href: "/#features", label: "Features" },
+  { href: "/#collaboration", label: "Collaboration" },
+  { href: SPONSORS_PATH, label: "Sponsors" },
 ];
 
 // The same for everyone, so the page stays static: signing in from here

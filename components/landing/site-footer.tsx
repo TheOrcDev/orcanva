@@ -4,9 +4,11 @@ import { Container } from "@/components/landing/container";
 import { Logo } from "@/components/landing/logo";
 import { signInUrl } from "@/lib/auth/redirect";
 import { STUDIO_PATH } from "@/lib/routes";
+import { SPONSORS_PATH } from "@/lib/sponsors";
 
 const LINKS = [
   { href: STUDIO_PATH, label: "Studio" },
+  { href: SPONSORS_PATH, label: "Sponsors" },
   { href: signInUrl(STUDIO_PATH), label: "Sign in" },
   { href: "/auth/sign-up", label: "Create account" },
 ];
