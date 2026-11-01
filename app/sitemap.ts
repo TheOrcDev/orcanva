@@ -1,10 +1,6 @@
 import type { MetadataRoute } from "next";
 
-import {
-  BACKGROUND_REMOVER_PATH,
-  CANVA_ALTERNATIVE_PATH,
-  REMOVE_BG_ALTERNATIVE_PATH,
-} from "@/lib/routes";
+import { COMPARE_LINKS, TOOL_LINKS } from "@/lib/seo/landing-links";
 import { SITE_URL } from "@/lib/site";
 import { SPONSORS_PATH } from "@/lib/sponsors";
 
@@ -12,9 +8,8 @@ import { SPONSORS_PATH } from "@/lib/sponsors";
 // it. The studio, the editor and sign-in are the app itself (noindex).
 const PATHS = [
   "/",
-  CANVA_ALTERNATIVE_PATH,
-  BACKGROUND_REMOVER_PATH,
-  REMOVE_BG_ALTERNATIVE_PATH,
+  ...COMPARE_LINKS.map((link) => link.href),
+  ...TOOL_LINKS.map((link) => link.href),
   SPONSORS_PATH,
 ];
 

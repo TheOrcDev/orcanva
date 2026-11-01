@@ -26,3 +26,4 @@ export const newDesignPath = (presetId: string): string =>
 export const BACKGROUND_REMOVER_PATH = "/background-remover";
 export const CANVA_ALTERNATIVE_PATH = "/canva-alternative";
 export const REMOVE_BG_ALTERNATIVE_PATH = "/remove-bg-alternative";
+export const IMAGE_SIZES_PATH = "/social-media-image-sizes";
