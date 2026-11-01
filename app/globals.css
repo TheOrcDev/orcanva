@@ -123,6 +123,156 @@
   --text-body-lg--letter-spacing: -0.01em;
 }
 
+/* The landing's bento grid (components/landing/magic-bento.tsx), after
+   React Bits' Magic Bento: an edge light in the logo's coral follows the
+   pointer across every tile, the tile under it gets a faint spotlight, and
+   a click sends a ring of light over the grid. The script only writes
+   positions; the fades are transitions on these registered numbers. */
+@property --bento-near {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --bento-hot {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+/* Runs 0 to 1 while a ring crosses the grid; at 1 there is no ring */
+@property --bento-wave {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+
+@layer components {
+  .bento {
+    --bento-glow: 75%;
+    --bento-spot: 9%;
+    --bento-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+    transition: --bento-near 400ms ease-out;
+
+    @variant md {
+      grid-auto-rows: 20rem;
+    }
+  }
+
+  .dark .bento {
+    --bento-glow: 95%;
+    --bento-spot: 7%;
+  }
+
+  .bento[data-near] {
+    --bento-near: 1;
+    transition-duration: 120ms;
+  }
+
+  .bento-card {
+    transition:
+      --bento-hot 300ms ease-out,
+      opacity 420ms cubic-bezier(0.22, 1, 0.36, 1) var(--bento-delay, 0ms),
+      translate 760ms var(--bento-spring) var(--bento-delay, 0ms),
+      scale 760ms var(--bento-spring) var(--bento-delay, 0ms);
+  }
+
+  .bento-card:hover {
+    --bento-hot: 1;
+  }
+
+  /* Until the grid scrolls into view, the tiles wait just below their place */
+  .bento[data-intro]:not([data-entered]) .bento-card {
+    opacity: 0;
+    translate: 0 1rem;
+    scale: 0.97;
+  }
+
+  .bento-light,
+  .bento-edge {
+    border-radius: inherit;
+  }
+
+  .bento-light {
+    background: radial-gradient(
+      20rem circle at var(--bento-x, -999px) var(--bento-y, -999px),
+      color-mix(
+        in oklch,
+        var(--primary) calc(var(--bento-hot) * var(--bento-spot)),
+        transparent
+      ),
+      transparent 70%
+    );
+  }
+
+  /* A 1px ring: the padding box minus the content box */
+  .bento-edge {
+    padding: 1px;
+    background:
+      radial-gradient(
+        15rem circle at var(--bento-x, -999px) var(--bento-y, -999px),
+        color-mix(
+          in oklch,
+          var(--primary) calc(var(--bento-near) * var(--bento-glow)),
+          transparent
+        ),
+        transparent 75%
+      ),
+      radial-gradient(
+        circle at var(--bento-wx, -999px) var(--bento-wy, -999px),
+        transparent calc(var(--bento-wave) * var(--bento-reach, 0px) - 7rem),
+        color-mix(
+            in oklch,
+            var(--primary) calc((1 - var(--bento-wave)) * var(--bento-glow)),
+            transparent
+          )
+          calc(var(--bento-wave) * var(--bento-reach, 0px) - 0.75rem),
+        transparent calc(var(--bento-wave) * var(--bento-reach, 0px))
+      );
+    mask:
+      linear-gradient(black 0 0) content-box exclude,
+      linear-gradient(black 0 0);
+  }
+
+  /* Remove background: the cutout covers the right half of the painting
+     and sweeps over all of it while the tile is hovered */
+  .bento-wipe {
+    clip-path: inset(0 0 0 50%);
+  }
+
+  .bento-wipe-line {
+    left: 50%;
+  }
+
+  .bento-wipe,
+  .bento-wipe-line {
+    transition-duration: 700ms;
+    transition-property: clip-path, left, opacity;
+    transition-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+
+  @media (hover: hover) {
+    .bento-card:hover .bento-wipe {
+      clip-path: inset(0);
+    }
+
+    .bento-card:hover .bento-wipe-line {
+      left: 0;
+      opacity: 0;
+    }
+  }
+
+  /* The usual stand-in for "transparent" */
+  .bento-checker {
+    background: repeating-conic-gradient(var(--muted) 0 25%, var(--card) 0 50%)
+      0 0 / 1.5rem 1.5rem;
+  }
+}
+
 @theme inline {
   --font-sans: var(--font-sans);
   --font-heading: var(--font-heading);
