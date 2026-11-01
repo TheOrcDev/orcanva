@@ -25,7 +25,7 @@ const fontMono = Geist_Mono({
 export const metadata: Metadata = {
   description: "Design thumbnails and social images",
   // Share images and canonical URLs resolve against production
-  metadataBase: new URL("https://orcanva.vercel.app"),
+  metadataBase: new URL("https://www.orcanva.app"),
   title: { default: "Orcanva", template: "%s · Orcanva" },
 };
 
