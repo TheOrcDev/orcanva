@@ -67,6 +67,36 @@ describe("snapBox", () => {
   });
 });
 
+describe("equal spacing", () => {
+  const left = { height: 100, width: 100, x: 0, y: 0 };
+  const right = { height: 100, width: 100, x: 300, y: 0 };
+
+  it("centres a box between its neighbours and marks both gaps", () => {
+    const box = { height: 60, width: 100, x: 147, y: 20 };
+    const result = snapBox(box, [left, right], 6);
+    expect(result.dx).toBe(3);
+    const gaps = result.guides.filter((guide) => guide.gap);
+    expect(gaps).toEqual([
+      { at: 50, axis: "y", from: 100, gap: true, to: 150 },
+      { at: 50, axis: "y", from: 250, gap: true, to: 300 },
+    ]);
+  });
+
+  it("repeats the gap between two neighbours on one side", () => {
+    const pair = [left, { ...right, x: 150 }];
+    // Gap of 50 between them, so the next one starts at 300
+    const box = { height: 100, width: 100, x: 296, y: 0 };
+    const result = snapBox(box, pair, 6);
+    expect(result.dx).toBe(4);
+    expect(result.guides.filter((guide) => guide.gap)).toHaveLength(2);
+  });
+
+  it("only counts neighbours in the same row", () => {
+    const box = { height: 60, width: 100, x: 147, y: 400 };
+    expect(snapBox(box, [left, right], 6).dx).toBe(0);
+  });
+});
+
 describe("snapResize", () => {
   const target = { height: 100, width: 100, x: 500, y: 300 };
   const box = { height: 100, width: 200, x: 100, y: 100 };

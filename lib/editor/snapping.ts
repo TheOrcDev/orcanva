@@ -9,12 +9,15 @@ const SAME_LINE = 0.01;
 export type SnapAxis = "x" | "y";
 
 // A line drawn while something snaps: vertical at x = `at` for the x axis,
-// horizontal at y = `at` for the y axis, from `from` to `to` along the other
+// horizontal at y = `at` for the y axis, from `from` to `to` along the other.
+// A gap guide measures one of several equal spaces (drawn with end ticks and
+// its length).
 export interface SnapGuide {
   axis: SnapAxis;
   at: number;
   from: number;
   to: number;
+  gap?: true;
 }
 
 export interface SnapResult {
@@ -116,16 +119,155 @@ export const offsetRect = (box: Rect, offset: Point): Rect => ({
   y: box.y + offset.y,
 });
 
+const endOf = (box: Rect, axis: SnapAxis) =>
+  startOf(box, axis) + sizeOf(box, axis);
+
+// Two boxes share a row (for the x axis) when their spans across overlap
+const overlapAcross = (a: Rect, b: Rect, axis: SnapAxis) => {
+  const across = other(axis);
+  const from = Math.max(startOf(a, across), startOf(b, across));
+  const to = Math.min(endOf(a, across), endOf(b, across));
+  return to > from ? { from, to } : null;
+};
+
+// One measured space between two boxes along an axis
+interface Gap {
+  from: number;
+  to: number;
+  // Where the mark sits across: the middle of what both boxes share
+  at: number;
+}
+
+const gapBetween = (
+  before: Rect,
+  after: Rect,
+  axis: SnapAxis,
+  from: number,
+  to: number
+): Gap | null => {
+  const shared = overlapAcross(before, after, axis);
+  return shared ? { at: (shared.from + shared.to) / 2, from, to } : null;
+};
+
+interface SpacingOption {
+  shift: number;
+  // The neighbours whose spacing it would match, in order along the axis
+  before: Rect[];
+  after: Rect[];
+}
+
+// Positions along an axis where the box sits at equal spacing with its
+// neighbours in the same row (or column): centred between the nearest one on
+// each side, or one gap beyond two neighbours on the same side
+const spacingOptions = (
+  box: Rect,
+  targets: readonly Rect[],
+  axis: SnapAxis
+): SpacingOption[] => {
+  const start = startOf(box, axis);
+  const size = sizeOf(box, axis);
+  const row = targets.filter((target) => overlapAcross(target, box, axis));
+  const before = row
+    .filter((target) => endOf(target, axis) <= start)
+    .toSorted((a, b) => endOf(b, axis) - endOf(a, axis));
+  const after = row
+    .filter((target) => startOf(target, axis) >= start + size)
+    .toSorted((a, b) => startOf(a, axis) - startOf(b, axis));
+  const options: SpacingOption[] = [];
+  const option = (at: number, sides: Pick<SpacingOption, "before" | "after">) =>
+    options.push({ ...sides, shift: at - start });
+
+  const [left, further] = before;
+  const [right, beyond] = after;
+  if (left && right) {
+    const room = startOf(right, axis) - endOf(left, axis) - size;
+    if (room >= 0) {
+      option(endOf(left, axis) + room / 2, { after: [right], before: [left] });
+    }
+  }
+  if (left && further && endOf(further, axis) <= startOf(left, axis)) {
+    const gap = startOf(left, axis) - endOf(further, axis);
+    option(endOf(left, axis) + gap, { after: [], before: [left, further] });
+  }
+  if (right && beyond && startOf(beyond, axis) >= endOf(right, axis)) {
+    const gap = startOf(beyond, axis) - endOf(right, axis);
+    option(startOf(right, axis) - gap - size, {
+      after: [right, beyond],
+      before: [],
+    });
+  }
+  return options;
+};
+
+// The gap marks for a box that already sits at equal spacing
+const spacingGuides = (
+  box: Rect,
+  targets: readonly Rect[],
+  axis: SnapAxis
+): SnapGuide[] => {
+  const across = other(axis);
+  const guides: SnapGuide[] = [];
+  for (const option of spacingOptions(box, targets, axis)) {
+    if (Math.abs(option.shift) >= SAME_LINE) {
+      continue;
+    }
+    // Every box in order along the axis, with the moved one among them
+    const chain = [...option.before.toReversed(), box, ...option.after];
+    for (const [index, current] of chain.entries()) {
+      const next = chain[index + 1];
+      const gap = next
+        ? gapBetween(
+            current,
+            next,
+            axis,
+            endOf(current, axis),
+            startOf(next, axis)
+          )
+        : null;
+      if (gap) {
+        guides.push({
+          at: gap.at,
+          axis: across,
+          from: gap.from,
+          gap: true,
+          to: gap.to,
+        });
+      }
+    }
+  }
+  return guides;
+};
+
+// The smallest shift on one axis: to a shared line or to equal spacing
+const nearestOnAxis = (
+  box: Rect,
+  targets: readonly Rect[],
+  axis: SnapAxis,
+  distance: number
+): number => {
+  let best = nearestShift(linesOf(box, axis), targets, axis, distance);
+  for (const option of spacingOptions(box, targets, axis)) {
+    if (
+      Math.abs(option.shift) <= distance &&
+      (best === null || Math.abs(option.shift) < Math.abs(best))
+    ) {
+      best = option.shift;
+    }
+  }
+  return best ?? 0;
+};
+
 // Snaps a moving box's edges and centre to the same lines of the targets
-// (other elements and the page), each axis on its own. `distance` is in
-// page pixels, so callers divide the screen distance by the zoom.
+// (other elements and the page), or to equal spacing with its neighbours,
+// each axis on its own. `distance` is in page pixels, so callers divide the
+// screen distance by the zoom.
 export const snapBox = (
   box: Rect,
   targets: readonly Rect[],
   distance: number
 ): SnapResult => {
-  const dx = nearestShift(linesOf(box, "x"), targets, "x", distance) ?? 0;
-  const dy = nearestShift(linesOf(box, "y"), targets, "y", distance) ?? 0;
+  const dx = nearestOnAxis(box, targets, "x", distance);
+  const dy = nearestOnAxis(box, targets, "y", distance);
   const snapped = offsetRect(box, { x: dx, y: dy });
   return {
     dx,
@@ -133,6 +275,8 @@ export const snapBox = (
     guides: [
       ...guidesAt("x", linesOf(snapped, "x"), spanOf(snapped, "y"), targets),
       ...guidesAt("y", linesOf(snapped, "y"), spanOf(snapped, "x"), targets),
+      ...spacingGuides(snapped, targets, "x"),
+      ...spacingGuides(snapped, targets, "y"),
     ],
   };
 };
