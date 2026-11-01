@@ -27,7 +27,11 @@ import { useUpload } from "@/hooks/use-upload";
 import { createImageElement } from "@/lib/document/factories";
 import { fitZoom } from "@/lib/document/geometry";
 import type { DesignElement } from "@/lib/document/schema";
-import { bakeBoxTransform, bakeTextTransform } from "@/lib/editor/bake";
+import {
+  bakeBoxTransform,
+  bakeLineTransform,
+  bakeTextTransform,
+} from "@/lib/editor/bake";
 import type { NodeTransform } from "@/lib/editor/bake";
 import { insertElement, replaceElement } from "@/lib/editor/document-ops";
 import { ASSET_DRAG_TYPE } from "@/lib/editor/drag-data";
@@ -71,8 +75,12 @@ const bakeTransform = (
         textNode?.width() ?? element.width
       );
     }
+    case "line":
+    case "arrow": {
+      return bakeLineTransform(element, transform);
+    }
     default: {
-      return { ...element, x: transform.x, y: transform.y };
+      return element;
     }
   }
 };
@@ -210,11 +218,18 @@ export const WorkspaceStage = () => {
 
   const handleTransformEnd = useCallback(
     (transformed: TransformedElement[]) => {
+      const baked = transformed.map(({ element, node, transform }) => {
+        const result = bakeTransform(element, transform, node);
+        // React only sets props that changed, and a line's rotation stays 0
+        // while its turn goes into its points: the node must drop it here
+        node.rotation(result.rotation);
+        return result;
+      });
       const state = store.getState();
       state.change((doc) => {
         let next = doc;
-        for (const { element, node, transform } of transformed) {
-          next = replaceElement(next, bakeTransform(element, transform, node));
+        for (const element of baked) {
+          next = replaceElement(next, element);
         }
         return next;
       });

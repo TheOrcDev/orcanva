@@ -8,7 +8,7 @@ A personal, Canva-style editor for YouTube thumbnails and social images.
 - Instagram-style **filters** for images: 11 one-tap looks previewed on your own photo, with an intensity slider, plus brightness, contrast, highlights, shadows, saturation, warmth, tint, fade, vignette, sharpen, grain, and blur
 - Text with 40 curated Google Fonts, inline editing, outline, drop shadow, and highlight effects
 - Shapes, lines, arrows, solid or gradient backgrounds, and a drag-to-reorder layers panel
-- **Select several** elements with Shift-click, ⌘A, or a box dragged across empty canvas, and move them together
+- **Select several** elements with Shift-click, ⌘A, or a box dragged across empty canvas, then move, scale (from the corners) or rotate them together
 - **Smart guides**: dragged elements snap their edges and centres to the page and to each other, and to equal spacing with their neighbours; resize handles and line ends snap too
 - Undo/redo, autosave, and download as PNG, JPG, or WebP at exact pixel size (1× or 2×)
 - **Live collaboration**: open a design in several windows (or on several machines) and see everyone's cursors, selections, and edits as they happen

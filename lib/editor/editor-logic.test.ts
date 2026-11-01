@@ -9,6 +9,7 @@ import {
 import type { DesignDocument, TextElement } from "@/lib/document/schema";
 import {
   bakeBoxTransform,
+  bakeLineTransform,
   bakeTextTransform,
   normalizeRotation,
 } from "@/lib/editor/bake";
@@ -168,5 +169,30 @@ describe("transform baking", () => {
     );
     expect(side.fontSize).toBe(100);
     expect(side.width).toBe(321);
+  });
+});
+
+describe("bakeLineTransform", () => {
+  it("folds a turn and a scale into the points and the stroke", () => {
+    const line = {
+      ...createLinearElement("line", PAGE),
+      points: [0, 0, 100, 0] as [number, number, number, number],
+      strokeWidth: 4,
+    };
+    const baked = bakeLineTransform(line, {
+      rotation: 90,
+      scaleX: 2,
+      scaleY: 2,
+      x: 10,
+      y: 20,
+    });
+    expect(baked.x).toBe(10);
+    expect(baked.y).toBe(20);
+    expect(baked.rotation).toBe(0);
+    expect(baked.strokeWidth).toBe(8);
+    const [x1, y1, x2, y2] = baked.points;
+    expect([x1, y1]).toEqual([0, 0]);
+    expect(x2).toBeCloseTo(0);
+    expect(y2).toBeCloseTo(200);
   });
 });

@@ -176,8 +176,9 @@ export const SelectionTransformer = ({
     return toStage.point(result.point);
   };
 
-  // Several elements only move together for now
-  const locked = single ? single.locked : elements.length !== 1;
+  // A multi-selection holds only editable elements; it scales from its
+  // corners, keeping its ratio, so text and lines scale evenly
+  const locked = single ? single.locked : elements.length === 0;
 
   return (
     <Transformer
@@ -189,7 +190,7 @@ export const SelectionTransformer = ({
       borderStroke={ACCENT}
       anchorDragBoundFunc={snapAnchor}
       boundBoxFunc={limitBox}
-      enabledAnchors={single ? anchorsFor(single) : []}
+      enabledAnchors={single ? anchorsFor(single) : CORNER_ANCHORS}
       flipEnabled={false}
       ignoreStroke
       keepRatio={single ? keepsRatio(single) : true}
