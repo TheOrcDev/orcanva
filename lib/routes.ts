@@ -21,3 +21,6 @@ export const SETTINGS_PATH = "/settings";
 export const NEW_DESIGN_PATH = "/new";
 export const newDesignPath = (presetId: string): string =>
   `${NEW_DESIGN_PATH}/${presetId}`;
+
+// The landing's pages for what people search for, beside `/`
+export const BACKGROUND_REMOVER_PATH = "/background-remover";
