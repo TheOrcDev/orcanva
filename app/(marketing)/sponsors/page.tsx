@@ -10,12 +10,14 @@ import {
   SPONSOR_EMAIL,
   SPONSOR_TIERS,
   SPONSORS,
+  SPONSORS_PATH,
   sponsorMailto,
 } from "@/lib/sponsors";
 import type { Sponsor, SponsorTier, SponsorTierId } from "@/lib/sponsors";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
+  alternates: { canonical: SPONSORS_PATH },
   description:
     "Sponsor Orcanva, the design studio that takes you from idea to design in minutes. Every tier puts your logo on orcanva.app.",
   title: "Sponsors",
