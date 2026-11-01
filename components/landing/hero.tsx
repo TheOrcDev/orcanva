@@ -26,14 +26,14 @@ export const Hero = () => (
       <a href="#features" className={badgeVariants()}>
         New · Filters and blur for every image
       </a>
-      <h1 className="font-heading text-heading-lg md:text-display lg:text-display-lg max-w-4xl font-normal text-balance">
-        Thumbnails worth the click.
+      <h1 className="font-heading text-heading-lg md:text-display lg:text-display-lg max-w-6xl font-normal text-balance">
+        From idea to design in minutes.
       </h1>
       {/* Full ink: the painting behind it is too busy for muted text */}
       <p className="max-w-xl text-lg text-pretty">
-        A calm editor for YouTube thumbnails and social images. Cut out
-        backgrounds in your browser, set type in {FONT_CATALOG.length} fonts,
-        and design together, live.
+        A blank canvas, every size from Story to 4K, and the tools to fill it
+        fast: background removal in your browser, {FONT_CATALOG.length} fonts,
+        filters, and your team on the same canvas, live.
       </p>
       <Link
         href={STUDIO_PATH}

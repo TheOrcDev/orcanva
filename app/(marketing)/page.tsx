@@ -11,8 +11,8 @@ import { Stats } from "@/components/landing/stats";
 
 export const metadata: Metadata = {
   description:
-    "A calm editor for YouTube thumbnails and social images: background removal in your browser, curated fonts, filters, and live collaboration.",
-  title: { absolute: "Orcanva · Thumbnails worth the click" },
+    "From idea to design in minutes: every size from Story to 4K, background removal in your browser, curated fonts, filters, and live collaboration.",
+  title: { absolute: "Orcanva · From idea to design in minutes" },
   // X reads the share image from og:image, but needs this to show it large
   twitter: { card: "summary_large_image" },
 };

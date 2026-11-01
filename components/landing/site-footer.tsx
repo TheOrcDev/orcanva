@@ -24,7 +24,7 @@ export const SiteFooter = () => (
           <Logo />
         </Link>
         <p className="text-muted-foreground text-sm">
-          Thumbnails worth the click.
+          From idea to design in minutes.
         </p>
       </div>
       <nav aria-label="Footer">

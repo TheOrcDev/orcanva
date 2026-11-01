@@ -9,7 +9,7 @@ import { ImageResponse } from "next/og";
 // components/landing/assets/hero-landscape.webp, pinned to the top like the
 // hero (redo it if the hero changes), and the colours and fonts are literal
 // copies of the theme's (Figtree for headings, Instrument Sans for text).
-export const alt = "Orcanva: Thumbnails worth the click.";
+export const alt = "Orcanva: From idea to design in minutes.";
 export const size = { height: 630, width: 1200 };
 export const contentType = "image/png";
 
@@ -103,13 +103,13 @@ const OpengraphImage = () =>
       </div>
       <div
         style={{
-          fontSize: 88,
+          fontSize: 76,
           letterSpacing: -2,
           lineHeight: 1,
           marginTop: 44,
         }}
       >
-        Thumbnails worth the click.
+        From idea to design in minutes.
       </div>
       {/* Full ink, as in the hero: the painting is too busy for muted text */}
       <div
@@ -119,7 +119,7 @@ const OpengraphImage = () =>
           marginTop: 22,
         }}
       >
-        A calm editor for YouTube thumbnails and social images.
+        Every size from Story to 4K, and the tools to fill it fast.
       </div>
     </div>,
     {
