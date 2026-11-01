@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { isStoredAvatarUrl } from "@/lib/storage/keys";
+
 // A presence row as the live query delivers it (jsonb parsed, unvalidated)
 export interface LivePresenceRow {
   client_id: string;
@@ -58,9 +60,13 @@ export const dragPreviewSchema = z.object({
 
 const selectionSchema = z.array(z.string().min(1).max(64)).max(500);
 
-// Only https avatars (they come from the auth provider via the server)
+// Only https avatars from the auth provider, or ones uploaded here (both
+// set by the server from the account)
 const avatarUrl = (image: unknown): string | null =>
-  typeof image === "string" && image.startsWith("https://") ? image : null;
+  typeof image === "string" &&
+  (image.startsWith("https://") || isStoredAvatarUrl(image))
+    ? image
+    : null;
 
 const comparePeers = (a: Peer, b: Peer) =>
   a.name.localeCompare(b.name) || a.clientId.localeCompare(b.clientId);

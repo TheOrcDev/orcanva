@@ -1,6 +1,10 @@
 "use client";
 
-import { RiLogoutBoxRLine, RiUserLine } from "@remixicon/react";
+import {
+  RiLogoutBoxRLine,
+  RiSettings3Line,
+  RiUserLine,
+} from "@remixicon/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTransition } from "react";
@@ -20,7 +24,7 @@ import { toast } from "@/components/ui/toast";
 import { authClient } from "@/lib/auth/client";
 import { signInUrl } from "@/lib/auth/redirect";
 import { initials } from "@/lib/collab/identity";
-import { STUDIO_PATH } from "@/lib/routes";
+import { SETTINGS_PATH, STUDIO_PATH } from "@/lib/routes";
 
 export interface UserMenuViewer {
   name: string;
@@ -31,17 +35,19 @@ export interface UserMenuViewer {
 export const UserAvatar = ({
   viewer,
   size,
+  className,
 }: {
   viewer: Pick<UserMenuViewer, "name" | "image">;
   size?: "sm" | "default" | "lg";
+  className?: string;
 }) => (
-  <Avatar size={size}>
+  <Avatar size={size} className={className}>
     {viewer.image ? <AvatarImage src={viewer.image} alt="" /> : null}
     <AvatarFallback>{initials(viewer.name)}</AvatarFallback>
   </Avatar>
 );
 
-// "Sign in" for guests; the account and sign-out for everyone else
+// "Sign in" for guests; the account, settings and sign-out for everyone else
 export const UserMenu = ({ viewer }: { viewer: UserMenuViewer | null }) => {
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
@@ -91,6 +97,10 @@ export const UserMenu = ({ viewer }: { viewer: UserMenuViewer | null }) => {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
+          <DropdownMenuItem render={<Link href={SETTINGS_PATH} />}>
+            <RiSettings3Line />
+            Settings
+          </DropdownMenuItem>
           <DropdownMenuItem disabled={isPending} onClick={handleSignOut}>
             <RiLogoutBoxRLine />
             Sign out

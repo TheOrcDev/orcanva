@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   assetKey,
+  avatarKey,
   isServableKey,
   isUploadMimeType,
+  ownAvatarKey,
+  storageUrl,
   thumbnailKey,
 } from "@/lib/storage/keys";
 
@@ -19,9 +22,31 @@ describe("storage keys", () => {
   it("only serves known prefixes without traversal", () => {
     expect(isServableKey("assets/abc.png")).toBe(true);
     expect(isServableKey("thumbnails/d/1.jpg")).toBe(true);
+    expect(isServableKey("avatars/u/1.jpg")).toBe(true);
     expect(isServableKey("smoke-test/x.txt")).toBe(false);
     expect(isServableKey("assets/../secrets")).toBe(false);
     expect(isServableKey("/assets/abc.png")).toBe(false);
+  });
+
+  it("builds versioned avatar keys per account", () => {
+    expect(avatarKey("user-1", "v1")).toBe("avatars/user-1/v1.jpg");
+    expect(avatarKey("user-1")).toMatch(
+      /^avatars\/user-1\/[0-9a-f-]{36}\.jpg$/u
+    );
+  });
+
+  it("only claims avatars stored for the same account", () => {
+    const own = storageUrl(avatarKey("user-1", "v1"));
+    expect(ownAvatarKey(own, "user-1")).toBe("avatars/user-1/v1.jpg");
+    expect(ownAvatarKey(own, "user-2")).toBeNull();
+    expect(ownAvatarKey(null, "user-1")).toBeNull();
+    expect(
+      ownAvatarKey("https://lh3.googleusercontent.com/a/photo", "user-1")
+    ).toBeNull();
+    expect(ownAvatarKey(storageUrl("assets/abc.png"), "user-1")).toBeNull();
+    expect(
+      ownAvatarKey(storageUrl("avatars/user-1/../../assets/x"), "user-1")
+    ).toBeNull();
   });
 
   it("allowlists raster upload types only", () => {

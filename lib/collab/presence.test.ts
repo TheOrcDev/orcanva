@@ -48,17 +48,23 @@ describe("peersFromRows", () => {
     expect(peers[1]?.cursor).toEqual({ x: 10, y: 20 });
   });
 
-  it("keeps https avatars only", () => {
+  it("keeps https and uploaded avatars only", () => {
     const peers = peersFromRows(
       [
         row({ client_id: "a", image: "https://lh3.example.com/a.png" }),
         row({ client_id: "b", image: "http://insecure.example/b.png" }),
+        row({ client_id: "c", image: "/api/storage/avatars/u/1.jpg" }),
+        row({ client_id: "d", image: "/api/storage/assets/x.png" }),
+        row({ client_id: "e", image: "data:image/png;base64,AAAA" }),
       ],
       "me",
       NOW
     );
     expect(peers.map((peer) => peer.image)).toEqual([
       "https://lh3.example.com/a.png",
+      null,
+      "/api/storage/avatars/u/1.jpg",
+      null,
       null,
     ]);
   });
