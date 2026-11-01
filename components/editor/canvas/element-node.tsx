@@ -28,6 +28,8 @@ export interface ElementNodeProps {
   // Released without dragging
   onClick: (id: string, additive: boolean) => void;
   onEditText: (id: string) => void;
+  // Double-click on an image
+  onCrop: (id: string) => void;
   onDragStart: (id: string) => void;
   onDragMove: (id: string) => void;
   onDragEnd: (id: string, position: Position) => void;
@@ -94,6 +96,7 @@ export const ElementNode = ({
   onPress,
   onClick,
   onEditText,
+  onCrop,
   onDragStart,
   onDragMove,
   onDragEnd,
@@ -131,9 +134,14 @@ export const ElementNode = ({
   const handleDragEnd = (event: Konva.KonvaEventObject<DragEvent>) => {
     onDragEnd(element.id, { x: event.target.x(), y: event.target.y() });
   };
-  const editText = () => {
-    if (isText && !element.locked) {
+  const edit = () => {
+    if (element.locked) {
+      return;
+    }
+    if (isText) {
       onEditText(element.id);
+    } else if (element.type === "image") {
+      onCrop(element.id);
     }
   };
 
@@ -158,8 +166,8 @@ export const ElementNode = ({
       onDragStart={() => onDragStart(element.id)}
       onDragMove={() => onDragMove(element.id)}
       onDragEnd={handleDragEnd}
-      onDblClick={editText}
-      onDblTap={editText}
+      onDblClick={edit}
+      onDblTap={edit}
       onTransform={isText ? rewrapText : undefined}
     >
       <ElementContent element={element} />

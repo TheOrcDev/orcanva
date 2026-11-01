@@ -89,3 +89,62 @@ export const cropBetween = (frame: Rect, photo: Rect): ImageCrop =>
     x: (frame.x - photo.x) / photo.width,
     y: (frame.y - photo.y) / photo.height,
   });
+
+// Keeps a crop frame inside the photo: shrinks it if it's bigger, then
+// moves it in
+export const containRect = (inner: Rect, outer: Rect): Rect => {
+  const width = Math.min(inner.width, outer.width);
+  const height = Math.min(inner.height, outer.height);
+  return {
+    height,
+    width,
+    x: Math.min(Math.max(inner.x, outer.x), outer.x + outer.width - width),
+    y: Math.min(Math.max(inner.y, outer.y), outer.y + outer.height - height),
+  };
+};
+
+// Keeps a photo covering its frame: scales it up (keeping its ratio) if
+// it's too small, then moves it so no gap shows
+export const coverRect = (photo: Rect, frame: Rect): Rect => {
+  const scale = Math.max(
+    1,
+    frame.width / photo.width,
+    frame.height / photo.height
+  );
+  const width = photo.width * scale;
+  const height = photo.height * scale;
+  return {
+    height,
+    width,
+    x: Math.min(Math.max(photo.x, frame.x + frame.width - width), frame.x),
+    y: Math.min(Math.max(photo.y, frame.y + frame.height - height), frame.y),
+  };
+};
+
+// Shows the whole photo when a crop is (practically) all of it
+export const isFullCrop = (crop: ImageCrop): boolean =>
+  crop.x < 1e-4 &&
+  crop.y < 1e-4 &&
+  crop.width > 1 - 1e-4 &&
+  crop.height > 1 - 1e-4;
+
+// How far a crop is zoomed in: 1 when it reaches the photo's edges on one
+// axis, 2 when it shows half as much
+export const cropZoom = (crop: ImageCrop | null): number => {
+  const { height, width } = cropOrFull(crop);
+  return 1 / Math.max(width, height);
+};
+
+// The same crop zoomed to another level around its centre, keeping its shape
+export const zoomCrop = (crop: ImageCrop | null, zoom: number): ImageCrop => {
+  const current = cropOrFull(crop);
+  const factor = cropZoom(current) / Math.max(1, zoom);
+  const width = current.width * factor;
+  const height = current.height * factor;
+  return clampCrop({
+    height,
+    width,
+    x: current.x + (current.width - width) / 2,
+    y: current.y + (current.height - height) / 2,
+  });
+};

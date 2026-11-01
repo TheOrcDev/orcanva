@@ -115,6 +115,9 @@ export interface EditorState {
   // Everything below is session UI state and never enters undo history
   selectedIds: string[];
   editingTextId: string | null;
+  // The image being cropped (one undo step from start to finish). The
+  // workspace finishes the crop if someone deletes the image meanwhile.
+  cropTargetId: string | null;
   // Lines shown while something snaps during a drag
   guides: SnapGuide[];
   zoom: number;
@@ -169,6 +172,9 @@ export interface EditorActions {
   select: (ids: string[]) => void;
   clearSelection: () => void;
   setEditingText: (id: string | null) => void;
+  startCrop: (id: string) => void;
+  // Keeps the crop, or puts the image back as it was
+  finishCrop: (keep: boolean) => void;
   setGuides: (guides: SnapGuide[]) => void;
   setZoom: (zoom: number) => void;
   // Fit mode recomputes zoom from the viewport without leaving fit mode
@@ -290,14 +296,11 @@ const reconcile = (
   "doc" | "editingTextId" | "name" | "pending" | "selectedIds" | "synced"
 > => {
   const doc = rebase(synced, pending, state.doc, state.held);
-  const editingGone =
-    state.editingTextId !== null &&
-    !doc.document.elements.some(
-      (element) => element.id === state.editingTextId
-    );
+  const exists = (id: string | null) =>
+    id !== null && doc.document.elements.some((element) => element.id === id);
   return {
     doc,
-    editingTextId: editingGone ? null : state.editingTextId,
+    editingTextId: exists(state.editingTextId) ? state.editingTextId : null,
     name: currentName(synced, pending),
     pending,
     selectedIds: keepExisting(state.selectedIds, doc.document),
@@ -308,7 +311,7 @@ const reconcile = (
 export const createEditorStore = (init: EditorInit) => {
   const doc = initialDocument(init);
 
-  return createStore<EditorStore>()((set) => ({
+  return createStore<EditorStore>()((set, get) => ({
     accessLost: false,
     addAsset: (asset) =>
       set((state) => {
@@ -383,6 +386,7 @@ export const createEditorStore = (init: EditorInit) => {
         state.selectedIds.length === 0 ? state : { selectedIds: [] }
       ),
     clientId: createId(),
+    cropTargetId: null,
     designId: init.designId,
     doc,
     dragPreview: null,
@@ -397,6 +401,19 @@ export const createEditorStore = (init: EditorInit) => {
     editingTextId: null,
     end: () => set((state) => ({ history: endTransaction(state.history) })),
     fileDragActive: false,
+    finishCrop: (keep) => {
+      const id = get().cropTargetId;
+      if (!id) {
+        return;
+      }
+      if (keep) {
+        get().end();
+      } else {
+        get().rollback();
+      }
+      set({ cropTargetId: null });
+      get().release([id]);
+    },
     guides: [],
     held: new Set(),
     history: createHistory(),
@@ -541,6 +558,14 @@ export const createEditorStore = (init: EditorInit) => {
         );
         return reconcile(state, settled.synced, settled.pending);
       }),
+    startCrop: (id) =>
+      set((state) => ({
+        cropTargetId: id,
+        editingTextId: null,
+        held: new Set([...state.held, id]),
+        history: beginTransaction(state.history),
+        selectedIds: [id],
+      })),
     synced: syncedFromDocument(doc, init.name),
     undo: () =>
       set((state) => {

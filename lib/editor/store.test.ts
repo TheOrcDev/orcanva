@@ -30,6 +30,27 @@ const setup = () => {
 };
 
 describe("editor store", () => {
+  it("makes a crop one undo step, or nothing when cancelled", () => {
+    const { rect, store } = setup();
+    const x = () => selectDocument(store.getState()).elements[0]?.x;
+
+    store.getState().startCrop(rect.id);
+    expect(store.getState().held.has(rect.id)).toBe(true);
+    store.getState().change((doc) => updateElement(doc, rect.id, { x: 5 }));
+    store.getState().change((doc) => updateElement(doc, rect.id, { x: 6 }));
+    store.getState().finishCrop(false);
+    expect(x()).toBe(rect.x);
+    expect(store.getState().cropTargetId).toBeNull();
+
+    store.getState().startCrop(rect.id);
+    store.getState().change((doc) => updateElement(doc, rect.id, { x: 7 }));
+    store.getState().finishCrop(true);
+    expect(x()).toBe(7);
+    expect(store.getState().held.has(rect.id)).toBe(false);
+    store.getState().undo();
+    expect(x()).toBe(rect.x);
+  });
+
   it("makes a whole drag gesture a single undo step", () => {
     const { rect, store } = setup();
     const { begin, change, end, undo } = store.getState();

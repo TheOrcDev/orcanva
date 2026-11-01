@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  RiCropLine,
   RiFlipHorizontalLine,
   RiFlipVerticalLine,
   RiLayoutMasonryLine,
@@ -40,6 +41,7 @@ export const ImageProperties = ({ element }: { element: ImageElement }) => {
       const placed = updateElement(doc, element.id, {
         ...size,
         ...origin,
+        crop: null,
         locked: true,
         rotation: 0,
       });
@@ -47,18 +49,29 @@ export const ImageProperties = ({ element }: { element: ImageElement }) => {
     });
   };
 
-  // Restore the original aspect ratio, keeping the current width
-  const resetRatio = () => {
+  // The whole photo at its own ratio, keeping the current width
+  const resetCrop = () => {
     if (!asset) {
       return;
     }
-    update({ height: (element.width * asset.height) / asset.width });
+    update({
+      crop: null,
+      height: (element.width * asset.height) / asset.width,
+    });
   };
 
   return (
     <>
       <PanelSection title="Image">
         <BackgroundRemovalButton element={element} />
+        <Button
+          variant="outline"
+          disabled={element.locked}
+          onClick={() => store.getState().startCrop(element.id)}
+        >
+          <RiCropLine data-icon="inline-start" />
+          Crop
+        </Button>
         <div className="grid grid-cols-2 gap-2">
           <Button
             variant="outline"
@@ -86,10 +99,10 @@ export const ImageProperties = ({ element }: { element: ImageElement }) => {
             variant="outline"
             size="sm"
             disabled={!asset}
-            onClick={resetRatio}
+            onClick={resetCrop}
           >
             <RiRulerLine data-icon="inline-start" />
-            Reset ratio
+            Reset crop
           </Button>
         </div>
       </PanelSection>

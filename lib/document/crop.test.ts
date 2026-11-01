@@ -2,12 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import {
   clampCrop,
+  containRect,
   coverCrop,
+  coverRect,
   cropBetween,
   cropToPixels,
+  cropZoom,
   fullPhotoSize,
   mirrorCrop,
   photoRect,
+  zoomCrop,
 } from "@/lib/document/crop";
 import { createImageElement } from "@/lib/document/factories";
 import { elementSchema } from "@/lib/document/schema";
@@ -107,5 +111,34 @@ describe("crop", () => {
     const crop = cropBetween(frame, photo);
     expect(crop).toEqual({ height: 0.5, width: 0.25, x: 0.125, y: 0.25 });
     expect(photoRect(frame, crop)).toEqual(photo);
+  });
+
+  it("keeps a frame inside the photo and the photo over the frame", () => {
+    const photo = { height: 100, width: 200, x: 0, y: 0 };
+    expect(
+      containRect({ height: 50, width: 300, x: -10, y: 80 }, photo)
+    ).toEqual({
+      height: 50,
+      width: 200,
+      x: 0,
+      y: 50,
+    });
+    const frame = { height: 100, width: 100, x: 0, y: 0 };
+    // Twice as big to cover the height, then moved left onto the frame
+    expect(coverRect({ height: 50, width: 100, x: 10, y: 0 }, frame)).toEqual({
+      height: 100,
+      width: 200,
+      x: 0,
+      y: 0,
+    });
+  });
+
+  it("zooms a crop around its centre, keeping its shape", () => {
+    const crop = { height: 0.5, width: 1, x: 0, y: 0.25 };
+    expect(cropZoom(crop)).toBe(1);
+    const zoomed = zoomCrop(crop, 2);
+    expect(zoomed).toEqual({ height: 0.25, width: 0.5, x: 0.25, y: 0.375 });
+    expect(cropZoom(zoomed)).toBe(2);
+    expect(zoomCrop(zoomed, 1)).toEqual(crop);
   });
 });

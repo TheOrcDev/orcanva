@@ -7,15 +7,18 @@ import { Group, Layer, Rect, Stage } from "react-konva";
 
 import { usePageNodeRef } from "@/components/editor/canvas-context";
 import { BackgroundNode } from "@/components/editor/canvas/background-node";
+import { CropOverlay, isCropUi } from "@/components/editor/canvas/crop-overlay";
 import { ElementNode } from "@/components/editor/canvas/element-node";
 import { LineHandles } from "@/components/editor/canvas/line-handles";
 import { RemoteSelections } from "@/components/editor/canvas/remote-selections";
 import { SelectionOutline } from "@/components/editor/canvas/selection-outline";
 import { SelectionTransformer } from "@/components/editor/canvas/selection-transformer";
 import type { TransformedElement } from "@/components/editor/canvas/selection-transformer";
+import { selectionView } from "@/components/editor/canvas/selection-view";
 import { SnapGuides } from "@/components/editor/canvas/snap-guides";
 import { TextEditOverlay } from "@/components/editor/canvas/text-edit-overlay";
 import { RemoteCursors } from "@/components/editor/collab/remote-cursors";
+import { CropToolbar } from "@/components/editor/crop-toolbar";
 import {
   useEditor,
   useEditorStoreApi,
@@ -37,7 +40,7 @@ import { insertElement, replaceElement } from "@/lib/editor/document-ops";
 import { ASSET_DRAG_TYPE } from "@/lib/editor/drag-data";
 import { unitOf } from "@/lib/editor/groups";
 import { BACKGROUND_NODE_NAME } from "@/lib/editor/node-names";
-import { isEditable, toggleUnit } from "@/lib/editor/selection";
+import { toggleUnit } from "@/lib/editor/selection";
 import { MAX_ZOOM, MIN_ZOOM, selectDocument } from "@/lib/editor/store";
 
 const PINCH_ZOOM_SPEED = 0.01;
@@ -53,9 +56,6 @@ const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
   event.preventDefault();
   event.dataTransfer.dropEffect = "copy";
 };
-
-const isLinear = (element: DesignElement) =>
-  element.type === "line" || element.type === "arrow";
 
 const bakeTransform = (
   element: DesignElement,
@@ -135,6 +135,7 @@ export const WorkspaceStage = () => {
   const peers = useEditor((state) => state.peers);
   const held = useEditor((state) => state.held);
   const editingTextId = useEditor((state) => state.editingTextId);
+  const cropTargetId = useEditor((state) => state.cropTargetId);
 
   const { height: pageHeight, width: pageWidth } = document;
 
@@ -163,6 +164,16 @@ export const WorkspaceStage = () => {
       .getState()
       .setFitZoom(fitZoom({ height: pageHeight, width: pageWidth }, viewport));
   }, [store, zoomMode, viewport, pageWidth, pageHeight]);
+
+  // Someone deleted the image being cropped: close the crop's undo step
+  useEffect(() => {
+    if (
+      cropTargetId &&
+      !document.elements.some((element) => element.id === cropTargetId)
+    ) {
+      store.getState().finishCrop(true);
+    }
+  }, [cropTargetId, document, store]);
 
   // Fit mode always centers the page; pan only applies after manual zoom/pan
   const effectivePan = zoomMode === "fit" ? { x: 0, y: 0 } : pan;
@@ -214,6 +225,11 @@ export const WorkspaceStage = () => {
     [store]
   );
 
+  const cropImage = useCallback(
+    (id: string) => store.getState().startCrop(id),
+    [store]
+  );
+
   const editText = useCallback(
     (id: string) => {
       const state = store.getState();
@@ -260,6 +276,13 @@ export const WorkspaceStage = () => {
   ) => {
     const stage = event.target.getStage();
     recordPress(stage?.getPointerPosition() ?? null);
+    // Pressing anything but the crop tools keeps the crop and carries on
+    if (store.getState().cropTargetId && !isCropUi(event.target)) {
+      store.getState().finishCrop(true);
+    }
+    if (isCropUi(event.target)) {
+      return;
+    }
     const onEmpty =
       event.target === stage || event.target.hasName(BACKGROUND_NODE_NAME);
     if (!(stage && onEmpty)) {
@@ -319,34 +342,13 @@ export const WorkspaceStage = () => {
     )
   );
 
-  const selectedElements = document.elements.filter((element) =>
-    selectedIds.includes(element.id)
-  );
-  const [selected] = selectedElements.length === 1 ? selectedElements : [];
-  const editingElement = editingTextId
-    ? document.elements.find((element) => element.id === editingTextId)
-    : undefined;
-  const editingText =
-    editingElement?.type === "text" ? editingElement : undefined;
-  const selectedLine =
-    selected && isLinear(selected) && !selected.locked ? selected : undefined;
-  // One element keeps its handles even when locked; a multi-selection
-  // transforms what's editable and outlines the rest
-  let transformTargets: DesignElement[] = [];
-  if (selected) {
-    transformTargets =
-      isLinear(selected) || selected.id === editingTextId ? [] : [selected];
-  } else {
-    transformTargets = selectedElements.filter(
-      (element) => isEditable(element) && element.id !== editingTextId
-    );
-  }
-  const outlinedIds =
-    selectedElements.length > 1
-      ? selectedElements
-          .filter((element) => !isEditable(element))
-          .map((element) => element.id)
-      : [];
+  const {
+    cropping,
+    editingText,
+    line: selectedLine,
+    outlinedIds,
+    transformTargets,
+  } = selectionView(document, selectedIds, editingTextId, cropTargetId);
 
   // Where this session's pointer is on the page, for everyone else's view
   const reportPointer = (event: PointerEvent<HTMLDivElement>) => {
@@ -401,6 +403,7 @@ export const WorkspaceStage = () => {
       onDrop={handleDrop}
     >
       <WorkspaceOverlays />
+      {cropping ? <CropToolbar element={cropping} /> : null}
       <RemoteCursors origin={origin} zoom={zoom} />
       {viewport.width > 0 && viewport.height > 0 ? (
         <Stage
@@ -446,6 +449,7 @@ export const WorkspaceStage = () => {
                   onPress={pressElement}
                   onClick={clickElement}
                   onEditText={editText}
+                  onCrop={cropImage}
                   onDragStart={startDrag}
                   onDragMove={moveDrag}
                   onDragEnd={endDrag}
@@ -459,6 +463,11 @@ export const WorkspaceStage = () => {
             {selectedLine ? (
               <Group x={origin.x} y={origin.y} scaleX={zoom} scaleY={zoom}>
                 <LineHandles element={selectedLine} zoom={zoom} />
+              </Group>
+            ) : null}
+            {cropping ? (
+              <Group x={origin.x} y={origin.y} scaleX={zoom} scaleY={zoom}>
+                <CropOverlay key={cropping.id} element={cropping} zoom={zoom} />
               </Group>
             ) : null}
             <RemoteSelections />
