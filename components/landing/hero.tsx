@@ -3,21 +3,26 @@ import Link from "next/link";
 
 import { Container } from "@/components/landing/container";
 import { HeroLandscape } from "@/components/landing/hero-landscape";
+import { ProductFrame } from "@/components/landing/product-frame";
 import { badgeVariants } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { FONT_CATALOG } from "@/lib/fonts/catalog";
 import { STUDIO_PATH } from "@/lib/routes";
 
 export const Hero = () => (
-  <section className="relative isolate flex min-h-svh flex-col overflow-hidden">
-    {/* Pinned to the top and never shorter than 1040px, so short screens
-        crop the lake instead of pulling the horizon up behind the copy */}
-    <HeroLandscape className="-z-10 min-h-260 object-cover object-top" />
-    <div
-      aria-hidden
-      className="to-background absolute inset-x-0 bottom-0 -z-10 h-1/3 bg-linear-to-b from-transparent"
-    />
-    <Container className="flex flex-col items-center gap-6 pt-32 pb-48 text-center md:pt-36">
+  <section className="relative isolate overflow-hidden">
+    {/* The painting keeps its own height, never shorter than 1040px and
+        pinned to the top, so the sun stays put however tall the screen or
+        this section is. The copy reaches down past the sun and the product
+        shot starts just below it, on the first screen. */}
+    <div className="h-hero absolute inset-x-0 top-0 -z-10">
+      <HeroLandscape className="object-cover object-top" />
+      <div
+        aria-hidden
+        className="to-background absolute inset-x-0 bottom-0 h-1/3 bg-linear-to-b from-transparent"
+      />
+    </div>
+    <Container className="min-h-below-sun flex flex-col items-center gap-6 pt-32 text-center md:pt-36">
       <a href="#features" className={badgeVariants()}>
         New · Filters and blur for every image
       </a>
@@ -38,5 +43,6 @@ export const Hero = () => (
         <RiArrowRightLine data-icon="inline-end" />
       </Link>
     </Container>
+    <ProductFrame className="mt-8" />
   </section>
 );

@@ -4,7 +4,6 @@ import { ClosingCta } from "@/components/landing/closing-cta";
 import { Collaboration } from "@/components/landing/collaboration";
 import { FeatureGrid } from "@/components/landing/feature-grid";
 import { Hero } from "@/components/landing/hero";
-import { ProductFrame } from "@/components/landing/product-frame";
 import { SiteFooter } from "@/components/landing/site-footer";
 import { SiteNav } from "@/components/landing/site-nav";
 import { SizesStrip } from "@/components/landing/sizes-strip";
@@ -24,7 +23,6 @@ const LandingPage = () => (
     <main>
       <Hero />
       <SizesStrip />
-      <ProductFrame />
       <Stats />
       <FeatureGrid />
       <Collaboration />

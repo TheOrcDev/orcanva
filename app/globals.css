@@ -90,6 +90,16 @@
   --logo-water: oklch(0.56 0.053 311);
 }
 
+/* The landing hero's painting is drawn at least 1040px tall and pinned to
+   the top; wider screens show it whole at their width (992 / 1586). Its
+   sun's lower edge is 588 of those 992 down, so whatever has to start below
+   the sun clears below-sun. Named sizes only: the numeric spacing scale the
+   app relies on is untouched. */
+@theme {
+  --spacing-hero: max(65rem, 62.55vw);
+  --spacing-below-sun: max(38.5rem, 37.07vw);
+}
+
 /* Landing type scale. Nothing here touches the spacing or radius scales the
    app relies on. */
 @theme {
