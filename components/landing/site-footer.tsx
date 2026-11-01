@@ -6,6 +6,7 @@ import { signInUrl, signUpUrl } from "@/lib/auth/redirect";
 import { STUDIO_PATH } from "@/lib/routes";
 import { COMPARE_LINKS, TOOL_LINKS } from "@/lib/seo/landing-links";
 import type { LandingLink } from "@/lib/seo/landing-links";
+import { GITHUB_URL } from "@/lib/site";
 import { SPONSORS_PATH } from "@/lib/sponsors";
 
 // Every landing page links to every other one from here, which is also how
@@ -16,6 +17,7 @@ const COLUMNS: { heading: string; links: readonly LandingLink[] }[] = [
     links: [
       { href: STUDIO_PATH, label: "Studio" },
       { href: SPONSORS_PATH, label: "Sponsors" },
+      { href: GITHUB_URL, label: "GitHub" },
       { href: signInUrl(STUDIO_PATH), label: "Sign in" },
       { href: signUpUrl(STUDIO_PATH), label: "Create account" },
     ],
@@ -37,7 +39,7 @@ export const SiteFooter = () => (
           <Logo />
         </Link>
         <p className="text-muted-foreground text-sm">
-          From idea to design in minutes.
+          From idea to design in minutes. Free and open source.
         </p>
       </div>
       {COLUMNS.map((column) => (

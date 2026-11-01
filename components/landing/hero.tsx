@@ -1,4 +1,4 @@
-import { RiArrowRightLine } from "@remixicon/react";
+import { RiArrowRightLine, RiGithubFill } from "@remixicon/react";
 import Link from "next/link";
 
 import { Container } from "@/components/landing/container";
@@ -8,6 +8,7 @@ import { badgeVariants } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { FONT_CATALOG } from "@/lib/fonts/catalog";
 import { STUDIO_PATH } from "@/lib/routes";
+import { GITHUB_URL } from "@/lib/site";
 
 // The bottom padding gives the product shot's shadow room to fade out before
 // overflow-hidden clips it; the matching negative margin keeps the next
@@ -34,18 +35,26 @@ export const Hero = () => (
       </h1>
       {/* Full ink: the painting behind it is too busy for muted text */}
       <p className="max-w-xl text-lg text-pretty">
-        The free Canva alternative for thumbnails and social images: every size
-        from Story to 4K, background removal in your browser,{" "}
+        The free, open-source Canva alternative for thumbnails and social
+        images: every size from Story to 4K, background removal in your browser,{" "}
         {FONT_CATALOG.length} fonts, filters, and your team on the same canvas,
         live.
       </p>
-      <Link
-        href={STUDIO_PATH}
-        className={buttonVariants({ className: "mt-2", size: "xl" })}
-      >
-        Open Studio
-        <RiArrowRightLine data-icon="inline-end" />
-      </Link>
+      <div className="mt-2 flex flex-wrap justify-center gap-3">
+        <Link href={STUDIO_PATH} className={buttonVariants({ size: "xl" })}>
+          Open Studio
+          <RiArrowRightLine data-icon="inline-end" />
+        </Link>
+        <a
+          href={GITHUB_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={buttonVariants({ size: "xl", variant: "secondary" })}
+        >
+          <RiGithubFill data-icon="inline-start" />
+          Star on GitHub
+        </a>
+      </div>
     </Container>
     <ProductFrame className="mt-8" />
   </section>

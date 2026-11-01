@@ -38,6 +38,11 @@ const ROWS: ComparisonRow[] = [
     theirs: "Free, with paid plans for more",
   },
   {
+    feature: "Open source",
+    ours: "Yes, MIT-licensed on GitHub",
+    theirs: "No",
+  },
+  {
     feature: "Background remover",
     ours: "Free and unlimited, in your browser",
     theirs: "Paid plans",
@@ -102,7 +107,7 @@ const FOR_WHOM = [
 const FAQ: FaqEntry[] = [
   {
     answer:
-      "Yes. There's no paid plan: every feature, background removal included, is free. You sign up with Google or email to keep your designs.",
+      "Yes. There's no paid plan: every feature, background removal included, is free. It's open source too, under the MIT licence on GitHub. You sign up with Google or email to keep your designs.",
     question: "Is Orcanva really free?",
   },
   {

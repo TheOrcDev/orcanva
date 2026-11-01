@@ -11,7 +11,7 @@ import { FILTER_PRESETS } from "@/lib/image-filters/presets";
 import { homeStructuredData } from "@/lib/seo/structured-data";
 
 const DESCRIPTION =
-  "A free Canva alternative for YouTube thumbnails and social posts: every size from Story to 4K, free background removal, filters, fonts, and live collaboration.";
+  "A free, open-source Canva alternative for YouTube thumbnails and social posts: every size from Story to 4K, free background removal, filters, fonts, and live collaboration.";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
@@ -31,6 +31,7 @@ const STRUCTURED_DATA = homeStructuredData({
     "Shapes, lines, arrows, gradients and layers",
     "Live collaboration on shared designs",
     "PNG, JPG and WebP export at 1× or 2×, with transparent backgrounds",
+    "Free and open source under the MIT licence",
   ],
 });
 

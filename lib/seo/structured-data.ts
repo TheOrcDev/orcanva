@@ -1,4 +1,4 @@
-import { SITE_NAME, SITE_URL } from "@/lib/site";
+import { GITHUB_URL, SITE_NAME, SITE_URL } from "@/lib/site";
 
 // schema.org JSON-LD for the landing's pages, shown by components/seo/json-ld
 
@@ -48,6 +48,7 @@ export const homeStructuredData = (
       "@type": "Organization",
       logo: absolute("/apple-icon.png"),
       name: SITE_NAME,
+      sameAs: [GITHUB_URL],
       url: absolute("/"),
     },
     {
