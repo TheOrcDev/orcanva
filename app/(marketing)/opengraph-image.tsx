@@ -5,17 +5,24 @@ import { ImageResponse } from "next/og";
 
 // The landing's share card: the hero's sunset, wordmark and headline. Built
 // once at build time. The image renderer takes no stylesheet, so this file
-// styles inline with the hero painting's colours.
+// styles inline with literal copies of the theme's colours and fonts
+// (Figtree for headings, Instrument Sans for text).
 export const alt = "Orcanva: Thumbnails worth the click.";
 export const size = { height: 630, width: 1200 };
 export const contentType = "image/png";
 
-// The renderer needs a static TTF or OTF, not next/font's variable WOFF2
-const interMedium = await readFile(
-  path.join(process.cwd(), "assets/fonts/Inter-Medium.ttf")
-);
+// The renderer needs static TTFs or OTFs, not next/font's variable WOFF2
+const font = (file: string) =>
+  readFile(path.join(process.cwd(), "assets/fonts", file));
+const [figtreeMedium, figtreeSemiBold, instrumentSans] = await Promise.all([
+  font("Figtree-Medium.ttf"),
+  font("Figtree-SemiBold.ttf"),
+  font("InstrumentSans-Regular.ttf"),
+]);
 
-const INK = "#1b0624";
+// --foreground and --muted-foreground by day
+const FOREGROUND = "#1f1322";
+const MUTED_FOREGROUND = "#6c5d70";
 
 const OpengraphImage = () =>
   new ImageResponse(
@@ -24,10 +31,10 @@ const OpengraphImage = () =>
         alignItems: "center",
         backgroundImage:
           "linear-gradient(180deg, #f4ede8 0%, #f7e0d2 35%, #f5c7ae 60%, #ef9f80 80%)",
-        color: INK,
+        color: FOREGROUND,
         display: "flex",
         flexDirection: "column",
-        fontFamily: "Inter",
+        fontFamily: "Figtree",
         height: "100%",
         paddingTop: 72,
         position: "relative",
@@ -103,12 +110,12 @@ const OpengraphImage = () =>
             fill="#bfadcc"
           />
         </svg>
-        <span style={{ fontSize: 38, letterSpacing: -1 }}>Orcanva</span>
+        <span style={{ fontSize: 38, fontWeight: 600 }}>Orcanva</span>
       </div>
       <div
         style={{
           fontSize: 88,
-          letterSpacing: -4,
+          letterSpacing: -2,
           lineHeight: 1,
           marginTop: 56,
         }}
@@ -117,9 +124,9 @@ const OpengraphImage = () =>
       </div>
       <div
         style={{
-          color: "#444444",
+          color: MUTED_FOREGROUND,
+          fontFamily: "Instrument Sans",
           fontSize: 30,
-          letterSpacing: -0.3,
           marginTop: 28,
         }}
       >
@@ -129,7 +136,19 @@ const OpengraphImage = () =>
     {
       ...size,
       fonts: [
-        { data: interMedium, name: "Inter", style: "normal", weight: 500 },
+        { data: figtreeMedium, name: "Figtree", style: "normal", weight: 500 },
+        {
+          data: figtreeSemiBold,
+          name: "Figtree",
+          style: "normal",
+          weight: 600,
+        },
+        {
+          data: instrumentSans,
+          name: "Instrument Sans",
+          style: "normal",
+          weight: 400,
+        },
       ],
     }
   );

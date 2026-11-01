@@ -14,7 +14,7 @@ export const ProductFrame = () => (
   <section aria-label="The studio" className="pb-16 md:pb-20">
     <Container>
       <figure className="flex flex-col gap-4">
-        <div className="after:ring-ink/5 bg-surface relative aspect-square overflow-hidden rounded-3xl after:absolute after:inset-0 after:rounded-3xl after:ring-1 after:ring-inset sm:aspect-auto">
+        <div className="after:ring-foreground/5 bg-card relative aspect-square overflow-hidden rounded-3xl after:absolute after:inset-0 after:rounded-3xl after:ring-1 after:ring-inset sm:aspect-auto">
           <ThemedImage
             light={studioEditor}
             dark={studioEditorDark}
@@ -23,7 +23,7 @@ export const ProductFrame = () => (
             className="size-full object-cover sm:h-auto"
           />
         </div>
-        <figcaption className="text-ink-muted text-center text-sm">
+        <figcaption className="text-muted-foreground text-center text-sm">
           The studio: layers on the left, every setting on the right.
         </figcaption>
       </figure>

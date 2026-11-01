@@ -4,6 +4,6 @@ import { LogoMark } from "@/components/logo-mark";
 export const Logo = () => (
   <span className="flex items-center gap-2">
     <LogoMark className="size-5" />
-    <span className="text-lg font-medium tracking-tight">Orcanva</span>
+    <span className="font-heading text-lg font-semibold">Orcanva</span>
   </span>
 );

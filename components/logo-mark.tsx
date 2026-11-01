@@ -1,9 +1,10 @@
 import { cn } from "@/lib/utils";
 
-// The Orcanva mark: a sun setting into a lake, framed like a canvas. Its
-// colours are the --logo-* tokens, which turn to dusk in dark mode. The
-// favicon (app/icon.svg) is a copy snapped to whole pixels, and the share
-// image draws it with literal colours, so change all three together.
+// The Orcanva mark: a sun setting into a lake, framed like a canvas. The sun
+// is the theme's primary; the frame and water are the --logo-* tokens, which
+// turn to dusk in dark mode. The favicon (app/icon.svg) is a copy snapped to
+// whole pixels, and the share image draws it with literal colours, so change
+// all three together.
 export const LogoMark = ({ className }: { className?: string }) => (
   <svg
     aria-hidden
@@ -20,7 +21,7 @@ export const LogoMark = ({ className }: { className?: string }) => (
       strokeWidth="1"
       className="stroke-logo-frame"
     />
-    <path d="M5 13.5a7 7 0 0 1 14 0z" className="fill-logo-sun" />
+    <path d="M5 13.5a7 7 0 0 1 14 0z" className="fill-primary" />
     <rect
       x="1.9"
       y="13.5"

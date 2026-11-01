@@ -11,11 +11,11 @@ export const Collaboration = () => (
       <div className="flex flex-col gap-6">
         <h2
           id="collaboration-heading"
-          className="text-heading md:text-heading-lg font-normal text-balance"
+          className="font-heading text-heading md:text-heading-lg font-normal text-balance"
         >
           Design together, live.
         </h2>
-        <p className="text-ink-soft text-body-lg max-w-md text-pretty">
+        <p className="text-muted-foreground text-body-lg max-w-md text-pretty">
           Make a design public and anyone with the link can edit it with you,
           signed in or not. Yours stay private until you say otherwise. Found
           one you like? Use it as a template.

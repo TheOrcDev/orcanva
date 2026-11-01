@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { Container } from "@/components/landing/container";
 import { Logo } from "@/components/landing/logo";
-import { PillLink } from "@/components/landing/pill-link";
+import { buttonVariants } from "@/components/ui/button";
 import { signInUrl } from "@/lib/auth/redirect";
 import { STUDIO_PATH } from "@/lib/routes";
 
@@ -19,33 +19,38 @@ export const SiteNav = () => (
       <Link
         href="/"
         aria-label="Orcanva home"
-        className="outline-ink justify-self-start rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2"
+        className="focus-visible:outline-ring justify-self-start rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2"
       >
         <Logo />
       </Link>
       <nav
         aria-label="Main"
-        className="text-ink-soft hidden items-center gap-8 justify-self-center text-sm md:flex"
+        className="text-muted-foreground hidden items-center gap-8 justify-self-center text-sm md:flex"
       >
         {SECTIONS.map((section) => (
           <a
             key={section.href}
             href={section.href}
-            className="hover:text-ink outline-ink rounded-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="hover:text-foreground focus-visible:outline-ring rounded-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             {section.label}
           </a>
         ))}
       </nav>
       <div className="flex items-center gap-2 justify-self-end">
-        <PillLink
+        <Link
           href={signInUrl(STUDIO_PATH)}
-          variant="ghost"
-          className="hidden sm:inline-flex"
+          className={buttonVariants({
+            className: "hidden sm:inline-flex",
+            size: "lg",
+            variant: "outline",
+          })}
         >
           Sign in
-        </PillLink>
-        <PillLink href={STUDIO_PATH}>Open Studio</PillLink>
+        </Link>
+        <Link href={STUDIO_PATH} className={buttonVariants({ size: "lg" })}>
+          Open Studio
+        </Link>
       </div>
     </Container>
   </header>

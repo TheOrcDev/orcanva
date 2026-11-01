@@ -9,6 +9,12 @@ import {
 import type { RemixiconComponentType } from "@remixicon/react";
 
 import { Container } from "@/components/landing/container";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { FONT_CATALOG } from "@/lib/fonts/catalog";
 import { FILTER_PRESETS } from "@/lib/image-filters/presets";
 
@@ -63,19 +69,25 @@ export const FeatureGrid = () => (
     <Container className="flex flex-col gap-12">
       <h2
         id="features-heading"
-        className="text-heading md:text-heading-lg max-w-2xl font-normal text-balance"
+        className="font-heading text-heading md:text-heading-lg max-w-2xl font-normal text-balance"
       >
         Everything a thumbnail needs. Nothing it doesn&apos;t.
       </h2>
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {FEATURES.map((feature) => (
-          <li
-            key={feature.title}
-            className="bg-surface flex flex-col gap-4 rounded-2xl p-8"
-          >
-            <feature.icon aria-hidden className="text-ink-soft size-6" />
-            <h3 className="text-subheading font-medium">{feature.title}</h3>
-            <p className="text-ink-soft">{feature.description}</p>
+          <li key={feature.title} className="flex">
+            <Card className="flex-1">
+              <CardHeader>
+                <feature.icon
+                  aria-hidden
+                  className="text-muted-foreground mb-2 size-6"
+                />
+                <CardTitle>
+                  <h3>{feature.title}</h3>
+                </CardTitle>
+                <CardDescription>{feature.description}</CardDescription>
+              </CardHeader>
+            </Card>
           </li>
         ))}
       </ul>

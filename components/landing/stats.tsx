@@ -24,10 +24,10 @@ export const Stats = () => (
             key={stat.label}
             className="flex flex-col-reverse justify-end gap-3"
           >
-            <dt className="text-ink-muted mx-auto max-w-60 text-sm">
+            <dt className="text-muted-foreground mx-auto max-w-60 text-sm">
               {stat.label}
             </dt>
-            <dd className="text-heading-lg md:text-display tabular-nums">
+            <dd className="font-heading text-heading-lg md:text-display tabular-nums">
               {stat.value}
             </dd>
           </div>
