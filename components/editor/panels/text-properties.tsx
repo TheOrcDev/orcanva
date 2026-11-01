@@ -12,6 +12,11 @@ import { useState } from "react";
 import { useEditorStoreApi } from "@/components/editor/editor-store-context";
 import { ColorPicker } from "@/components/editor/panels/color-picker";
 import { FontPicker } from "@/components/editor/panels/font-picker";
+import {
+  GRADIENT_PRESETS,
+  GradientFields,
+  twoColorGradient,
+} from "@/components/editor/panels/gradient-fields";
 import { NumberInput } from "@/components/editor/panels/number-input";
 import { PanelSection } from "@/components/editor/panels/panel-section";
 import { TransactionSlider } from "@/components/editor/panels/transaction-slider";
@@ -30,6 +35,9 @@ import { useUpdateElement } from "@/hooks/use-selected-element";
 import { textAlignSchema } from "@/lib/document/schema";
 import type { TextElement } from "@/lib/document/schema";
 import { getFont, nearestWeight } from "@/lib/fonts/catalog";
+
+// Left to right, across the line
+const TEXT_GRADIENT_ANGLE = 90;
 
 const WEIGHT_NAMES: Record<number, string> = {
   100: "Thin",
@@ -171,11 +179,42 @@ export const TextProperties = ({ element }: { element: TextElement }) => {
             </Toggle>
           </div>
         </div>
-        <ColorPicker
-          label="Text color"
-          value={element.fill}
-          onChange={(fill) => update({ fill })}
-        />
+        <ToggleGroup
+          variant="outline"
+          size="sm"
+          value={[element.fillGradient ? "gradient" : "solid"]}
+          onValueChange={(value) => {
+            const [fill] = value;
+            if (fill === "solid" && element.fillGradient) {
+              update({ fillGradient: null });
+            }
+            if (fill === "gradient" && !element.fillGradient) {
+              const [preset] = GRADIENT_PRESETS;
+              update({
+                fillGradient: twoColorGradient(
+                  preset?.from ?? "#ffffff",
+                  preset?.to ?? "#000000",
+                  TEXT_GRADIENT_ANGLE
+                ),
+              });
+            }
+          }}
+        >
+          <ToggleGroupItem value="solid">Solid</ToggleGroupItem>
+          <ToggleGroupItem value="gradient">Gradient</ToggleGroupItem>
+        </ToggleGroup>
+        {element.fillGradient ? (
+          <GradientFields
+            value={element.fillGradient}
+            onChange={(fillGradient) => update({ fillGradient })}
+          />
+        ) : (
+          <ColorPicker
+            label="Text color"
+            value={element.fill}
+            onChange={(fill) => update({ fill })}
+          />
+        )}
       </PanelSection>
       <PanelSection title="Spacing">
         <TransactionSlider

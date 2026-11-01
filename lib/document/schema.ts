@@ -143,12 +143,20 @@ export const textHighlightSchema = z.object({
   radiusEm: z.number().min(0).max(2),
 });
 
+// A text's fill as a gradient across its box (like a page background)
+export const textGradientSchema = z.object({
+  angle: z.number().min(0).max(360),
+  stops: z.array(gradientStopSchema).min(2).max(8),
+});
+
 export const textAlignSchema = z.enum(["left", "center", "right"]);
 
 export const textElementSchema = z.object({
   ...baseElement,
   align: textAlignSchema,
   fill: color,
+  // Replaces the fill when set; text saved before gradients has none
+  fillGradient: textGradientSchema.nullable().default(null),
   fontId: z.string().min(1).max(64),
   fontSize: z.number().min(1).max(4000),
   highlight: textHighlightSchema.nullable(),
@@ -235,6 +243,7 @@ export type TextAlign = z.infer<typeof textAlignSchema>;
 export type TextStroke = z.infer<typeof textStrokeSchema>;
 export type TextShadow = z.infer<typeof textShadowSchema>;
 export type TextHighlight = z.infer<typeof textHighlightSchema>;
+export type TextGradient = z.infer<typeof textGradientSchema>;
 export type RectElement = z.infer<typeof rectElementSchema>;
 export type EllipseElement = z.infer<typeof ellipseElementSchema>;
 export type LineElement = z.infer<typeof lineElementSchema>;

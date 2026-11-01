@@ -204,6 +204,7 @@ export const createTextElement = (
     ...baseFields(config.name),
     align: "center",
     fill: "#111111",
+    fillGradient: null,
     fontId: config.fontId,
     fontSize,
     highlight: null,

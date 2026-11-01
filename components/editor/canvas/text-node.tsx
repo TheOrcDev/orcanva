@@ -5,7 +5,8 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import { Rect, Shape } from "react-konva";
 
 import { useFontReady } from "@/hooks/use-font-ready";
-import type { TextElement } from "@/lib/document/schema";
+import { gradientPoints } from "@/lib/document/geometry";
+import type { TextElement, TextGradient } from "@/lib/document/schema";
 import {
   FALLBACK_FAMILIES,
   cssFamily,
@@ -38,7 +39,39 @@ export interface TextShapeInput {
   align: TextElement["align"];
   lineHeight: number;
   paint: TextPaint;
+  // Fills the text across its box instead of the paint's fill
+  gradient: TextGradient | null;
 }
+
+// A gradient across the drawn text (not the whole wrap box), like a page
+// background across the page
+const gradientFill = (
+  context: CanvasRenderingContext2D,
+  gradient: TextGradient,
+  layout: TextLayout
+): CanvasGradient => {
+  let left = Number.POSITIVE_INFINITY;
+  let right = 0;
+  for (const line of layout.lines) {
+    left = Math.min(left, line.x);
+    right = Math.max(right, line.x + line.width);
+  }
+  const from = Number.isFinite(left) ? left : 0;
+  const { end, start } = gradientPoints(gradient.angle, {
+    height: layout.height,
+    width: Math.max(1, right - from),
+  });
+  const fill = context.createLinearGradient(
+    from + start.x,
+    start.y,
+    from + end.x,
+    end.y
+  );
+  for (const stop of gradient.stops.toSorted((a, b) => a.offset - b.offset)) {
+    fill.addColorStop(stop.offset, stop.color);
+  }
+  return fill;
+};
 
 const layouts = new WeakMap<
   Konva.Node,
@@ -63,7 +96,12 @@ export const textLayoutOf = (node: Konva.Node): TextLayout => {
 
 const drawText = (context: Konva.Context, shape: Konva.Shape) => {
   const input = shape.getAttr("textInput") as TextShapeInput;
-  paintTextLayout(context._context, textLayoutOf(shape), () => input.paint);
+  const native = context._context;
+  const layout = textLayoutOf(shape);
+  const paint = input.gradient
+    ? { ...input.paint, fill: gradientFill(native, input.gradient, layout) }
+    : input.paint;
+  paintTextLayout(native, layout, () => paint);
 };
 
 // Clicks anywhere in the text's box hit it, as with Konva's Text
@@ -118,6 +156,7 @@ export const TextNode = ({ element }: { element: TextElement }) => {
     };
     return {
       align: element.align,
+      gradient: element.fillGradient,
       lineHeight: element.lineHeight,
       paint: {
         fill: element.fill,
@@ -129,6 +168,7 @@ export const TextNode = ({ element }: { element: TextElement }) => {
   }, [
     element.align,
     element.fill,
+    element.fillGradient,
     element.lineHeight,
     family,
     fontSize,
