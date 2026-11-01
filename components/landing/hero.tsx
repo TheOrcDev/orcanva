@@ -8,7 +8,9 @@ import { STUDIO_PATH } from "@/lib/routes";
 
 export const Hero = () => (
   <section className="relative isolate flex min-h-svh flex-col overflow-hidden">
-    <HeroLandscape className="-z-10 object-cover" />
+    {/* Pinned to the top and never shorter than 1040px, so short screens
+        crop the lake instead of pulling the horizon up behind the copy */}
+    <HeroLandscape className="-z-10 min-h-260 object-cover object-top" />
     <div
       aria-hidden
       className="to-paper absolute inset-x-0 bottom-0 -z-10 h-1/3 bg-linear-to-b from-transparent"
@@ -23,7 +25,8 @@ export const Hero = () => (
       <h1 className="text-heading-lg md:text-display lg:text-display-lg max-w-4xl font-normal text-balance">
         Thumbnails worth the click.
       </h1>
-      <p className="text-ink-soft max-w-xl text-lg text-pretty">
+      {/* Full ink at night: the afterglow behind it is too bright for ink-soft */}
+      <p className="text-ink-soft dark:text-ink max-w-xl text-lg text-pretty">
         A calm editor for YouTube thumbnails and social images. Cut out
         backgrounds in your browser, set type in {FONT_CATALOG.length} fonts,
         and design together, live.

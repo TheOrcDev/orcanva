@@ -1,22 +1,21 @@
 import Image from "next/image";
 
-import heroLandscapeDark from "@/components/landing/assets/hero-landscape-dark.svg";
-import heroLandscape from "@/components/landing/assets/hero-landscape.svg";
+import heroLandscapeDark from "@/components/landing/assets/hero-landscape-dark.webp";
+import heroLandscape from "@/components/landing/assets/hero-landscape.webp";
 import { cn } from "@/lib/utils";
 
-// The hero's painted landscape: the one moment of colour on the page, at
-// sunset by day and just after it at night. The theme class decides which
-// shows, so there's no flash on load. Coded placeholders for now; to use
-// real watercolors, swap the imports for the paintings (e.g. .avif), add
-// placeholder="blur", and drop preload: the placeholders are tiny enough to
-// fetch both, but lazy loading skips whichever painting is hidden.
+// The hero's watercolor: the one moment of colour on the page, a mountain
+// lake at sunset by day and just after it at night. The theme class decides
+// which shows, so there's no flash on load. Neither is preloaded: lazy
+// loading skips whichever painting is hidden, and the blur stands in until
+// the visible one arrives.
 export const HeroLandscape = ({ className }: { className?: string }) => (
   <>
     <Image
       src={heroLandscape}
       alt=""
       fill
-      preload
+      placeholder="blur"
       sizes="100vw"
       className={cn("dark:hidden", className)}
     />
@@ -24,7 +23,7 @@ export const HeroLandscape = ({ className }: { className?: string }) => (
       src={heroLandscapeDark}
       alt=""
       fill
-      preload
+      placeholder="blur"
       sizes="100vw"
       className={cn("hidden dark:block", className)}
     />
