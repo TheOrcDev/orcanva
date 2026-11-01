@@ -33,6 +33,9 @@ export const backgroundSchema = z.discriminatedUnion("type", [
 
 // Every element is a box anchored at its top-left corner, rotated around it
 const baseElement = {
+  // Elements sharing a group id select, move and arrange together. Saved
+  // before groups existed means ungrouped.
+  groupId: z.string().min(1).max(64).nullable().default(null),
   id: z.string().min(1).max(64),
   locked: z.boolean(),
   name: z.string().max(120),

@@ -11,6 +11,7 @@ import {
   updateElement,
 } from "@/lib/editor/document-ops";
 import type { ArrangeDirection } from "@/lib/editor/document-ops";
+import { groupElements, ungroupElements } from "@/lib/editor/groups";
 import { selectableIds } from "@/lib/editor/selection";
 import type { EditorStoreApi } from "@/lib/editor/store";
 import { selectDocument } from "@/lib/editor/store";
@@ -111,6 +112,15 @@ const handleModifierShortcut = (
   }
   if (key === "a") {
     state.select(selectableIds(selectDocument(state)));
+    return true;
+  }
+  if (key === "g") {
+    const ids = state.selectedIds;
+    if (event.shiftKey) {
+      state.change((doc) => ungroupElements(doc, ids));
+    } else if (ids.length > 1) {
+      state.change((doc) => groupElements(doc, ids));
+    }
     return true;
   }
   if (key === "d") {

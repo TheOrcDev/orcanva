@@ -10,6 +10,15 @@ export const toggleSelected = (
     ? selected.filter((selectedId) => selectedId !== id)
     : [...selected, id];
 
+// Shift-click on a group: adds all of it, or takes it out when it's all in
+export const toggleUnit = (
+  selected: readonly string[],
+  unit: readonly string[]
+): string[] =>
+  unit.every((id) => selected.includes(id))
+    ? selected.filter((id) => !unit.includes(id))
+    : [...selected, ...unit.filter((id) => !selected.includes(id))];
+
 // What a gesture may move or change: visible and not locked
 export const isEditable = (element: DesignElement): boolean =>
   element.visible && !element.locked;

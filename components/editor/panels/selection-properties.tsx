@@ -7,7 +7,10 @@ import {
   RiLockUnlockLine,
 } from "@remixicon/react";
 
-import { useEditorStoreApi } from "@/components/editor/editor-store-context";
+import {
+  useEditor,
+  useEditorStoreApi,
+} from "@/components/editor/editor-store-context";
 import {
   ALIGN_ACTIONS,
   ARRANGE_ACTIONS,
@@ -16,6 +19,7 @@ import {
 import { IconAction } from "@/components/editor/panels/icon-action";
 import { PanelSection } from "@/components/editor/panels/panel-section";
 import { TransactionSlider } from "@/components/editor/panels/transaction-slider";
+import { Button } from "@/components/ui/button";
 import { useAlign } from "@/hooks/use-align";
 import type { DesignElement } from "@/lib/document/schema";
 import {
@@ -25,6 +29,13 @@ import {
   updateElement,
 } from "@/lib/editor/document-ops";
 import type { ElementPatch } from "@/lib/editor/document-ops";
+import {
+  groupElements,
+  selectedGroup,
+  selectionUnits,
+  ungroupElements,
+} from "@/lib/editor/groups";
+import { selectDocument } from "@/lib/editor/store";
 
 // Properties of several selected elements at once
 export const SelectionProperties = ({
@@ -34,25 +45,34 @@ export const SelectionProperties = ({
 }) => {
   const store = useEditorStoreApi();
   const { align, distribute } = useAlign();
+  const document = useEditor(selectDocument);
+  const ids = elements.map((element) => element.id);
+  const group = selectedGroup(document, ids);
   const unlocked = elements
     .filter((element) => !element.locked)
     .map((element) => element.id);
   const lockedCount = elements.length - unlocked.length;
   const allLocked = unlocked.length === 0;
+  // One group (or one element) aligns to the page, like a single element
+  const units = selectionUnits(document, unlocked).length;
+  const alignTo = units > 1 ? "selection" : "page";
 
-  const updateAll = (patch: ElementPatch, ids: readonly string[]) =>
+  const toggleGroup = () =>
+    store
+      .getState()
+      .change((doc) =>
+        group ? ungroupElements(doc, ids) : groupElements(doc, ids)
+      );
+
+  const updateAll = (patch: ElementPatch, targets: readonly string[]) =>
     store.getState().change((doc) => {
       let next = doc;
-      for (const id of ids) {
+      for (const id of targets) {
         next = updateElement(next, id, patch);
       }
       return next;
     });
-  const setLocked = (locked: boolean) =>
-    updateAll(
-      { locked },
-      elements.map((element) => element.id)
-    );
+  const setLocked = (locked: boolean) => updateAll({ locked }, ids);
   const [first] = elements;
   const opacity = first?.opacity ?? 1;
   const mixedOpacity = elements.some((element) => element.opacity !== opacity);
@@ -75,10 +95,12 @@ export const SelectionProperties = ({
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 flex-col">
           <span className="truncate text-sm font-medium">
-            {elements.length} elements
+            {group ? "Group" : `${elements.length} elements`}
           </span>
           <span className="text-muted-foreground text-xs">
-            {lockedCount > 0 ? `${lockedCount} locked` : "Selection"}
+            {lockedCount > 0
+              ? `${lockedCount} locked`
+              : `${group ? `${elements.length} elements` : "Selection"}`}
           </span>
         </div>
         <div className="flex gap-1">
@@ -101,9 +123,13 @@ export const SelectionProperties = ({
           />
         </div>
       </div>
+      <Button variant="outline" onClick={toggleGroup}>
+        {group ? "Ungroup (⇧⌘G)" : "Group (⌘G)"}
+      </Button>
       <p className="text-muted-foreground text-xs">
-        Drag any of them to move them together. Shift-click an element to add or
-        remove it.
+        {group
+          ? "Click a grouped element again to select just that one."
+          : "Drag any of them to move them together. Shift-click an element to add or remove it."}
       </p>
 
       <PanelSection title="Align">
@@ -113,8 +139,8 @@ export const SelectionProperties = ({
               key={action.edge}
               label={action.label}
               icon={action.icon}
-              disabled={unlocked.length < 2}
-              onClick={() => align(unlocked, action.edge, "selection")}
+              disabled={units === 0}
+              onClick={() => align(unlocked, action.edge, alignTo)}
             />
           ))}
         </div>
@@ -124,7 +150,7 @@ export const SelectionProperties = ({
               key={action.axis}
               label={action.label}
               icon={action.icon}
-              disabled={unlocked.length < 3}
+              disabled={units < 3}
               onClick={() => distribute(unlocked, action.axis)}
             />
           ))}

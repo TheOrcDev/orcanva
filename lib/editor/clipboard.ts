@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createId } from "@/lib/document/factories";
 import { parseElement } from "@/lib/document/schema";
 import type { DesignElement } from "@/lib/document/schema";
+import { regroupCopies } from "@/lib/editor/groups";
 
 // Elements travel through the system clipboard as tagged JSON, so copy and
 // paste work across designs and tabs (assets are a shared library)
@@ -44,14 +45,17 @@ export const parseClipboardElements = (
   }
 };
 
-// Fresh ids, unlocked, and nudged so pasted copies don't hide the originals
+// Fresh ids, unlocked, and nudged so pasted copies don't hide the
+// originals; copied groups become new groups
 export const preparePastedElements = (
   elements: DesignElement[]
 ): DesignElement[] =>
-  elements.map((element) => ({
-    ...element,
-    id: createId(),
-    locked: false,
-    x: element.x + PASTE_OFFSET,
-    y: element.y + PASTE_OFFSET,
-  }));
+  regroupCopies(
+    elements.map((element) => ({
+      ...element,
+      id: createId(),
+      locked: false,
+      x: element.x + PASTE_OFFSET,
+      y: element.y + PASTE_OFFSET,
+    }))
+  );

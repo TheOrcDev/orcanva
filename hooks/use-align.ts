@@ -7,11 +7,12 @@ import { boxOf } from "@/components/editor/canvas/snap-targets";
 import { useEditorStoreApi } from "@/components/editor/editor-store-context";
 import { alignUnits, distributeUnits } from "@/lib/editor/align";
 import type { AlignEdge, AlignUnit, DistributeAxis } from "@/lib/editor/align";
+import { selectionUnits } from "@/lib/editor/groups";
 import { unionRect } from "@/lib/editor/snapping";
 import { selectDocument } from "@/lib/editor/store";
 
 // Aligning and distributing work on the boxes the canvas draws, which know
-// rotation and text height
+// rotation and text height. A group moves as one.
 export const useAlign = () => {
   const store = useEditorStoreApi();
   const pageNodeRef = usePageNodeRef();
@@ -22,12 +23,18 @@ export const useAlign = () => {
       if (!page) {
         return [];
       }
-      return ids.flatMap((id) => {
-        const node = page.findOne(`#${id}`);
-        return node ? [{ box: boxOf(node, page), ids: [id] }] : [];
+      const document = selectDocument(store.getState());
+      return selectionUnits(document, ids).flatMap((unit) => {
+        const box = unionRect(
+          unit.flatMap((id) => {
+            const node = page.findOne(`#${id}`);
+            return node ? [boxOf(node, page)] : [];
+          })
+        );
+        return box ? [{ box, ids: unit }] : [];
       });
     },
-    [pageNodeRef]
+    [pageNodeRef, store]
   );
 
   // To the selection's own box, or to the page

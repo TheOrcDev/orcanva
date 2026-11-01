@@ -5,6 +5,7 @@ import type {
   DesignDocument,
   DesignElement,
 } from "@/lib/document/schema";
+import { regroupCopies } from "@/lib/editor/groups";
 
 type DistributivePartial<T> = T extends unknown
   ? Partial<Omit<T, "id" | "type">>
@@ -83,23 +84,35 @@ export const removeElements = (
     : { ...document, elements };
 };
 
-// Inserts copies directly above their originals; returns the new ids
+// Inserts the copies as one block above the topmost original (directly
+// above it for one element); copied groups become new groups. Returns the
+// new ids.
 export const duplicateElements = (
   document: DesignDocument,
   ids: readonly string[]
 ): { document: DesignDocument; ids: string[] } => {
   const targets = new Set(ids);
-  const newIds: string[] = [];
+  const originals = document.elements.filter((element) =>
+    targets.has(element.id)
+  );
+  const copies = regroupCopies(
+    originals.map((element) => duplicateElement(element))
+  );
+  const topmost = originals.at(-1);
+  if (!topmost) {
+    return { document, ids: [] };
+  }
   const elements: DesignElement[] = [];
   for (const element of document.elements) {
     elements.push(element);
-    if (targets.has(element.id)) {
-      const copy = duplicateElement(element);
-      newIds.push(copy.id);
-      elements.push(copy);
+    if (element === topmost) {
+      elements.push(...copies);
     }
   }
-  return { document: { ...document, elements }, ids: newIds };
+  return {
+    document: { ...document, elements },
+    ids: copies.map((copy) => copy.id),
+  };
 };
 
 export type ArrangeDirection = "forward" | "backward" | "front" | "back";

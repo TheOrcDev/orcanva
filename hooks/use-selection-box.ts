@@ -7,6 +7,7 @@ import { usePageNodeRef } from "@/components/editor/canvas-context";
 import { boxOf } from "@/components/editor/canvas/snap-targets";
 import { useEditorStoreApi } from "@/components/editor/editor-store-context";
 import type { Rect } from "@/lib/document/geometry";
+import { expandToGroups } from "@/lib/editor/groups";
 import {
   boxSelection,
   rectFromCorners,
@@ -18,7 +19,8 @@ const sameIds = (a: readonly string[], b: readonly string[]) =>
   a.length === b.length && a.every((id, index) => id === b[index]);
 
 // Dragging across empty canvas draws a box that selects everything it
-// touches as it grows. Shift adds to what was already selected.
+// touches as it grows, with whole groups. Shift adds to what was already
+// selected.
 export const useSelectionBox = () => {
   const store = useEditorStoreApi();
   const pageNodeRef = usePageNodeRef();
@@ -54,7 +56,10 @@ export const useSelectionBox = () => {
         };
         setBox(rectFromCorners(start, point));
         const area = rectFromCorners(toPage.point(start), toPage.point(point));
-        const next = boxSelection(base, boxes, area);
+        const next = expandToGroups(
+          selectDocument(store.getState()),
+          boxSelection(base, boxes, area)
+        );
         if (!sameIds(next, store.getState().selectedIds)) {
           store.getState().select(next);
         }

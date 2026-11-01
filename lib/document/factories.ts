@@ -41,6 +41,7 @@ export const createDocument = (size: Size): DesignDocument => ({
 });
 
 const baseFields = (name: string) => ({
+  groupId: null,
   id: createId(),
   locked: false,
   name,

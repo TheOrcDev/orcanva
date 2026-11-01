@@ -35,8 +35,9 @@ import {
 import type { NodeTransform } from "@/lib/editor/bake";
 import { insertElement, replaceElement } from "@/lib/editor/document-ops";
 import { ASSET_DRAG_TYPE } from "@/lib/editor/drag-data";
+import { unitOf } from "@/lib/editor/groups";
 import { BACKGROUND_NODE_NAME } from "@/lib/editor/node-names";
-import { isEditable, toggleSelected } from "@/lib/editor/selection";
+import { isEditable, toggleUnit } from "@/lib/editor/selection";
 import { MAX_ZOOM, MIN_ZOOM, selectDocument } from "@/lib/editor/store";
 
 const PINCH_ZOOM_SPEED = 0.01;
@@ -174,26 +175,40 @@ export const WorkspaceStage = () => {
     useElementDrag();
   const { box: selectionBox, startBox } = useSelectionBox();
 
-  // Shift toggles an element in or out. Pressing an element that's already
-  // selected keeps the selection, so it can be dragged as a whole.
+  // Pressing an element picks its whole group; Shift toggles that in or out.
+  // Pressing something already selected keeps the selection, so it can be
+  // dragged as a whole.
+  const pressedSelectedRef = useRef(false);
   const pressElement = useCallback(
     (id: string, additive: boolean) => {
       const state = store.getState();
+      const unit = unitOf(selectDocument(state), id);
+      pressedSelectedRef.current = state.selectedIds.includes(id);
       if (additive) {
-        state.select(toggleSelected(state.selectedIds, id));
+        state.select(toggleUnit(state.selectedIds, unit));
       } else if (!state.selectedIds.includes(id)) {
-        state.select([id]);
+        state.select(unit);
       }
     },
     [store]
   );
 
-  // A click without dragging narrows a selection to the clicked element
+  // Clicking (without dragging) something that was already selected narrows
+  // the selection: to its group, or into the group to just that element
   const clickElement = useCallback(
     (id: string, additive: boolean) => {
+      if (additive || !pressedSelectedRef.current) {
+        return;
+      }
       const state = store.getState();
-      if (!additive && state.selectedIds.length > 1) {
+      const unit = unitOf(selectDocument(state), id);
+      const isUnit =
+        unit.length === state.selectedIds.length &&
+        unit.every((unitId) => state.selectedIds.includes(unitId));
+      if (isUnit && unit.length > 1) {
         state.select([id]);
+      } else if (!isUnit && state.selectedIds.length > 1) {
+        state.select(unit);
       }
     },
     [store]
