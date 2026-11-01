@@ -85,7 +85,8 @@ const PrivateDesignsPage = async () => {
       <PageHeader title="Private designs" />
       <PageBody>
         <p className="text-muted-foreground text-sm">
-          Only you can see these. Make one public to edit it with anyone, live.
+          Only you and the people you share them with can see these. Make one
+          public to edit it with anyone, live.
         </p>
         {viewer ? (
           <PrivateDesigns cards={toDesignCards(designs, viewer.id)} />

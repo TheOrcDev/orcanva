@@ -115,6 +115,38 @@ export const designPresence = pgTable(
   (table) => [primaryKey({ columns: [table.designId, table.clientId] })]
 );
 
+// People a design's owner shared it with, by email. They edit it like
+// anyone on a public design, whatever its visibility. An account gets in
+// when its email is verified and matches, or once it accepts the emailed
+// invite: the link's token shows the inbox is theirs, which matters because
+// email sign-ups aren't verified.
+export const designShares = pgTable(
+  "design_shares",
+  {
+    createdAt: timestamps.createdAt,
+    designId: uuid("design_id")
+      .notNull()
+      .references(() => designs.id, { onDelete: "cascade" }),
+    // Lowercased
+    email: text("email").notNull(),
+    // When the invite was last emailed, for the owner's hourly limit
+    invitedAt: timestamp("invited_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    // SHA-256 of the invite link's token; sending the invite again replaces
+    // it, so only the newest link works
+    tokenHash: text("token_hash").notNull().unique(),
+    // The account that accepted the invite; references neon_auth."user"(id)
+    // in drizzle/0008_*, like owner_id
+    userId: uuid("user_id"),
+  },
+  (table) => [
+    primaryKey({ columns: [table.designId, table.email] }),
+    index("design_shares_user_idx").on(table.userId),
+    index("design_shares_email_idx").on(table.email),
+  ]
+);
+
 export const assetStatus = pgEnum("asset_status", ["pending", "ready"]);
 
 // Derived images (e.g. a background-removed cutout) point at their source
@@ -161,3 +193,4 @@ export const assets = pgTable(
 export type DesignRow = typeof designs.$inferSelect;
 export type DesignElementRow = typeof designElements.$inferSelect;
 export type AssetRow = typeof assets.$inferSelect;
+export type DesignShareRow = typeof designShares.$inferSelect;

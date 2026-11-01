@@ -6,8 +6,8 @@ import { toast } from "@/components/ui/toast";
 import { authClient } from "@/lib/auth/client";
 import { STUDIO_PATH } from "@/lib/routes";
 
-// Signs out, then reloads the studio as a guest
-export const useSignOut = () => {
+// Signs out, then reloads the studio (or `then`) as a guest
+export const useSignOut = (then: string = STUDIO_PATH) => {
   const [isPending, startTransition] = useTransition();
 
   const signOut = () => {
@@ -15,7 +15,7 @@ export const useSignOut = () => {
       try {
         await authClient.signOut();
         // A full load, so nothing of this account stays on screen
-        window.location.assign(STUDIO_PATH);
+        window.location.assign(then);
       } catch {
         toast.add({ title: "Couldn't sign you out", type: "error" });
       }

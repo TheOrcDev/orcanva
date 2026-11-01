@@ -15,7 +15,8 @@ A free and open-source, Canva-style editor for YouTube thumbnails and social ima
 - **Live collaboration**: open a design in several windows (or on several machines) and see everyone's cursors, selections, and edits as they happen
 - **Accounts** (Google or email + password): your designs are private unless you make them public, and your uploads form your own library; change your name and avatar under Settings in the account menu
 - **Public designs** anyone can open and edit together, signed in or not; only their owner can rename, delete, or make them private
-- The **studio**: a gallery of your designs and everyone's public ones, with previews; **Use as template** makes a private copy you can change
+- **Share with people**: invite anyone by email from a design's Share menu, public or private; they get an email (through Resend) with a link that walks newcomers through creating an account with that address, and the owner sees who joined and can remove them
+- The **studio**: a gallery of your designs, the ones shared with you, and everyone's public ones, with previews; **Use as template** makes a private copy you can change
 - A landing page that explains all of the above
 - Pages for what people search for: a free **background remover** and **AI metadata remover** anyone can use without an account, a maker page for every kind of image (YouTube thumbnail, Instagram post and Story, LinkedIn banner, Open Graph, X post), a social media image sizes cheat sheet, and comparisons with Canva and remove.bg
 
@@ -44,6 +45,8 @@ NEON_AUTH_BASE_URL=https://…/neondb/auth  # see "Accounts" below
 NEON_AUTH_COOKIE_SECRET=…              # openssl rand -base64 32
 NEON_REALTIME_URL=wss://…              # optional, see "Realtime" below
 NEON_REALTIME_SECRET=…
+RESEND_API_KEY=re_…                    # optional, sends share invites; see "Sharing" below
+EMAIL_FROM="Orcanva <hello@example.com>"  # optional, at a domain verified in Resend
 ```
 
 The storage endpoint and region come from `neon api /projects/<project>/branches/<branch>/storage`. Object Storage needs a project in `aws-us-east-1`, `aws-us-east-2`, `aws-eu-central-1`, or `aws-ap-southeast-1`.
@@ -81,6 +84,10 @@ Before a real launch, from Neon's [production checklist](https://neon.com/docs/a
 - Your own Google OAuth app, with redirect URI `{NEON_AUTH_BASE_URL}/callback/google`
 - Your own SMTP provider (Neon's shared sender is rate-limited), then turn on email verification
 - Turn off "Allow localhost" once development uses its own Neon branch
+
+### Sharing
+
+Invites go out through [Resend](https://resend.com). Without `RESEND_API_KEY`, sharing still works but no email is sent, and the owner is told so. `EMAIL_FROM` must be at a domain verified in Resend; it defaults to `Orcanva <orcanva@orcdev.com>`. Invite links always point at production (`SITE_URL` in `lib/site.ts`) from production builds, and at the local server in dev.
 
 ### Realtime
 
@@ -140,7 +147,7 @@ Uses [BEN2](https://huggingface.co/onnx-community/BEN2-ONNX), whose weights are 
 
 ## How it fits together
 
-- Who may do what is one rule (`lib/auth/access.ts`): a design's owner manages it (rename, delete, visibility); anyone, guests included, may open and edit a public design's canvas; nobody else sees a private one, and every route answers 404 rather than revealing it exists. `getViewer()` (`lib/auth/server.ts`) is how server code learns who is asking, and every page, Route Handler, and Server Action checks for itself: `proxy.ts` only finishes Google sign-ins and keeps session cookies fresh, and only on the routes that read the session (its middleware sends any path it doesn't know to sign-in, so the landing's pages, crawl files and unknown URLs skip it). The save statement checks access on the design row it locks, so a design made private mid-edit takes no more writes from people who just lost access, and the live page query carries visibility so their editors stop at once.
+- Who may do what is one rule (`lib/auth/access.ts`): a design's owner manages it (rename, delete, visibility, sharing); people it's shared with may open and edit its canvas, public or private; anyone, guests included, may open and edit a public design's canvas; nobody else sees a private one, and every route answers 404 rather than revealing it exists. In SQL it's `visibleTo()` (`lib/db/queries/designs.ts`), which the save and presence statements use too. A share is a row in `design_shares` per email address. Email sign-ups aren't verified, so a matching address alone isn't enough: an account gets in when its email is verified (Google) or once it opens the emailed invite while signed in with that address, which ties the share to it. The link's token proves the inbox is theirs; only its SHA-256 is stored, and sending the invite again replaces it. `getViewer()` (`lib/auth/server.ts`) is how server code learns who is asking, and every page, Route Handler, and Server Action checks for itself: `proxy.ts` only finishes Google sign-ins and keeps session cookies fresh, and only on the routes that read the session (its middleware sends any path it doesn't know to sign-in, so the landing's pages, crawl files and unknown URLs skip it). The save statement checks access on the design row it locks, so a design made private mid-edit takes no more writes from people who just lost access, and the live page query carries visibility so their editors stop at once.
 - `lib/document/` is the versioned, zod-validated design document (elements, background, size) with migrations and factories.
 - `lib/editor/` holds the per-editor zustand store, transactional undo history (a drag, slider scrub, or text edit is one step), and transform baking.
 - `components/editor/canvas/` is the Konva workspace. Exports render an offscreen clone of the page at exact size after fonts and images load (`lib/export/`).

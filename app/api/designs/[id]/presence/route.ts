@@ -5,7 +5,7 @@ import { getViewer } from "@/lib/auth/server";
 import { MAX_PROFILE_NAME } from "@/lib/collab/identity";
 import { dragPreviewSchema } from "@/lib/collab/presence";
 import { getDb } from "@/lib/db/client";
-import { isDesignId } from "@/lib/db/queries/designs";
+import { isDesignId, visibleTo } from "@/lib/db/queries/designs";
 
 const coordinate = z.number().finite().min(-100_000).max(100_000).nullable();
 
@@ -62,7 +62,7 @@ export const PUT = async (
     WITH design AS (
       SELECT id FROM designs
       WHERE id = ${id}::uuid
-        AND (visibility = 'public' OR owner_id = ${viewerId}::uuid)
+        AND ${visibleTo(viewerId)}
     ),
     gone AS (
       DELETE FROM design_presence AS presence

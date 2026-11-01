@@ -2,7 +2,12 @@ import type { NeonAuth } from "@neon/auth/next/server";
 import type { NextRequest } from "next/server";
 
 import { getAuth } from "@/lib/auth/server";
-import { NEW_DESIGN_PATH, SETTINGS_PATH, STUDIO_PATH } from "@/lib/routes";
+import {
+  INVITE_PATH,
+  NEW_DESIGN_PATH,
+  SETTINGS_PATH,
+  STUDIO_PATH,
+} from "@/lib/routes";
 
 let middleware: ReturnType<NeonAuth["middleware"]> | undefined;
 
@@ -15,6 +20,7 @@ const SESSION_ROUTES = [
   "/design",
   SETTINGS_PATH,
   NEW_DESIGN_PATH,
+  INVITE_PATH,
   "/auth",
 ];
 

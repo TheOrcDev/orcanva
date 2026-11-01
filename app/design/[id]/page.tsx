@@ -6,7 +6,12 @@ import { EditorLoader } from "@/components/editor/editor-loader";
 import { roleFor } from "@/lib/auth/access";
 import { getViewer } from "@/lib/auth/server";
 import { listDesignAssets, listLibrary } from "@/lib/db/queries/assets";
-import { getDesign, getDesignContent } from "@/lib/db/queries/designs";
+import {
+  getDesign,
+  getDesignContent,
+  getDesignRole,
+  isDesignSharedWith,
+} from "@/lib/db/queries/designs";
 import { getLiveConfig } from "@/lib/realtime/server";
 
 const loadDesign = async (id: string) => {
@@ -14,14 +19,18 @@ const loadDesign = async (id: string) => {
   // Everything loads alongside the access check (sealing is local crypto),
   // but only leaves the server once the check has passed
   const viewerLoad = getViewer();
-  const [viewer, content, live, designAssets, library] = await Promise.all([
-    viewerLoad,
-    getDesignContent(id),
-    getLiveConfig(id),
-    listDesignAssets(id),
-    viewerLoad.then((found) => (found ? listLibrary(found.id) : [])),
-  ]);
-  const role = content ? roleFor(content.row, viewer?.id ?? null) : null;
+  const [viewer, content, live, designAssets, library, isShared] =
+    await Promise.all([
+      viewerLoad,
+      getDesignContent(id),
+      getLiveConfig(id),
+      listDesignAssets(id),
+      viewerLoad.then((found) => (found ? listLibrary(found.id) : [])),
+      viewerLoad.then((found) => isDesignSharedWith(id, found?.id ?? null)),
+    ]);
+  const role = content
+    ? roleFor(content.row, viewer?.id ?? null, isShared)
+    : null;
   if (!(content && role)) {
     notFound();
   }
@@ -51,8 +60,12 @@ export const generateMetadata = async (
   props: PageProps<"/design/[id]">
 ): Promise<Metadata> => {
   const { id } = await props.params;
-  const [design, viewer] = await Promise.all([getDesign(id), getViewer()]);
-  const visible = design && roleFor(design, viewer?.id ?? null);
+  const viewer = await getViewer();
+  const [design, role] = await Promise.all([
+    getDesign(id),
+    getDesignRole(id, viewer?.id ?? null),
+  ]);
+  const visible = design && role;
   // The editor draws in the browser, so a crawler sees an empty page
   return {
     robots: { index: false },

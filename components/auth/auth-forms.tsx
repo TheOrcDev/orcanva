@@ -148,7 +148,14 @@ const GoogleButton = ({
   );
 };
 
-export const SignInForm = ({ next }: { next: string }) => {
+// `email` fills in the address, e.g. from an invite to a shared design
+export const SignInForm = ({
+  next,
+  email,
+}: {
+  next: string;
+  email?: string;
+}) => {
   const id = useId();
   const { error, isPending, run } = useAuthAction();
   const [googleError, setGoogleError] = useState<string | null>(null);
@@ -191,6 +198,7 @@ export const SignInForm = ({ next }: { next: string }) => {
               name="email"
               type="email"
               autoComplete="email"
+              defaultValue={email}
               required
             />
           </Field>
@@ -225,7 +233,13 @@ export const SignInForm = ({ next }: { next: string }) => {
   );
 };
 
-export const SignUpForm = ({ next }: { next: string }) => {
+export const SignUpForm = ({
+  next,
+  email,
+}: {
+  next: string;
+  email?: string;
+}) => {
   const id = useId();
   const { error, isPending, run } = useAuthAction();
   const [googleError, setGoogleError] = useState<string | null>(null);
@@ -282,6 +296,7 @@ export const SignUpForm = ({ next }: { next: string }) => {
               name="email"
               type="email"
               autoComplete="email"
+              defaultValue={email}
               required
             />
           </Field>

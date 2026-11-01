@@ -6,6 +6,9 @@ export const STUDIO_PATH = "/studio";
 // The signed-in person's private designs
 export const PRIVATE_DESIGNS_PATH = "/studio/private";
 
+// Other people's designs shared with the signed-in person
+export const SHARED_DESIGNS_PATH = "/studio/shared";
+
 // Everyone's public designs, the viewer's own included
 export const PUBLIC_DESIGNS_PATH = "/studio/public";
 
@@ -15,6 +18,10 @@ export const MY_PUBLIC_DESIGNS_PATH = `${PUBLIC_DESIGNS_PATH}?owner=${OWNER_MINE
 
 // The signed-in person's profile: name and picture
 export const SETTINGS_PATH = "/settings";
+
+// /invite/<token>: the link in a share email, which opens the design once
+// the right account is signed in
+export const INVITE_PATH = "/invite";
 
 // /new/<size preset id> makes a private design at that size and opens it,
 // after signing in. The landing's pages link to it from each size.

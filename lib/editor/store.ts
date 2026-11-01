@@ -1,5 +1,6 @@
 import { createStore } from "zustand/vanilla";
 
+import { keepsPrivateAccess } from "@/lib/auth/access";
 import type { DesignRole, Visibility } from "@/lib/auth/access";
 import {
   applyWrites,
@@ -343,11 +344,11 @@ export const createEditorStore = (init: EditorInit) => {
     applyLivePage: (row) =>
       set((state) => {
         const visibility = visibilityFromRow(row, state.visibility);
-        // Gone private: only the owner may stay (the server agrees on the
-        // next request, this just doesn't wait for it)
+        // Gone private: only the owner and people it's shared with may stay
+        // (the server agrees on the next request, this just doesn't wait)
         const accessLost =
           state.accessLost ||
-          (visibility === "private" && state.role !== "owner");
+          (visibility === "private" && !keepsPrivateAccess(state.role));
         const live = pageFromRow(row);
         if (!live) {
           return { accessLost, visibility };

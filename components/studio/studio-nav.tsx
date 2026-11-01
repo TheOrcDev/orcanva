@@ -1,6 +1,6 @@
 "use client";
 
-import { RiGlobalLine, RiLockLine } from "@remixicon/react";
+import { RiGlobalLine, RiLockLine, RiTeamLine } from "@remixicon/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -13,14 +13,20 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { PRIVATE_DESIGNS_PATH, PUBLIC_DESIGNS_PATH } from "@/lib/routes";
+import {
+  PRIVATE_DESIGNS_PATH,
+  PUBLIC_DESIGNS_PATH,
+  SHARED_DESIGNS_PATH,
+} from "@/lib/routes";
 
 const PAGES = [
   { href: PRIVATE_DESIGNS_PATH, icon: RiLockLine, label: "Private" },
   { href: PUBLIC_DESIGNS_PATH, icon: RiGlobalLine, label: "Public" },
+  { href: SHARED_DESIGNS_PATH, icon: RiTeamLine, label: "Shared with you" },
 ] as const;
 
-// The two galleries: a design is on exactly one of them, by its visibility
+// The galleries: each design is on Private or Public, by its visibility.
+// Shared with you lists others' designs shared with the viewer, either way.
 export const StudioNav = () => {
   const pathname = usePathname();
   const { setOpenMobile } = useSidebar();

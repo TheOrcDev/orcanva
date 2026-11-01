@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { getViewer } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/client";
-import { isDesignId } from "@/lib/db/queries/designs";
+import { isDesignId, visibleTo } from "@/lib/db/queries/designs";
 import {
   MAX_CANVAS_SIZE,
   MAX_ELEMENTS,
@@ -122,7 +122,7 @@ export const POST = async (
         height = COALESCE(${page?.height ?? null}::int, height),
         background = COALESCE(${page ? JSON.stringify(page.background) : null}::jsonb, background)
       WHERE id = ${id}::uuid
-        AND (visibility = 'public' OR owner_id = ${viewerId}::uuid)
+        AND ${visibleTo(viewerId)}
       RETURNING id
     ),
     input AS (

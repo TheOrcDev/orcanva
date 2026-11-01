@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { safeNext, signInUrl } from "@/lib/auth/redirect";
+import { safeNext, signInUrl, signUpUrl } from "@/lib/auth/redirect";
 import { STUDIO_PATH } from "@/lib/routes";
 
 describe("safeNext", () => {
@@ -34,5 +34,17 @@ describe("signInUrl", () => {
     expect(signInUrl(STUDIO_PATH)).toBe("/auth/sign-in");
     expect(signInUrl("/")).toBe("/auth/sign-in?next=%2F");
     expect(signInUrl("/design/abc")).toBe("/auth/sign-in?next=%2Fdesign%2Fabc");
+  });
+});
+
+describe("signUpUrl", () => {
+  it("fills in the email it was given", () => {
+    expect(signUpUrl(STUDIO_PATH)).toBe("/auth/sign-up");
+    expect(signUpUrl(STUDIO_PATH, "jay@example.com")).toBe(
+      "/auth/sign-up?email=jay%40example.com"
+    );
+    expect(signUpUrl("/invite/abc", "jay+1@example.com")).toBe(
+      "/auth/sign-up?next=%2Finvite%2Fabc&email=jay%2B1%40example.com"
+    );
   });
 });

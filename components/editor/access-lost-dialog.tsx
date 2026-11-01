@@ -15,7 +15,8 @@ import {
 import { STUDIO_PATH } from "@/lib/routes";
 
 // Shown when the server stops letting this person at the design: its owner
-// made it private or deleted it while they were editing
+// made it private, stopped sharing it with them, or deleted it while they
+// were editing
 export const AccessLostDialog = () => {
   const accessLost = useEditor((state) => state.accessLost);
 
@@ -27,8 +28,8 @@ export const AccessLostDialog = () => {
             This design isn&apos;t available anymore
           </AlertDialogTitle>
           <AlertDialogDescription>
-            Its owner made it private or deleted it, so your latest changes
-            weren&apos;t saved.
+            Its owner made it private, stopped sharing it with you, or deleted
+            it, so your latest changes weren&apos;t saved.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

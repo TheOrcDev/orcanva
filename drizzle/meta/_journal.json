@@ -57,6 +57,13 @@
       "when": 1793400880197,
       "tag": "0007_per_owner_uploads",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793558097828,
+      "tag": "0008_design_shares",
+      "breakpoints": true
     }
   ]
 }

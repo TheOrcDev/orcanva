@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { z } from "zod";
 
@@ -8,7 +8,7 @@ import type { DesignRole, Visibility } from "@/lib/auth/access";
 import { comparePositioned } from "@/lib/collab/positions";
 import { authUsers } from "@/lib/db/auth-schema";
 import { getDb } from "@/lib/db/client";
-import { designElements, designs } from "@/lib/db/schema";
+import { designElements, designShares, designs } from "@/lib/db/schema";
 import type { DesignRow } from "@/lib/db/schema";
 import { migrateDocument } from "@/lib/document/migrate";
 import type { DesignDocument } from "@/lib/document/schema";
@@ -30,11 +30,22 @@ const designId = z.uuid();
 export const isDesignId = (value: string): boolean =>
   designId.safeParse(value).success;
 
-// Designs the viewer may open: every public one, plus their own
-export const visibleTo = (viewerId: string | null): SQL | undefined =>
+// The viewer's email, lowercased, only once it's proven theirs
+const verifiedEmailOf = (viewerId: string): SQL =>
+  sql`(SELECT lower(${authUsers.email}) FROM ${authUsers} WHERE ${authUsers.id} = ${viewerId} AND ${authUsers.emailVerified})`;
+
+// Designs their owners shared with the viewer: invites they accepted, and
+// any sent to their email once it's verified
+export const sharedWith = (viewerId: string): SQL =>
+  sql`${designs.id} IN (SELECT ${designShares.designId} FROM ${designShares} WHERE ${designShares.userId} = ${viewerId} OR ${designShares.email} = ${verifiedEmailOf(viewerId)})`;
+
+// Designs the viewer may open: every public one, their own, and the ones
+// shared with them. Route Handlers' raw SQL uses it too, where `designs` is
+// the table itself (no alias).
+export const visibleTo = (viewerId: string | null): SQL =>
   viewerId
-    ? or(eq(designs.visibility, "public"), eq(designs.ownerId, viewerId))
-    : eq(designs.visibility, "public");
+    ? sql`(${designs.visibility} = 'public' OR ${designs.ownerId} = ${viewerId} OR ${sharedWith(viewerId)})`
+    : sql`${designs.visibility} = 'public'`;
 
 // The newest public designs shown in the gallery
 const PUBLIC_GALLERY_LIMIT = 60;
@@ -59,6 +70,12 @@ const summaries = () =>
 export const listPrivateDesigns = (ownerId: string): Promise<DesignSummary[]> =>
   summaries()
     .where(and(eq(designs.ownerId, ownerId), eq(designs.visibility, "private")))
+    .orderBy(desc(designs.updatedAt));
+
+// Other people's designs shared with the account, public or private
+export const listSharedDesigns = (viewerId: string): Promise<DesignSummary[]> =>
+  summaries()
+    .where(and(sharedWith(viewerId), ne(designs.ownerId, viewerId)))
     .orderBy(desc(designs.updatedAt));
 
 // Everyone's public designs (the newest ones), the viewer's own included;
@@ -95,11 +112,33 @@ export const getDesignRole = async (
     return null;
   }
   const [row] = await getDb()
-    .select({ ownerId: designs.ownerId, visibility: designs.visibility })
+    .select({
+      isShared: viewerId
+        ? sharedWith(viewerId).mapWith(Boolean)
+        : sql`false`.mapWith(Boolean),
+      ownerId: designs.ownerId,
+      visibility: designs.visibility,
+    })
     .from(designs)
     .where(eq(designs.id, id))
     .limit(1);
-  return row ? roleFor(row, viewerId) : null;
+  return row ? roleFor(row, viewerId, row.isShared) : null;
+};
+
+// Whether the design's owner shared it with the viewer
+export const isDesignSharedWith = async (
+  id: string,
+  viewerId: string | null
+): Promise<boolean> => {
+  if (!(viewerId && isDesignId(id))) {
+    return false;
+  }
+  const [row] = await getDb()
+    .select({ id: designs.id })
+    .from(designs)
+    .where(and(eq(designs.id, id), sharedWith(viewerId)))
+    .limit(1);
+  return row !== undefined;
 };
 
 export interface DesignContent {

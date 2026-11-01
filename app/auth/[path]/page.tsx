@@ -11,6 +11,7 @@ import {
 import { LogoMark } from "@/components/logo-mark";
 import { safeNext } from "@/lib/auth/redirect";
 import { getViewer } from "@/lib/auth/server";
+import { shareEmail } from "@/lib/sharing/invite";
 
 const TITLES = {
   "forgot-password": "Forgot password",
@@ -44,6 +45,8 @@ const AuthPage = async (props: PageProps<"/auth/[path]">) => {
   }
   const searchParams = await props.searchParams;
   const next = safeNext(firstParam(searchParams.next));
+  // Filled in from an invite link; anything else is left for them to type
+  const email = shareEmail.safeParse(firstParam(searchParams.email)).data;
 
   // Already signed in: nothing to do here (a reset link still works)
   if (path !== "reset-password" && (await getViewer())) {
@@ -57,8 +60,8 @@ const AuthPage = async (props: PageProps<"/auth/[path]">) => {
         <span className="font-heading text-lg font-semibold">Orcanva</span>
       </Link>
       <div className="w-full max-w-sm">
-        {path === "sign-in" ? <SignInForm next={next} /> : null}
-        {path === "sign-up" ? <SignUpForm next={next} /> : null}
+        {path === "sign-in" ? <SignInForm next={next} email={email} /> : null}
+        {path === "sign-up" ? <SignUpForm next={next} email={email} /> : null}
         {path === "forgot-password" ? <ForgotPasswordForm next={next} /> : null}
         {path === "reset-password" ? (
           <ResetPasswordForm token={firstParam(searchParams.token) ?? null} />

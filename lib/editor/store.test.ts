@@ -119,7 +119,7 @@ describe("editor store", () => {
     expect(store.getState().zoomMode).toBe("fit");
   });
 
-  it("stops an editor (but not the owner) when the design goes private", () => {
+  it("stops an editor (but not the owner or a member) when the design goes private", () => {
     const row = {
       background: { color: "#ffffff", type: "solid" },
       height: PAGE.height,
@@ -148,5 +148,10 @@ describe("editor store", () => {
     owner.getState().applyLivePage({ ...row, visibility: "private" });
     expect(owner.getState().accessLost).toBe(false);
     expect(owner.getState().visibility).toBe("private");
+
+    // Shared with them: they stay
+    const member = createEditorStore({ ...init, role: "member" });
+    member.getState().applyLivePage({ ...row, visibility: "private" });
+    expect(member.getState().accessLost).toBe(false);
   });
 });

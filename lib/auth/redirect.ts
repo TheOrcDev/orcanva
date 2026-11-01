@@ -22,14 +22,20 @@ export const safeNext = (
   }
 };
 
+// An auth page coming back to `path` afterwards, its form filled in with
+// `email` when there's one (e.g. the address a design was shared with)
+const authUrl = (page: string, path: string, email?: string): string => {
+  const params = [
+    path === STUDIO_PATH ? null : `next=${encodeURIComponent(path)}`,
+    email ? `email=${encodeURIComponent(email)}` : null,
+  ].filter((param) => param !== null);
+  return params.length > 0 ? `${page}?${params.join("&")}` : page;
+};
+
 // The sign-in page, coming back to `path` afterwards
-export const signInUrl = (path: string): string =>
-  path === STUDIO_PATH
-    ? "/auth/sign-in"
-    : `/auth/sign-in?next=${encodeURIComponent(path)}`;
+export const signInUrl = (path: string, email?: string): string =>
+  authUrl("/auth/sign-in", path, email);
 
 // The sign-up page, for people new to Orcanva, likewise
-export const signUpUrl = (path: string): string =>
-  path === STUDIO_PATH
-    ? "/auth/sign-up"
-    : `/auth/sign-up?next=${encodeURIComponent(path)}`;
+export const signUpUrl = (path: string, email?: string): string =>
+  authUrl("/auth/sign-up", path, email);
