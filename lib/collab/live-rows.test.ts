@@ -15,6 +15,15 @@ describe("entriesFromRows", () => {
     expect(entries.get("r1")).toEqual({ element: rect, position: "a0" });
   });
 
+  it("keeps fields newer code added", () => {
+    const newer = { ...rect, futureField: { kept: true } };
+    const entries = entriesFromRows(
+      [{ data: newer, id: "r1", position: "a0" }],
+      new Map()
+    );
+    expect(entries.get("r1")?.element).toEqual(newer);
+  });
+
   it("keeps the previous entry when a row comes back unchanged", () => {
     const known = { element: rect, position: "a0" };
     const entries = entriesFromRows(

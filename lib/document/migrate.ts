@@ -1,4 +1,8 @@
-import { DOCUMENT_VERSION, designDocumentSchema } from "@/lib/document/schema";
+import {
+  DOCUMENT_VERSION,
+  designDocumentSchema,
+  keepUnknownFields,
+} from "@/lib/document/schema";
 import type { DesignDocument } from "@/lib/document/schema";
 
 type Upgrade = (raw: Record<string, unknown>) => Record<string, unknown>;
@@ -33,5 +37,12 @@ export const migrateDocument = (raw: unknown): DesignDocument => {
     version += 1;
   }
 
-  return designDocumentSchema.parse(current);
+  const document = designDocumentSchema.parse(current);
+  const rawElements = Array.isArray(current.elements) ? current.elements : [];
+  return {
+    ...document,
+    elements: document.elements.map((element, index) =>
+      keepUnknownFields(rawElements[index], element)
+    ),
+  };
 };

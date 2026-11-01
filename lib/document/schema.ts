@@ -199,3 +199,24 @@ export type LinearElement = LineElement | ArrowElement;
 export type DesignElement = z.infer<typeof elementSchema>;
 export type ElementType = DesignElement["type"];
 export type DesignDocument = z.infer<typeof designDocumentSchema>;
+
+// The largest element a client may write, as JSON
+export const MAX_ELEMENT_JSON_LENGTH = 64_000;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+// Puts back the top-level fields validation stripped. Editors stay open
+// across deploys, so a tab loaded before a release must not erase what newer
+// code wrote (a group, a crop, text styles) the moment it edits that element.
+export const keepUnknownFields = (
+  raw: unknown,
+  element: DesignElement
+): DesignElement =>
+  isRecord(raw) ? ({ ...raw, ...element } as DesignElement) : element;
+
+// Validates an element, keeping fields this version doesn't know
+export const parseElement = (raw: unknown): DesignElement | null => {
+  const parsed = elementSchema.safeParse(raw);
+  return parsed.success ? keepUnknownFields(raw, parsed.data) : null;
+};

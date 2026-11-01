@@ -8,7 +8,11 @@ import {
   createTextElement,
 } from "@/lib/document/factories";
 import { migrateDocument } from "@/lib/document/migrate";
-import { designDocumentSchema, elementSchema } from "@/lib/document/schema";
+import {
+  designDocumentSchema,
+  elementSchema,
+  parseElement,
+} from "@/lib/document/schema";
 
 const PAGE = { height: 720, width: 1280 };
 const ASSET = {
@@ -84,7 +88,27 @@ describe("design document schema", () => {
   });
 });
 
+describe("parseElement", () => {
+  it("keeps top-level fields newer code added", () => {
+    const rect = { ...createBoxElement("rect", PAGE), futureField: [1, 2] };
+    expect(parseElement(rect)).toEqual(rect);
+  });
+
+  it("still validates the fields it knows", () => {
+    expect(
+      parseElement({ ...createBoxElement("rect", PAGE), opacity: 2 })
+    ).toBeNull();
+    expect(parseElement("rect")).toBeNull();
+  });
+});
+
 describe("migrateDocument", () => {
+  it("keeps fields newer code added to elements", () => {
+    const rect = { ...createBoxElement("rect", PAGE), futureField: "kept" };
+    const document = { ...createDocument(PAGE), elements: [rect] };
+    expect(migrateDocument(document).elements).toEqual([rect]);
+  });
+
   it("returns a valid current-version document unchanged", () => {
     const document = createDocument(PAGE);
     expect(migrateDocument(document)).toEqual(document);

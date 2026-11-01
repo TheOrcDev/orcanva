@@ -7,9 +7,11 @@ import { isDesignId } from "@/lib/db/queries/designs";
 import {
   MAX_CANVAS_SIZE,
   MAX_ELEMENTS,
+  MAX_ELEMENT_JSON_LENGTH,
   MIN_CANVAS_SIZE,
   backgroundSchema,
   elementSchema,
+  keepUnknownFields,
 } from "@/lib/document/schema";
 
 // Fractional-index keys are base-62 digits
@@ -17,13 +19,35 @@ const POSITION_KEY = /^[0-9A-Za-z]{2,200}$/u;
 
 const canvasSize = z.number().int().min(MIN_CANVAS_SIZE).max(MAX_CANVAS_SIZE);
 
+// Validated like any element, but stored with the fields this version
+// doesn't know yet, so a newer editor's additions survive an older one
+const elementData = z
+  .unknown()
+  .refine(
+    (raw) => (JSON.stringify(raw) ?? "").length <= MAX_ELEMENT_JSON_LENGTH,
+    {
+      message: "Element too large",
+    }
+  )
+  .transform((raw, context) => {
+    const parsed = elementSchema.safeParse(raw);
+    if (!parsed.success) {
+      context.addIssue({
+        code: "custom",
+        message: z.prettifyError(parsed.error),
+      });
+      return z.NEVER;
+    }
+    return keepUnknownFields(raw, parsed.data);
+  });
+
 const changesPayload = z.object({
   clientId: z.uuid(),
   deletes: z.array(z.string().min(1).max(64)).max(MAX_ELEMENTS),
   elements: z
     .array(
       z.object({
-        data: elementSchema,
+        data: elementData,
         mode: z.enum(["create", "update"]),
         position: z.string().regex(POSITION_KEY),
       })

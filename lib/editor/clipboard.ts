@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { createId } from "@/lib/document/factories";
-import { elementSchema } from "@/lib/document/schema";
+import { parseElement } from "@/lib/document/schema";
 import type { DesignElement } from "@/lib/document/schema";
 
 // Elements travel through the system clipboard as tagged JSON, so copy and
@@ -10,7 +10,7 @@ const CLIPBOARD_PREFIX = "orcanva/elements:";
 const PASTE_OFFSET = 24;
 
 const payloadSchema = z.object({
-  elements: z.array(elementSchema).min(1).max(100),
+  elements: z.array(z.unknown()).min(1).max(100),
   version: z.literal(1),
 });
 
@@ -27,7 +27,18 @@ export const parseClipboardElements = (
     const parsed = payloadSchema.safeParse(
       JSON.parse(text.slice(CLIPBOARD_PREFIX.length))
     );
-    return parsed.success ? parsed.data.elements : null;
+    if (!parsed.success) {
+      return null;
+    }
+    const elements: DesignElement[] = [];
+    for (const raw of parsed.data.elements) {
+      const element = parseElement(raw);
+      if (!element) {
+        return null;
+      }
+      elements.push(element);
+    }
+    return elements;
   } catch {
     return null;
   }

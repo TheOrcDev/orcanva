@@ -1,6 +1,6 @@
 import type { Entry, PageSettings } from "@/lib/collab/changeset";
 import { isDeepEqual } from "@/lib/collab/equal";
-import { backgroundSchema, elementSchema } from "@/lib/document/schema";
+import { backgroundSchema, parseElement } from "@/lib/document/schema";
 import type { LiveElementRow, LivePageRow } from "@/lib/realtime/rows";
 
 // Turns live element rows into entries. Rows whose content is unchanged
@@ -20,9 +20,9 @@ export const entriesFromRows = (
     ) {
       entries.set(row.id, known);
     } else {
-      const parsed = elementSchema.safeParse(row.data);
-      if (parsed.success && parsed.data.id === row.id) {
-        entries.set(row.id, { element: parsed.data, position: row.position });
+      const element = parseElement(row.data);
+      if (element?.id === row.id) {
+        entries.set(row.id, { element, position: row.position });
       }
     }
   }

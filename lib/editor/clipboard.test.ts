@@ -20,6 +20,11 @@ describe("element clipboard", () => {
     );
   });
 
+  it("keeps fields newer code added", () => {
+    const rect = { ...createBoxElement("rect", PAGE), futureField: 7 };
+    expect(parseClipboardElements(serializeElements([rect]))).toEqual([rect]);
+  });
+
   it("ignores foreign or invalid clipboard text", () => {
     expect(parseClipboardElements("hello")).toBeNull();
     expect(parseClipboardElements("orcanva/elements:{nope")).toBeNull();
