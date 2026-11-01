@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { ClosingCta } from "@/components/landing/closing-cta";
+import { Collaboration } from "@/components/landing/collaboration";
 import { FeatureGrid } from "@/components/landing/feature-grid";
 import { Hero } from "@/components/landing/hero";
 import { SiteFooter } from "@/components/landing/site-footer";
@@ -41,6 +42,7 @@ const LandingPage = () => (
     <main>
       <Hero />
       <FeatureGrid />
+      <Collaboration />
       <ClosingCta />
     </main>
     <SiteFooter />

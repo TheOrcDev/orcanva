@@ -1,3 +1,4 @@
+import { RiCheckLine } from "@remixicon/react";
 import Image from "next/image";
 import type { StaticImageData } from "next/image";
 
@@ -16,13 +17,13 @@ import thumbnailHacks from "@/components/landing/assets/bento/thumbnail-hacks.we
 import thumbnailLake from "@/components/landing/assets/bento/thumbnail-lake.webp";
 import thumbnailSunset from "@/components/landing/assets/bento/thumbnail-sunset.webp";
 import { BentoCard } from "@/components/landing/bento-card";
-import { CollabMock } from "@/components/landing/collab-mock";
 import { Container } from "@/components/landing/container";
 import { MagicBento } from "@/components/landing/magic-bento";
 import { ThemedImage } from "@/components/landing/themed-image";
 import { Badge } from "@/components/ui/badge";
 import { FONT_CATALOG } from "@/lib/fonts/catalog";
 import { FILTER_PRESETS, findPreset } from "@/lib/image-filters/presets";
+import { REMOVE_AI_METADATA_PATH } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 // Every picture here is the studio's own output, made from one watercolor of
@@ -154,13 +155,35 @@ const LookStrip = () => (
   </ul>
 );
 
-const LiveCollaboration = () => (
-  <div className="bg-muted absolute inset-0 flex items-center justify-center p-6">
-    <CollabMock className="w-full md:h-full md:w-auto" />
-    <p className="sr-only">
-      Two people editing the same thumbnail: Jay has the title selected while
-      Jonas points at the photo.
-    </p>
+// The metadata remover's result as /remove-ai-metadata shows it
+const REMOVED = [
+  "Content Credentials (C2PA)",
+  "“AI generated” tag",
+  "Prompt and settings",
+  "GPS location",
+];
+
+const CleanImage = () => (
+  <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 sm:flex-row sm:gap-5">
+    <Image
+      src={lookOriginal}
+      alt="The orc painter's portrait, without its metadata"
+      sizes="160px"
+      className="ring-foreground/10 aspect-square h-24 w-auto shrink-0 rounded-xl object-cover shadow-sm ring-1 sm:h-full sm:max-h-40"
+    />
+    <div className="flex flex-col items-center gap-2 sm:items-start">
+      <p className="text-muted-foreground text-xs">Removed from your image</p>
+      <ul className="flex flex-wrap justify-center gap-1.5 sm:flex-col sm:items-start">
+        {REMOVED.map((label) => (
+          <li key={label}>
+            <Badge variant="secondary">
+              <RiCheckLine data-icon="inline-start" />
+              {label}
+            </Badge>
+          </li>
+        ))}
+      </ul>
+    </div>
   </div>
 );
 
@@ -223,11 +246,12 @@ export const FeatureGrid = () => (
           className="md:col-span-2"
         />
         <BentoCard
-          id="collaboration"
-          title="Live collaboration"
-          description="Make a design public and anyone with the link can edit it with you, signed in or not. Yours stay private until you say otherwise, and any public one can be your template."
-          visual={<LiveCollaboration />}
-          className="scroll-mt-8 md:col-span-2"
+          href={REMOVE_AI_METADATA_PATH}
+          title="Remove AI metadata"
+          description="Drop in any image and download it without the Content Credentials and “AI generated” tag that Instagram and TikTok read to label it. Free, lossless, and nothing is uploaded."
+          visual={<CleanImage />}
+          visualClassName="min-h-72"
+          className="md:col-span-2"
         />
       </MagicBento>
     </Container>
