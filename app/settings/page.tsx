@@ -1,9 +1,10 @@
-import { RiArrowLeftLine, RiPaletteLine } from "@remixicon/react";
+import { RiArrowLeftLine } from "@remixicon/react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { UserMenu } from "@/components/auth/user-menu";
+import { LogoMark } from "@/components/logo-mark";
 import { ProfileSettings } from "@/components/settings/profile-settings";
 import { Button } from "@/components/ui/button";
 import { signInUrl } from "@/lib/auth/redirect";
@@ -24,7 +25,7 @@ const SettingsPage = async () => {
       <header className="border-b">
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-6">
           <Link href="/" className="flex items-center gap-2">
-            <RiPaletteLine aria-hidden />
+            <LogoMark className="size-5" />
             <span className="font-heading text-lg font-semibold">Orcanva</span>
           </Link>
           <div className="flex items-center gap-2">

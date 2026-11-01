@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-import { RiPaletteLine } from "@remixicon/react";
 import { ImageResponse } from "next/og";
 
 // The landing's share card: the hero's sunset, wordmark and headline. Built
@@ -67,7 +66,43 @@ const OpengraphImage = () =>
         <rect x="500" y="228" width="200" height="3" fill="#fbe8dd" />
       </svg>
       <div style={{ alignItems: "center", display: "flex", gap: 14 }}>
-        <RiPaletteLine size={40} color={INK} />
+        {/* components/logo-mark.tsx in its day colours */}
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+          <rect
+            x="0.5"
+            y="0.5"
+            width="23"
+            height="23"
+            rx="3.5"
+            stroke="#9c7096"
+            strokeWidth="1"
+          />
+          <path d="M5 13.5a7 7 0 0 1 14 0z" fill="#f19b89" />
+          <rect
+            x="1.9"
+            y="13.5"
+            width="20.2"
+            height="0.8"
+            rx="0.4"
+            fill="#9c7096"
+          />
+          <rect
+            x="6.1"
+            y="15.2"
+            width="11.8"
+            height="1.6"
+            rx="0.8"
+            fill="#bfadcc"
+          />
+          <rect
+            x="9.25"
+            y="17.4"
+            width="5.5"
+            height="1.6"
+            rx="0.8"
+            fill="#bfadcc"
+          />
+        </svg>
         <span style={{ fontSize: 38, letterSpacing: -1 }}>Orcanva</span>
       </div>
       <div

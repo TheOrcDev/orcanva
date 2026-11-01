@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- components/logo-mark.tsx snapped to whole pixels at 16 and 32px; the
+       tab follows the browser's light or dark scheme -->
+  <style>
+    .frame { stroke: #9c7096 }
+    .horizon { fill: #9c7096 }
+    .water { fill: #bfadcc }
+    @media (prefers-color-scheme: dark) {
+      .frame { stroke: #dbb7d5 }
+      .horizon { fill: #dbb7d5 }
+      .water { fill: #7e6c8b }
+    }
+  </style>
+  <rect class="frame" x="1" y="1" width="30" height="30" rx="6" stroke-width="2"/>
+  <path d="M7 16a9 9 0 0 1 18 0z" fill="#f19b89"/>
+  <rect class="horizon" x="4" y="16" width="24" height="2" rx="1"/>
+  <rect class="water" x="8" y="20" width="16" height="2" rx="1"/>
+  <rect class="water" x="12" y="24" width="8" height="2" rx="1"/>
+</svg>

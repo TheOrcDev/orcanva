@@ -1,7 +1,6 @@
 import {
   RiGlobalLine,
   RiLayoutMasonryLine,
-  RiPaletteLine,
   RiUserLine,
 } from "@remixicon/react";
 import type { Metadata } from "next";
@@ -13,6 +12,7 @@ import { UserMenu } from "@/components/auth/user-menu";
 import { DesignCard } from "@/components/gallery/design-card";
 import type { DesignCardProps } from "@/components/gallery/design-card";
 import { NewDesignDialog } from "@/components/gallery/new-design-dialog";
+import { LogoMark } from "@/components/logo-mark";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -114,7 +114,7 @@ const StudioPage = async () => {
       <header className="border-b">
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-6">
           <Link href="/" className="flex items-center gap-2">
-            <RiPaletteLine aria-hidden />
+            <LogoMark className="size-5" />
             <h1 className="font-heading text-lg font-semibold">Orcanva</h1>
           </Link>
           <div className="flex items-center gap-2">

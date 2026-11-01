@@ -24,9 +24,10 @@ export const proxy = async (request: NextRequest) => {
 export const config = {
   // Pages only: API routes check sessions themselves, and the proxy would
   // cap request bodies (uploads) at 10 MB. Share images live at
-  // /opengraph-image-<hash>, which no public route covers, so crawlers
-  // would otherwise be sent to sign-in.
+  // /opengraph-image-<hash> and app icons at /icon.svg and /apple-icon.png,
+  // which no public route covers, so crawlers and signed-out tabs would
+  // otherwise be sent to sign-in.
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|opengraph-image).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|icon|apple-icon|opengraph-image).*)",
   ],
 };

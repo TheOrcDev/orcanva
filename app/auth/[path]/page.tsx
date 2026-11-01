@@ -1,4 +1,3 @@
-import { RiPaletteLine } from "@remixicon/react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -9,6 +8,7 @@ import {
   SignInForm,
   SignUpForm,
 } from "@/components/auth/auth-forms";
+import { LogoMark } from "@/components/logo-mark";
 import { safeNext } from "@/lib/auth/redirect";
 import { getViewer } from "@/lib/auth/server";
 
@@ -50,7 +50,7 @@ const AuthPage = async (props: PageProps<"/auth/[path]">) => {
   return (
     <main className="flex min-h-svh flex-col items-center justify-center gap-8 p-6">
       <Link href="/" className="flex items-center gap-2">
-        <RiPaletteLine aria-hidden />
+        <LogoMark className="size-5" />
         <span className="font-heading text-lg font-semibold">Orcanva</span>
       </Link>
       <div className="w-full max-w-sm">

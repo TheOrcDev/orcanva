@@ -1,6 +1,6 @@
-import { RiPaletteLine } from "@remixicon/react";
 import Link from "next/link";
 
+import { LogoMark } from "@/components/logo-mark";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const PLACEHOLDER_CARDS = ["first", "second", "third", "fourth"];
@@ -12,7 +12,7 @@ const StudioLoading = () => (
     <header className="border-b">
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-6">
         <Link href="/" className="flex items-center gap-2">
-          <RiPaletteLine aria-hidden />
+          <LogoMark className="size-5" />
           <span className="font-heading text-lg font-semibold">Orcanva</span>
         </Link>
         <Skeleton className="h-9 w-36" />
