@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata } from "next";
 import { Geist_Mono, Instrument_Sans, Figtree } from "next/font/google";
 
@@ -59,6 +60,7 @@ const RootLayout = ({
           <Toaster>{children}</Toaster>
         </TooltipProvider>
       </ThemeProvider>
+      <Analytics />
     </body>
   </html>
 );
