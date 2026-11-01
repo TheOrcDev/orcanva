@@ -12,6 +12,11 @@ import { LineHandles } from "@/components/editor/canvas/line-handles";
 import { RemoteSelections } from "@/components/editor/canvas/remote-selections";
 import { SelectionTransformer } from "@/components/editor/canvas/selection-transformer";
 import { SnapGuides } from "@/components/editor/canvas/snap-guides";
+import {
+  boxOf,
+  collectSnapTargets,
+  isFreeMove,
+} from "@/components/editor/canvas/snap-targets";
 import { TextEditOverlay } from "@/components/editor/canvas/text-edit-overlay";
 import { RemoteCursors } from "@/components/editor/collab/remote-cursors";
 import {
@@ -67,13 +72,6 @@ interface SnapSession {
   // The page and every other visible element
   targets: Box[];
 }
-
-// Boxes as the selection handles draw them
-const BOX_OPTIONS = { skipShadow: true, skipStroke: true } as const;
-
-// Holding ⌘ or Ctrl while dragging places things freely
-const isFreeMove = (event: unknown) =>
-  event instanceof MouseEvent && (event.metaKey || event.ctrlKey);
 
 const isLinear = (element: DesignElement) =>
   element.type === "line" || element.type === "arrow";
@@ -262,29 +260,20 @@ export const WorkspaceStage = () => {
       if (!(page && press)) {
         return;
       }
-      const boxOf = (node: Konva.Node) =>
-        node.getClientRect({ relativeTo: page, ...BOX_OPTIONS });
-      const moving = new Set(ids);
       const starts = new Map<string, Point>();
       const boxes: Box[] = [];
       for (const id of ids) {
         const node = page.findOne(`#${id}`);
         if (node) {
           starts.set(id, node.position());
-          boxes.push(boxOf(node));
+          boxes.push(boxOf(node, page));
         }
       }
-      const { elements, height, width } = selectDocument(store.getState());
-      const targets: Box[] = [{ height, width, x: 0, y: 0 }];
-      for (const element of elements) {
-        const node =
-          element.visible && !moving.has(element.id)
-            ? page.findOne(`#${element.id}`)
-            : undefined;
-        if (node) {
-          targets.push(boxOf(node));
-        }
-      }
+      const targets = collectSnapTargets(
+        page,
+        selectDocument(store.getState()),
+        new Set(ids)
+      );
       const box = unionRect(boxes);
       if (box) {
         snapRef.current = {

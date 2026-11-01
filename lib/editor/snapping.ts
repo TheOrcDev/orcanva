@@ -39,13 +39,12 @@ const linesOf = (box: Rect, axis: SnapAxis): number[] => {
 
 // The smallest shift that puts one of the moving lines on a target line
 const nearestShift = (
-  box: Rect,
+  moving: readonly number[],
   targets: readonly Rect[],
   axis: SnapAxis,
   distance: number
 ): number | null => {
   let best: number | null = null;
-  const moving = linesOf(box, axis);
   for (const target of targets) {
     for (const line of linesOf(target, axis)) {
       for (const edge of moving) {
@@ -62,23 +61,34 @@ const nearestShift = (
   return best;
 };
 
-// One guide per line the snapped box shares with a target, spanning both
-const guidesFor = (
-  box: Rect,
+// How far one moving line (e.g. an edge being resized) must shift to sit on
+// a target line, or null when none is close enough
+export const snapValue = (
+  value: number,
   targets: readonly Rect[],
-  axis: SnapAxis
+  axis: SnapAxis,
+  distance: number
+): number | null => nearestShift([value], targets, axis, distance);
+
+// Guides for every target line that one of `lines` sits on. `span` is the
+// moving thing's extent along the other axis; each guide covers it and the
+// target.
+export const guidesAt = (
+  axis: SnapAxis,
+  lines: readonly number[],
+  span: { from: number; to: number },
+  targets: readonly Rect[]
 ): SnapGuide[] => {
   const across = other(axis);
   const guides: SnapGuide[] = [];
-  const moving = linesOf(box, axis);
   for (const target of targets) {
     for (const line of linesOf(target, axis)) {
-      if (!moving.some((edge) => Math.abs(edge - line) < SAME_LINE)) {
+      if (!lines.some((edge) => Math.abs(edge - line) < SAME_LINE)) {
         continue;
       }
-      const from = Math.min(startOf(box, across), startOf(target, across));
+      const from = Math.min(span.from, startOf(target, across));
       const to = Math.max(
-        startOf(box, across) + sizeOf(box, across),
+        span.to,
         startOf(target, across) + sizeOf(target, across)
       );
       const existing = guides.find(
@@ -95,6 +105,11 @@ const guidesFor = (
   return guides;
 };
 
+const spanOf = (box: Rect, axis: SnapAxis) => ({
+  from: startOf(box, axis),
+  to: startOf(box, axis) + sizeOf(box, axis),
+});
+
 export const offsetRect = (box: Rect, offset: Point): Rect => ({
   ...box,
   x: box.x + offset.x,
@@ -109,16 +124,123 @@ export const snapBox = (
   targets: readonly Rect[],
   distance: number
 ): SnapResult => {
-  const dx = nearestShift(box, targets, "x", distance) ?? 0;
-  const dy = nearestShift(box, targets, "y", distance) ?? 0;
+  const dx = nearestShift(linesOf(box, "x"), targets, "x", distance) ?? 0;
+  const dy = nearestShift(linesOf(box, "y"), targets, "y", distance) ?? 0;
   const snapped = offsetRect(box, { x: dx, y: dy });
   return {
     dx,
     dy,
     guides: [
-      ...guidesFor(snapped, targets, "x"),
-      ...guidesFor(snapped, targets, "y"),
+      ...guidesAt("x", linesOf(snapped, "x"), spanOf(snapped, "y"), targets),
+      ...guidesAt("y", linesOf(snapped, "y"), spanOf(snapped, "x"), targets),
     ],
+  };
+};
+
+// Snaps a single point, e.g. a line's endpoint, on both axes
+export const snapPoint = (
+  point: Point,
+  targets: readonly Rect[],
+  distance: number
+): SnapResult => {
+  const dx = snapValue(point.x, targets, "x", distance) ?? 0;
+  const dy = snapValue(point.y, targets, "y", distance) ?? 0;
+  const x = point.x + dx;
+  const y = point.y + dy;
+  return {
+    dx,
+    dy,
+    guides: [
+      ...guidesAt("x", [x], { from: y, to: y }, targets),
+      ...guidesAt("y", [y], { from: x, to: x }, targets),
+    ],
+  };
+};
+
+interface AxisSnap {
+  x: number | null;
+  y: number | null;
+}
+
+// A ratio-keeping corner snaps on its closer axis only; the other follows
+// along the diagonal through the fixed corner
+const alongDiagonal = (
+  snapped: Point,
+  shifts: AxisSnap,
+  fixed: Point,
+  box: Rect
+): { point: Point; shifts: AxisSnap } => {
+  const ratio = box.height / box.width;
+  const signX = Math.sign(snapped.x - fixed.x) || 1;
+  const signY = Math.sign(snapped.y - fixed.y) || 1;
+  if (
+    shifts.x !== null &&
+    (shifts.y === null || Math.abs(shifts.x) <= Math.abs(shifts.y))
+  ) {
+    const height = Math.abs(snapped.x - fixed.x) * ratio;
+    return {
+      point: { x: snapped.x, y: fixed.y + signY * height },
+      shifts: { x: shifts.x, y: null },
+    };
+  }
+  if (shifts.y !== null) {
+    const width = Math.abs(snapped.y - fixed.y) / ratio;
+    return {
+      point: { x: fixed.x + signX * width, y: snapped.y },
+      shifts: { x: null, y: shifts.y },
+    };
+  }
+  return { point: snapped, shifts };
+};
+
+// Snaps the corner or edge a resize handle drags (Konva's anchor names,
+// e.g. "top-left" or "middle-right"). `point` is where the handle would go
+// and `box` the box before this move. A corner that keeps its ratio is
+// projected onto the box's diagonal afterwards, so only the closer axis
+// snaps and the other slides along the diagonal with it.
+export const snapResize = ({
+  anchor,
+  box,
+  distance,
+  keepRatio,
+  point,
+  targets,
+}: {
+  anchor: string;
+  box: Rect;
+  distance: number;
+  keepRatio: boolean;
+  point: Point;
+  targets: readonly Rect[];
+}): { point: Point; guides: SnapGuide[] } => {
+  const movesX = anchor.includes("left") || anchor.includes("right");
+  const movesY = anchor.includes("top") || anchor.includes("bottom");
+  const fixed = {
+    x: anchor.includes("left") ? box.x + box.width : box.x,
+    y: anchor.includes("top") ? box.y + box.height : box.y,
+  };
+  let shifts: AxisSnap = {
+    x: movesX ? snapValue(point.x, targets, "x", distance) : null,
+    y: movesY ? snapValue(point.y, targets, "y", distance) : null,
+  };
+  let next = { x: point.x + (shifts.x ?? 0), y: point.y + (shifts.y ?? 0) };
+  if (movesX && movesY && keepRatio && box.width > 0 && box.height > 0) {
+    ({ point: next, shifts } = alongDiagonal(next, shifts, fixed, box));
+  }
+
+  // The resized box's extent across each axis, for the guides
+  const spanX = movesX
+    ? { from: Math.min(next.x, fixed.x), to: Math.max(next.x, fixed.x) }
+    : spanOf(box, "x");
+  const spanY = movesY
+    ? { from: Math.min(next.y, fixed.y), to: Math.max(next.y, fixed.y) }
+    : spanOf(box, "y");
+  return {
+    guides: [
+      ...(shifts.x === null ? [] : guidesAt("x", [next.x], spanY, targets)),
+      ...(shifts.y === null ? [] : guidesAt("y", [next.y], spanX, targets)),
+    ],
+    point: next,
   };
 };
 

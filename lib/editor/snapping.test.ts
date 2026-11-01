@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { snapBox, unionRect } from "@/lib/editor/snapping";
+import {
+  snapBox,
+  snapPoint,
+  snapResize,
+  unionRect,
+} from "@/lib/editor/snapping";
 
 const PAGE = { height: 720, width: 1280, x: 0, y: 0 };
 
@@ -59,6 +64,86 @@ describe("snapBox", () => {
       { at: 105, axis: "x", from: 0, to: 510 },
       { at: 110, axis: "x", from: 0, to: 510 },
     ]);
+  });
+});
+
+describe("snapResize", () => {
+  const target = { height: 100, width: 100, x: 500, y: 300 };
+  const box = { height: 100, width: 200, x: 100, y: 100 };
+
+  it("snaps only the edge a side handle moves", () => {
+    const result = snapResize({
+      anchor: "middle-right",
+      box,
+      distance: 6,
+      keepRatio: false,
+      point: { x: 497, y: 302 },
+      targets: [target],
+    });
+    expect(result.point).toEqual({ x: 500, y: 302 });
+    expect(result.guides).toEqual([{ at: 500, axis: "x", from: 100, to: 400 }]);
+  });
+
+  it("snaps both axes of a free corner", () => {
+    const result = snapResize({
+      anchor: "bottom-right",
+      box,
+      distance: 6,
+      keepRatio: false,
+      point: { x: 503, y: 296 },
+      targets: [target],
+    });
+    expect(result.point).toEqual({ x: 500, y: 300 });
+    expect(result.guides).toHaveLength(2);
+  });
+
+  it("keeps the ratio by sliding the other axis along the diagonal", () => {
+    const result = snapResize({
+      anchor: "bottom-right",
+      box,
+      distance: 6,
+      keepRatio: true,
+      point: { x: 498, y: 260 },
+      targets: [target],
+    });
+    // Width 400 from x = 100 at ratio 1:2 is height 200 from y = 100
+    expect(result.point).toEqual({ x: 500, y: 300 });
+    const fromTop = snapResize({
+      anchor: "top-left",
+      box,
+      distance: 6,
+      keepRatio: true,
+      point: { x: 52, y: 53 },
+      targets: [{ height: 10, width: 10, x: 0, y: 40 }],
+    });
+    // y snaps to the target's bottom edge; height 150 at 1:2 is width 300
+    expect(fromTop.point).toEqual({ x: 0, y: 50 });
+  });
+
+  it("leaves the handle alone when nothing is close", () => {
+    const point = { x: 420, y: 250 };
+    expect(
+      snapResize({
+        anchor: "bottom-right",
+        box,
+        distance: 6,
+        keepRatio: true,
+        point,
+        targets: [target],
+      })
+    ).toEqual({ guides: [], point });
+  });
+});
+
+describe("snapPoint", () => {
+  it("snaps a point to lines on both axes", () => {
+    const result = snapPoint(
+      { x: 102, y: 197 },
+      [{ height: 0, width: 0, x: 100, y: 200 }],
+      6
+    );
+    expect(result).toMatchObject({ dx: -2, dy: 3 });
+    expect(result.guides).toHaveLength(2);
   });
 });
 
