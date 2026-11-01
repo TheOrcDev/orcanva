@@ -5,7 +5,9 @@ import {
   RiAlignLeft,
   RiAlignRight,
   RiItalic,
+  RiStrikethrough,
   RiText,
+  RiUnderline,
 } from "@remixicon/react";
 import { useState } from "react";
 
@@ -135,7 +137,7 @@ export const TextProperties = ({ element }: { element: TextElement }) => {
             onCommit={(fontSize) => update({ fontSize })}
           />
         </div>
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <ToggleGroup
             variant="outline"
             size="sm"
@@ -167,6 +169,24 @@ export const TextProperties = ({ element }: { element: TextElement }) => {
               onPressedChange={(italic) => update({ italic })}
             >
               <RiItalic />
+            </Toggle>
+            <Toggle
+              variant="outline"
+              size="sm"
+              aria-label="Underline"
+              pressed={element.underline}
+              onPressedChange={(underline) => update({ underline })}
+            >
+              <RiUnderline />
+            </Toggle>
+            <Toggle
+              variant="outline"
+              size="sm"
+              aria-label="Strikethrough"
+              pressed={element.strike}
+              onPressedChange={(strike) => update({ strike })}
+            >
+              <RiStrikethrough />
             </Toggle>
             <Toggle
               variant="outline"

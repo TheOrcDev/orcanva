@@ -73,6 +73,62 @@ export interface TextPaint {
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
+// Underline and strikethrough as Konva's Text draws them: a line a
+// fifteenth of the size thick, a quarter of the size below or above the
+// baseline
+const paintDecorations = (
+  context: CanvasRenderingContext2D,
+  piece: { style: TextStyle; width: number },
+  baseline: number,
+  x: number,
+  color: string | CanvasGradient
+) => {
+  const { fontSize, strike, underline } = piece.style;
+  const offsets = [
+    ...(underline ? [Math.round(fontSize / 4)] : []),
+    ...(strike ? [-Math.round(fontSize / 4)] : []),
+  ];
+  if (offsets.length === 0) {
+    return;
+  }
+  context.save();
+  context.strokeStyle = color;
+  context.lineWidth = fontSize / 15;
+  for (const offset of offsets) {
+    context.beginPath();
+    context.moveTo(x, baseline + offset);
+    context.lineTo(x + piece.width, baseline + offset);
+    context.stroke();
+  }
+  context.restore();
+};
+
+// Paints curved text letter by letter, each turned along the arc
+export const paintCurvedText = <S extends TextStyle>(
+  context: CanvasRenderingContext2D,
+  layout: CurvedLayout<S>,
+  paintOf: (style: S) => TextPaint
+) => {
+  context.textBaseline = "alphabetic";
+  context.textAlign = "left";
+  context.lineJoin = "round";
+  for (const glyph of layout.glyphs) {
+    const paint = paintOf(glyph.style);
+    context.save();
+    context.translate(glyph.x, glyph.y);
+    context.rotate(glyph.rotation);
+    context.font = glyph.style.font;
+    context.fillStyle = paint.fill;
+    if (paint.stroke && paint.strokeWidth > 0) {
+      context.strokeStyle = paint.stroke;
+      context.lineWidth = paint.strokeWidth;
+      context.strokeText(glyph.text, -glyph.width / 2, 0);
+    }
+    context.fillText(glyph.text, -glyph.width / 2, 0);
+    context.restore();
+  }
+};
+
 // Paints a laid out text the way Konva's Text paints one style: the outline
 // first, then the fill on top; spaced letters one at a time
 export const paintTextLayout = <S extends TextStyle>(
@@ -101,39 +157,14 @@ export const paintTextLayout = <S extends TextStyle>(
       const start = line.x + piece.x;
       if (piece.style.letterSpacing === 0) {
         draw(piece.text, start);
-        continue;
+      } else {
+        let x = start;
+        for (const { segment } of segmenter.segment(piece.text)) {
+          draw(segment, x);
+          x += context.measureText(segment).width + piece.style.letterSpacing;
+        }
       }
-      let x = start;
-      for (const { segment } of segmenter.segment(piece.text)) {
-        draw(segment, x);
-        x += context.measureText(segment).width + piece.style.letterSpacing;
-      }
+      paintDecorations(context, piece, line.baseline, start, paint.fill);
     }
-  }
-};
-
-// Paints curved text letter by letter, each turned along the arc
-export const paintCurvedText = <S extends TextStyle>(
-  context: CanvasRenderingContext2D,
-  layout: CurvedLayout<S>,
-  paintOf: (style: S) => TextPaint
-) => {
-  context.textBaseline = "alphabetic";
-  context.textAlign = "left";
-  context.lineJoin = "round";
-  for (const glyph of layout.glyphs) {
-    const paint = paintOf(glyph.style);
-    context.save();
-    context.translate(glyph.x, glyph.y);
-    context.rotate(glyph.rotation);
-    context.font = glyph.style.font;
-    context.fillStyle = paint.fill;
-    if (paint.stroke && paint.strokeWidth > 0) {
-      context.strokeStyle = paint.stroke;
-      context.lineWidth = paint.strokeWidth;
-      context.strokeText(glyph.text, -glyph.width / 2, 0);
-    }
-    context.fillText(glyph.text, -glyph.width / 2, 0);
-    context.restore();
   }
 };

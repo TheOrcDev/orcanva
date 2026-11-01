@@ -8,6 +8,8 @@ export interface TextStyle {
   fontSize: number;
   // Extra space after every character, in pixels
   letterSpacing: number;
+  underline?: boolean;
+  strike?: boolean;
 }
 
 export interface StyledRun<S extends TextStyle = TextStyle> {

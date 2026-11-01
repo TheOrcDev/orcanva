@@ -104,19 +104,28 @@ export const ensureFont = async (request: FontRequest): Promise<void> => {
   await document.fonts.load(faceSpec(request), sample(request.text));
 };
 
+// Every face a text draws with: its own, and any its marks switch to
 const waitForFonts = async (document: DesignDocument): Promise<void> => {
-  const requests = document.elements.flatMap((element) =>
-    element.type === "text" && element.visible
-      ? [
-          {
-            fontId: element.fontId,
-            italic: element.italic,
-            text: element.uppercase ? element.text.toUpperCase() : element.text,
-            weight: element.weight,
-          },
-        ]
-      : []
-  );
+  const requests = document.elements.flatMap((element) => {
+    if (element.type !== "text" || !element.visible) {
+      return [];
+    }
+    const text = element.uppercase ? element.text.toUpperCase() : element.text;
+    return [
+      {
+        fontId: element.fontId,
+        italic: element.italic,
+        text,
+        weight: element.weight,
+      },
+      ...element.marks.map((mark) => ({
+        fontId: mark.fontId ?? element.fontId,
+        italic: mark.italic ?? element.italic,
+        text: text.slice(mark.start, mark.end),
+        weight: mark.weight ?? element.weight,
+      })),
+    ];
+  });
   await Promise.allSettled(requests.map(ensureFont));
 };
 

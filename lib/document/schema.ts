@@ -160,6 +160,25 @@ export const textEffectSchema = z.object({
   offsetEm: z.number().min(0).max(1),
 });
 
+// A style on part of a text: characters [start, end) of `text`. Set keys
+// override the text's own; sizes are relative to its font size, so scaling
+// the box still only changes `fontSize`.
+export const textMarkSchema = z
+  .object({
+    end: z.number().int().min(1).max(5000),
+    fill: color.optional(),
+    fontId: z.string().min(1).max(64).optional(),
+    italic: z.boolean().optional(),
+    sizeEm: z.number().min(0.1).max(10).optional(),
+    start: z.number().int().min(0).max(5000),
+    strike: z.boolean().optional(),
+    underline: z.boolean().optional(),
+    weight: z.number().int().min(100).max(900).optional(),
+  })
+  .refine((mark) => mark.end > mark.start, {
+    message: "A mark covers at least one character",
+  });
+
 export const textAlignSchema = z.enum(["left", "center", "right"]);
 
 export const textElementSchema = z.object({
@@ -179,10 +198,14 @@ export const textElementSchema = z.object({
   italic: z.boolean(),
   letterSpacingEm: z.number().min(-0.5).max(2),
   lineHeight: z.number().min(0.5).max(4),
+  // Styles on parts of the text; text saved before has none
+  marks: z.array(textMarkSchema).max(500).default([]),
   shadow: textShadowSchema.nullable(),
+  strike: z.boolean().default(false),
   stroke: textStrokeSchema.nullable(),
   text: z.string().max(5000),
   type: z.literal("text"),
+  underline: z.boolean().default(false),
   uppercase: z.boolean(),
   weight: z.number().int().min(100).max(900),
   width: length,
@@ -261,6 +284,7 @@ export type TextShadow = z.infer<typeof textShadowSchema>;
 export type TextHighlight = z.infer<typeof textHighlightSchema>;
 export type TextGradient = z.infer<typeof textGradientSchema>;
 export type TextEffect = z.infer<typeof textEffectSchema>;
+export type TextMark = z.infer<typeof textMarkSchema>;
 export type RectElement = z.infer<typeof rectElementSchema>;
 export type EllipseElement = z.infer<typeof ellipseElementSchema>;
 export type LineElement = z.infer<typeof lineElementSchema>;
