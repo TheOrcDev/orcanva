@@ -10,8 +10,8 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
-// Marketing pages sit on a light-only linen canvas, whatever theme the
-// studio uses (the ThemeProvider forces light here as well)
+// Marketing pages use the landing's own paper and ink tokens, which follow
+// the same light or dark theme as the studio
 const MarketingLayout = ({
   children,
 }: Readonly<{
@@ -19,10 +19,7 @@ const MarketingLayout = ({
 }>) => (
   <div
     data-landing
-    className={cn(
-      inter.variable,
-      "bg-linen font-landing text-ink min-h-svh scheme-light"
-    )}
+    className={cn(inter.variable, "bg-paper font-landing text-ink min-h-svh")}
   >
     {children}
   </div>

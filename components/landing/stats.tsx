@@ -24,7 +24,9 @@ export const Stats = () => (
             key={stat.label}
             className="flex flex-col-reverse justify-end gap-3"
           >
-            <dt className="text-ash mx-auto max-w-60 text-sm">{stat.label}</dt>
+            <dt className="text-ink-muted mx-auto max-w-60 text-sm">
+              {stat.label}
+            </dt>
             <dd className="text-heading-lg md:text-display tabular-nums">
               {stat.value}
             </dd>

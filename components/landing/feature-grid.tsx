@@ -71,11 +71,11 @@ export const FeatureGrid = () => (
         {FEATURES.map((feature) => (
           <li
             key={feature.title}
-            className="flex flex-col gap-4 rounded-2xl bg-white p-8"
+            className="bg-surface flex flex-col gap-4 rounded-2xl p-8"
           >
-            <feature.icon aria-hidden className="text-graphite size-6" />
+            <feature.icon aria-hidden className="text-ink-soft size-6" />
             <h3 className="text-subheading font-medium">{feature.title}</h3>
-            <p className="text-graphite">{feature.description}</p>
+            <p className="text-ink-soft">{feature.description}</p>
           </li>
         ))}
       </ul>

@@ -15,7 +15,7 @@ export const Collaboration = () => (
         >
           Design together, live.
         </h2>
-        <p className="text-graphite text-body-lg max-w-md text-pretty">
+        <p className="text-ink-soft text-body-lg max-w-md text-pretty">
           Make a design public and anyone with the link can edit it with you,
           signed in or not. Yours stay private until you say otherwise. Found
           one you like? Use it as a template.

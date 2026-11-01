@@ -77,18 +77,36 @@
   --sidebar-ring: oklch(0.58 0.031 107.3);
 }
 
-/* Landing page palette and type scale. Light only, so outside :root/.dark,
-   and nothing here touches the spacing or radius scales the app relies on */
-@theme {
-  --color-ink: #1b0624;
-  --color-espresso: #160f0c;
-  --color-ash: #766a7c;
-  --color-graphite: #444444;
-  --color-pebble: #898683;
-  --color-linen: #f7f7f5;
-  --color-bone: #edece7;
-  --color-fog: #eeeeee;
+/* Landing page colours, named by role: linen paper and aubergine ink by
+   day, their inverse at night. The landing keeps its own warm palette
+   instead of the app's tokens. */
+:root {
+  --landing-paper: #f7f7f5;
+  --landing-panel: #edece7;
+  --landing-surface: #ffffff;
+  --landing-ink: #1b0624;
+  --landing-ink-soft: #444444;
+  --landing-ink-muted: #766a7c;
+  --landing-rule: #898683;
+  --landing-solid: #160f0c;
+  --landing-on-solid: #ffffff;
+}
 
+.dark {
+  --landing-paper: #120e11;
+  --landing-panel: #1d181c;
+  --landing-surface: #241e23;
+  --landing-ink: #f4eff5;
+  --landing-ink-soft: #c8bfca;
+  --landing-ink-muted: #9d91a1;
+  --landing-rule: #6b6268;
+  --landing-solid: #f7f7f5;
+  --landing-on-solid: #160f0c;
+}
+
+/* Landing type scale. Nothing here touches the spacing or radius scales the
+   app relies on. */
+@theme {
   --text-display-lg: 5rem;
   --text-display-lg--line-height: 1;
   --text-display-lg--letter-spacing: -0.06em;
@@ -114,6 +132,15 @@
   --font-heading: var(--font-heading);
   /* next/font sets --font-inter on the marketing layout, not on :root */
   --font-landing: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --color-paper: var(--landing-paper);
+  --color-panel: var(--landing-panel);
+  --color-surface: var(--landing-surface);
+  --color-ink: var(--landing-ink);
+  --color-ink-soft: var(--landing-ink-soft);
+  --color-ink-muted: var(--landing-ink-muted);
+  --color-rule: var(--landing-rule);
+  --color-solid: var(--landing-solid);
+  --color-on-solid: var(--landing-on-solid);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -168,7 +195,7 @@
   }
 }
 
-/* The landing's linen canvas reaches into the overscroll area too */
+/* The landing's paper reaches into the overscroll area too */
 html:has([data-landing]) body {
-  background-color: var(--color-linen);
+  background-color: var(--color-paper);
 }

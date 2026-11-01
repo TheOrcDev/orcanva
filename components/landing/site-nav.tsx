@@ -19,19 +19,19 @@ export const SiteNav = () => (
       <Link
         href="/"
         aria-label="Orcanva home"
-        className="outline-espresso justify-self-start rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2"
+        className="outline-ink justify-self-start rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2"
       >
         <Logo />
       </Link>
       <nav
         aria-label="Main"
-        className="text-graphite hidden items-center gap-8 justify-self-center text-sm md:flex"
+        className="text-ink-soft hidden items-center gap-8 justify-self-center text-sm md:flex"
       >
         {SECTIONS.map((section) => (
           <a
             key={section.href}
             href={section.href}
-            className="hover:text-ink outline-espresso rounded-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="hover:text-ink outline-ink rounded-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             {section.label}
           </a>

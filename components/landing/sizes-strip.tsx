@@ -18,14 +18,14 @@ const sizes = SIZE_PRESETS.filter((preset) => SHOWN.has(preset.id));
 export const SizesStrip = () => (
   <section aria-labelledby="sizes-heading" className="py-16">
     <Container className="flex flex-col items-center gap-8">
-      <h2 id="sizes-heading" className="text-ash text-sm">
+      <h2 id="sizes-heading" className="text-ink-muted text-sm">
         Every size, exact to the pixel
       </h2>
       <ul className="grid grid-cols-2 gap-x-12 gap-y-6 sm:grid-cols-3 lg:grid-cols-6">
         {sizes.map((preset) => (
           <li key={preset.id} className="flex flex-col items-center gap-1">
-            <span className="text-graphite">{preset.label}</span>
-            <span className="text-ash text-sm tabular-nums">
+            <span className="text-ink-soft">{preset.label}</span>
+            <span className="text-ink-muted text-sm tabular-nums">
               {preset.width} × {preset.height}
             </span>
           </li>
