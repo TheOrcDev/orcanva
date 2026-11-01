@@ -15,18 +15,13 @@ import type { RemixiconComponentType } from "@remixicon/react";
 import { useEditorStoreApi } from "@/components/editor/editor-store-context";
 import { BoxShapeProperties } from "@/components/editor/panels/box-shape-properties";
 import { EffectsProperties } from "@/components/editor/panels/effects-properties";
+import { IconAction } from "@/components/editor/panels/icon-action";
 import { ImageProperties } from "@/components/editor/panels/image-properties";
 import { LineProperties } from "@/components/editor/panels/line-properties";
 import { NumberInput } from "@/components/editor/panels/number-input";
 import { PanelSection } from "@/components/editor/panels/panel-section";
 import { TextProperties } from "@/components/editor/panels/text-properties";
 import { TransactionSlider } from "@/components/editor/panels/transaction-slider";
-import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useUpdateElement } from "@/hooks/use-selected-element";
 import type { DesignElement } from "@/lib/document/schema";
 import {
@@ -76,35 +71,6 @@ const ARRANGE_ACTIONS: {
     shortcut: "⇧⌘[",
   },
 ];
-
-const IconAction = ({
-  label,
-  icon: Icon,
-  onClick,
-  disabled,
-}: {
-  label: string;
-  icon: RemixiconComponentType;
-  onClick: () => void;
-  disabled?: boolean;
-}) => (
-  <Tooltip>
-    <TooltipTrigger
-      render={
-        <Button
-          variant="outline"
-          size="icon-sm"
-          aria-label={label}
-          disabled={disabled}
-          onClick={onClick}
-        />
-      }
-    >
-      <Icon />
-    </TooltipTrigger>
-    <TooltipContent>{label}</TooltipContent>
-  </Tooltip>
-);
 
 const hasBox = (
   element: DesignElement

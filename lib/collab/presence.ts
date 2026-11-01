@@ -16,13 +16,20 @@ export interface LivePresenceRow {
   seen_at: Date;
 }
 
-// Where an element is mid-drag for the person moving it, so others see it
-// move before the edit is committed on drop
-export interface DragPreview {
+// Where elements are mid-drag for the person moving them, so others see
+// them move before the edit is committed on drop
+export interface DragMove {
   elementId: string;
   x: number;
   y: number;
 }
+
+export interface DragPreview {
+  moves: DragMove[];
+}
+
+// Larger selections still move for everyone on drop, just not live
+export const MAX_DRAG_MOVES = 100;
 
 // What one editor session tells the others, about every 100 ms while active
 export interface PresenceState {
@@ -52,11 +59,17 @@ export const PRESENCE_HEARTBEAT_MS = 5000;
 
 const finite = z.number().finite();
 
-export const dragPreviewSchema = z.object({
+const dragMoveSchema = z.object({
   elementId: z.string().min(1).max(64),
   x: finite,
   y: finite,
 });
+
+export const dragPreviewSchema = z.union([
+  z.object({ moves: z.array(dragMoveSchema).min(1).max(MAX_DRAG_MOVES) }),
+  // Sessions from before multi-select drag one element at a time
+  dragMoveSchema.transform((move): DragPreview => ({ moves: [move] })),
+]);
 
 const selectionSchema = z.array(z.string().min(1).max(64)).max(500);
 

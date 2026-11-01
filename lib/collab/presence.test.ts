@@ -69,6 +69,18 @@ describe("peersFromRows", () => {
     ]);
   });
 
+  it("reads drags of several elements, and of one from older sessions", () => {
+    const move = { elementId: "e1", x: 10, y: 20 };
+    const [several] = peersFromRows(
+      [row({ drag: { moves: [move] } })],
+      "me",
+      NOW
+    );
+    const [older] = peersFromRows([row({ drag: move })], "me", NOW);
+    expect(several?.drag).toEqual({ moves: [move] });
+    expect(older?.drag).toEqual({ moves: [move] });
+  });
+
   it("ignores malformed selection and drag data", () => {
     const [peer] = peersFromRows(
       [row({ drag: { elementId: "" }, selection: "nope" })],

@@ -6,16 +6,16 @@ import { gradientPoints } from "@/lib/document/geometry";
 import type { Background } from "@/lib/document/schema";
 import { BACKGROUND_NODE_NAME } from "@/lib/editor/node-names";
 
+// Presses on the background reach the stage, which clears the selection or
+// starts a selection box
 export const BackgroundNode = ({
   background,
   width,
   height,
-  onSelectPage,
 }: {
   background: Background;
   width: number;
   height: number;
-  onSelectPage: () => void;
 }) => {
   const size = { height, width };
 
@@ -26,8 +26,6 @@ export const BackgroundNode = ({
         width={width}
         height={height}
         fill={background.color}
-        onMouseDown={onSelectPage}
-        onTap={onSelectPage}
       />
     );
   }
@@ -45,8 +43,6 @@ export const BackgroundNode = ({
       fillLinearGradientStartPoint={start}
       fillLinearGradientEndPoint={end}
       fillLinearGradientColorStops={stops}
-      onMouseDown={onSelectPage}
-      onTap={onSelectPage}
     />
   );
 };

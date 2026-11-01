@@ -50,6 +50,7 @@ import { Input } from "@/components/ui/input";
 import type { DesignElement, ElementType } from "@/lib/document/schema";
 import { moveElementTo, updateElement } from "@/lib/editor/document-ops";
 import type { ElementPatch } from "@/lib/editor/document-ops";
+import { toggleSelected } from "@/lib/editor/selection";
 import { selectDocument } from "@/lib/editor/store";
 import { cn } from "@/lib/utils";
 
@@ -164,7 +165,14 @@ const LayerRow = ({
         type="button"
         className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left outline-none focus-visible:ring-2"
         aria-pressed={selected}
-        onClick={() => store.getState().select([element.id])}
+        onClick={(event) => {
+          const state = store.getState();
+          state.select(
+            event.shiftKey || event.metaKey || event.ctrlKey
+              ? toggleSelected(state.selectedIds, element.id)
+              : [element.id]
+          );
+        }}
       >
         <Icon className="text-muted-foreground size-4 shrink-0" aria-hidden />
         <LayerName element={element} onRename={(name) => update({ name })} />
@@ -262,7 +270,8 @@ export const LayersPanel = () => {
         </SortableContext>
       </DndContext>
       <p className="text-muted-foreground text-xs">
-        Drag to reorder. Double-click a name to rename it.
+        Drag to reorder. Double-click a name to rename it. Shift-click to select
+        several.
       </p>
     </PanelSection>
   );

@@ -10,13 +10,10 @@ import { BackgroundNode } from "@/components/editor/canvas/background-node";
 import { ElementNode } from "@/components/editor/canvas/element-node";
 import { LineHandles } from "@/components/editor/canvas/line-handles";
 import { RemoteSelections } from "@/components/editor/canvas/remote-selections";
+import { SelectionOutline } from "@/components/editor/canvas/selection-outline";
 import { SelectionTransformer } from "@/components/editor/canvas/selection-transformer";
+import type { TransformedElement } from "@/components/editor/canvas/selection-transformer";
 import { SnapGuides } from "@/components/editor/canvas/snap-guides";
-import {
-  boxOf,
-  collectSnapTargets,
-  isFreeMove,
-} from "@/components/editor/canvas/snap-targets";
 import { TextEditOverlay } from "@/components/editor/canvas/text-edit-overlay";
 import { RemoteCursors } from "@/components/editor/collab/remote-cursors";
 import {
@@ -24,30 +21,21 @@ import {
   useEditorStoreApi,
 } from "@/components/editor/editor-store-context";
 import { Spinner } from "@/components/ui/spinner";
+import { useElementDrag } from "@/hooks/use-element-drag";
+import { useSelectionBox } from "@/hooks/use-selection-box";
 import { useUpload } from "@/hooks/use-upload";
 import { createImageElement } from "@/lib/document/factories";
 import { fitZoom } from "@/lib/document/geometry";
-import type { Point, Rect as Box } from "@/lib/document/geometry";
 import type { DesignElement } from "@/lib/document/schema";
 import { bakeBoxTransform, bakeTextTransform } from "@/lib/editor/bake";
 import type { NodeTransform } from "@/lib/editor/bake";
-import {
-  insertElement,
-  replaceElement,
-  updateElement,
-} from "@/lib/editor/document-ops";
+import { insertElement, replaceElement } from "@/lib/editor/document-ops";
 import { ASSET_DRAG_TYPE } from "@/lib/editor/drag-data";
-import {
-  NO_SNAP,
-  SNAP_DISTANCE_PX,
-  offsetRect,
-  snapBox,
-  unionRect,
-} from "@/lib/editor/snapping";
+import { BACKGROUND_NODE_NAME } from "@/lib/editor/node-names";
+import { isEditable, toggleSelected } from "@/lib/editor/selection";
 import { MAX_ZOOM, MIN_ZOOM, selectDocument } from "@/lib/editor/store";
 
 const PINCH_ZOOM_SPEED = 0.01;
-const DRAG_PREVIEW_LINGER_MS = 500;
 
 const isAcceptedDrag = (event: DragEvent<HTMLDivElement>) =>
   event.dataTransfer.types.includes("Files") ||
@@ -60,18 +48,6 @@ const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
   event.preventDefault();
   event.dataTransfer.dropEffect = "copy";
 };
-
-// A drag in progress: what moves, from where, and what it can snap to
-interface SnapSession {
-  // The page point under the pointer when it went down
-  press: Point;
-  // Each moving element's position when the drag began
-  starts: Map<string, Point>;
-  // Around everything that moves, in page coordinates
-  box: Box;
-  // The page and every other visible element
-  targets: Box[];
-}
 
 const isLinear = (element: DesignElement) =>
   element.type === "line" || element.type === "arrow";
@@ -186,19 +162,31 @@ export const WorkspaceStage = () => {
     y: (viewport.height - pageHeight * zoom) / 2 + effectivePan.y,
   };
 
-  const selectElement = useCallback(
-    (id: string) => {
+  const { boundDrag, endDrag, moveDrag, recordPress, startDrag } =
+    useElementDrag();
+  const { box: selectionBox, startBox } = useSelectionBox();
+
+  // Shift toggles an element in or out. Pressing an element that's already
+  // selected keeps the selection, so it can be dragged as a whole.
+  const pressElement = useCallback(
+    (id: string, additive: boolean) => {
       const state = store.getState();
-      if (state.selectedIds.length !== 1 || state.selectedIds[0] !== id) {
+      if (additive) {
+        state.select(toggleSelected(state.selectedIds, id));
+      } else if (!state.selectedIds.includes(id)) {
         state.select([id]);
       }
     },
     [store]
   );
 
-  const moveElement = useCallback(
-    (id: string, position: { x: number; y: number }) => {
-      store.getState().change((doc) => updateElement(doc, id, position));
+  // A click without dragging narrows a selection to the clicked element
+  const clickElement = useCallback(
+    (id: string, additive: boolean) => {
+      const state = store.getState();
+      if (!additive && state.selectedIds.length > 1) {
+        state.select([id]);
+      }
     },
     [store]
   );
@@ -212,150 +200,47 @@ export const WorkspaceStage = () => {
     [store]
   );
 
-  const clearSelection = useCallback(() => {
-    store.getState().clearSelection();
-  }, [store]);
-
-  // Konva owns a node while it's dragged or transformed; holding it keeps
-  // remote updates from moving it mid-gesture
-  const holdElement = useCallback(
-    (id: string) => store.getState().hold([id]),
-    [store]
-  );
-  // A drag's last position keeps going out briefly after the drop, so others
-  // switch from the preview to the committed move without a jump back
-  const previewEndRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined
-  );
-  useEffect(() => () => clearTimeout(previewEndRef.current), []);
-  const previewDrag = useCallback(
-    (id: string, position: { x: number; y: number }) => {
-      clearTimeout(previewEndRef.current);
-      store.getState().setDragPreview({ elementId: id, ...position });
-    },
-    [store]
-  );
-  const releaseElement = useCallback(
-    (id: string) => {
-      store.getState().release([id]);
-      clearTimeout(previewEndRef.current);
-      previewEndRef.current = setTimeout(() => {
-        store.getState().setDragPreview(null);
-      }, DRAG_PREVIEW_LINGER_MS);
-    },
-    [store]
-  );
-
-  // Where the pointer went down, in stage pixels. Drags measure from it, so
-  // every element of a selection moves by the same snapped amount even though
-  // Konva drags each one with its own pointer offset.
-  const pressRef = useRef<Point | null>(null);
-  const snapRef = useRef<SnapSession | null>(null);
-
-  const startSnapping = useCallback(
-    (ids: string[]) => {
-      const page = pageNodeRef.current;
-      const press = pressRef.current;
-      snapRef.current = null;
-      if (!(page && press)) {
-        return;
-      }
-      const starts = new Map<string, Point>();
-      const boxes: Box[] = [];
-      for (const id of ids) {
-        const node = page.findOne(`#${id}`);
-        if (node) {
-          starts.set(id, node.position());
-          boxes.push(boxOf(node, page));
-        }
-      }
-      const targets = collectSnapTargets(
-        page,
-        selectDocument(store.getState()),
-        new Set(ids)
-      );
-      const box = unionRect(boxes);
-      if (box) {
-        snapRef.current = {
-          box,
-          press: page.getAbsoluteTransform().copy().invert().point(press),
-          starts,
-          targets,
-        };
-      }
-    },
-    [pageNodeRef, store]
-  );
-
-  const stopSnapping = useCallback(() => {
-    snapRef.current = null;
-    store.getState().setGuides([]);
-  }, [store]);
-
-  // Konva asks where a dragged node may go (in stage pixels)
-  const boundDrag = useCallback(
-    (id: string, position: Point, event: unknown): Point => {
-      const page = pageNodeRef.current;
-      const session = snapRef.current;
-      const start = session?.starts.get(id);
-      const pointer = page?.getStage()?.getPointerPosition();
-      if (!(page && session && start && pointer)) {
-        return position;
-      }
-      const toStage = page.getAbsoluteTransform();
-      const now = toStage.copy().invert().point(pointer);
-      const moved = { x: now.x - session.press.x, y: now.y - session.press.y };
-      const snap = isFreeMove(event)
-        ? NO_SNAP
-        : snapBox(
-            offsetRect(session.box, moved),
-            session.targets,
-            SNAP_DISTANCE_PX / page.scaleX()
-          );
-      store.getState().setGuides(snap.guides);
-      return toStage.point({
-        x: start.x + moved.x + snap.dx,
-        y: start.y + moved.y + snap.dy,
-      });
-    },
-    [pageNodeRef, store]
-  );
-
-  const beginDrag = useCallback(
-    (id: string) => {
-      holdElement(id);
-      startSnapping([id]);
-    },
-    [holdElement, startSnapping]
-  );
-  const endDrag = useCallback(
-    (id: string) => {
-      releaseElement(id);
-      stopSnapping();
-    },
-    [releaseElement, stopSnapping]
-  );
-
+  // Konva owns nodes while they're transformed; holding them keeps remote
+  // updates from moving them mid-gesture
   const holdTransformed = useCallback(
-    (element: DesignElement) => holdElement(element.id),
-    [holdElement]
+    (elements: DesignElement[]) =>
+      store.getState().hold(elements.map((element) => element.id)),
+    [store]
   );
 
   const handleTransformEnd = useCallback(
-    (element: DesignElement, transform: NodeTransform, node: Konva.Node) => {
-      const baked = bakeTransform(element, transform, node);
-      store.getState().change((doc) => replaceElement(doc, baked));
-      releaseElement(element.id);
+    (transformed: TransformedElement[]) => {
+      const state = store.getState();
+      state.change((doc) => {
+        let next = doc;
+        for (const { element, node, transform } of transformed) {
+          next = replaceElement(next, bakeTransform(element, transform, node));
+        }
+        return next;
+      });
+      state.release(transformed.map(({ element }) => element.id));
     },
-    [store, releaseElement]
+    [store]
   );
 
+  // Pressing empty canvas clears the selection (unless Shift is held) and
+  // starts a selection box
   const handleStageMouseDown = (
     event: Konva.KonvaEventObject<MouseEvent | TouchEvent>
   ) => {
-    pressRef.current = event.target.getStage()?.getPointerPosition() ?? null;
-    if (event.target === event.target.getStage()) {
-      clearSelection();
+    const stage = event.target.getStage();
+    recordPress(stage?.getPointerPosition() ?? null);
+    const onEmpty =
+      event.target === stage || event.target.hasName(BACKGROUND_NODE_NAME);
+    if (!(stage && onEmpty)) {
+      return;
+    }
+    const additive = event.evt.shiftKey;
+    if (!additive) {
+      store.getState().clearSelection();
+    }
+    if (!("button" in event.evt) || event.evt.button === 0) {
+      startBox(stage, additive);
     }
   };
 
@@ -398,30 +283,40 @@ export const WorkspaceStage = () => {
   // Elements someone else is dragging right now (not ones this window holds)
   const previews = new Map(
     peers.flatMap((peer) =>
-      peer.drag && !held.has(peer.drag.elementId)
-        ? [[peer.drag.elementId, peer.drag] as const]
-        : []
+      (peer.drag?.moves ?? [])
+        .filter((move) => !held.has(move.elementId))
+        .map((move) => [move.elementId, move] as const)
     )
   );
 
-  const selected =
-    selectedIds.length === 1
-      ? document.elements.find((element) => element.id === selectedIds[0])
-      : undefined;
+  const selectedElements = document.elements.filter((element) =>
+    selectedIds.includes(element.id)
+  );
+  const [selected] = selectedElements.length === 1 ? selectedElements : [];
   const editingElement = editingTextId
     ? document.elements.find((element) => element.id === editingTextId)
     : undefined;
   const editingText =
     editingElement?.type === "text" ? editingElement : undefined;
   const selectedLine =
-    (selected?.type === "line" || selected?.type === "arrow") &&
-    !selected.locked
-      ? selected
-      : undefined;
-  const transformTarget =
-    selected && !isLinear(selected) && selected.id !== editingTextId
-      ? selected
-      : null;
+    selected && isLinear(selected) && !selected.locked ? selected : undefined;
+  // One element keeps its handles even when locked; a multi-selection
+  // transforms what's editable and outlines the rest
+  let transformTargets: DesignElement[] = [];
+  if (selected) {
+    transformTargets =
+      isLinear(selected) || selected.id === editingTextId ? [] : [selected];
+  } else {
+    transformTargets = selectedElements.filter(
+      (element) => isEditable(element) && element.id !== editingTextId
+    );
+  }
+  const outlinedIds =
+    selectedElements.length > 1
+      ? selectedElements
+          .filter((element) => !isEditable(element))
+          .map((element) => element.id)
+      : [];
 
   // Where this session's pointer is on the page, for everyone else's view
   const reportPointer = (event: PointerEvent<HTMLDivElement>) => {
@@ -513,19 +408,18 @@ export const WorkspaceStage = () => {
                 background={document.background}
                 width={pageWidth}
                 height={pageHeight}
-                onSelectPage={clearSelection}
               />
               {document.elements.map((element) => (
                 <ElementNode
                   key={element.id}
                   element={element}
-                  onSelect={selectElement}
-                  onMove={moveElement}
+                  onPress={pressElement}
+                  onClick={clickElement}
                   onEditText={editText}
-                  onHold={beginDrag}
-                  onRelease={endDrag}
+                  onDragStart={startDrag}
+                  onDragMove={moveDrag}
+                  onDragEnd={endDrag}
                   onDragBound={boundDrag}
-                  onDragPreview={previewDrag}
                   preview={previews.get(element.id) ?? null}
                 />
               ))}
@@ -539,11 +433,21 @@ export const WorkspaceStage = () => {
             ) : null}
             <RemoteSelections />
             <SnapGuides origin={origin} zoom={zoom} />
+            <SelectionOutline ids={outlinedIds} />
             <SelectionTransformer
-              element={transformTarget}
+              elements={transformTargets}
               onTransformStart={holdTransformed}
               onTransformEnd={handleTransformEnd}
             />
+            {selectionBox ? (
+              <Rect
+                {...selectionBox}
+                fill="rgba(37, 99, 235, 0.08)"
+                stroke="#2563eb"
+                strokeWidth={1}
+                listening={false}
+              />
+            ) : null}
           </Layer>
         </Stage>
       ) : null}

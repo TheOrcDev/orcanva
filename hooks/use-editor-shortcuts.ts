@@ -11,6 +11,7 @@ import {
   updateElement,
 } from "@/lib/editor/document-ops";
 import type { ArrangeDirection } from "@/lib/editor/document-ops";
+import { selectableIds } from "@/lib/editor/selection";
 import type { EditorStoreApi } from "@/lib/editor/store";
 import { selectDocument } from "@/lib/editor/store";
 
@@ -106,6 +107,10 @@ const handleModifierShortcut = (
   }
   if (key === "y") {
     state.redo();
+    return true;
+  }
+  if (key === "a") {
+    state.select(selectableIds(selectDocument(state)));
     return true;
   }
   if (key === "d") {

@@ -67,19 +67,23 @@ const limitBox = <T extends { width: number; height: number }>(
     ? oldBox
     : newBox;
 
+// What one node's gesture did, for the editor to bake into its element
+export interface TransformedElement {
+  element: DesignElement;
+  transform: NodeTransform;
+  node: Konva.Node;
+}
+
 export interface SelectionTransformerProps {
-  // Lines and arrows use endpoint handles instead, so they never arrive here
-  element: DesignElement | null;
-  onTransformStart: (element: DesignElement) => void;
-  onTransformEnd: (
-    element: DesignElement,
-    transform: NodeTransform,
-    node: Konva.Node
-  ) => void;
+  // One element (lines and arrows alone use endpoint handles instead), or
+  // the editable part of a multi-selection
+  elements: DesignElement[];
+  onTransformStart: (elements: DesignElement[]) => void;
+  onTransformEnd: (transformed: TransformedElement[]) => void;
 }
 
 export const SelectionTransformer = ({
-  element,
+  elements,
   onTransformStart,
   onTransformEnd,
 }: SelectionTransformerProps) => {
@@ -88,36 +92,46 @@ export const SelectionTransformer = ({
   const store = useEditorStoreApi();
   // What the handles snap to, measured when a resize starts
   const targetsRef = useRef<Rect[] | null>(null);
+  const [single] = elements.length === 1 ? elements : [];
+  const ids = elements.map((element) => element.id).join(" ");
 
   useEffect(() => {
     const transformer = transformerRef.current;
-    if (!transformer) {
+    const stage = transformer?.getStage();
+    if (!(transformer && stage)) {
       return;
     }
-    const node = element
-      ? transformer.getStage()?.findOne(`#${element.id}`)
-      : undefined;
-    transformer.nodes(node ? [node] : []);
+    const nodes = ids
+      .split(" ")
+      .filter(Boolean)
+      .map((id) => stage.findOne(`#${id}`))
+      .filter((node): node is Konva.Node => node !== undefined);
+    transformer.nodes(nodes);
     transformer.getLayer()?.batchDraw();
-  }, [element]);
+  }, [ids]);
 
   const handleTransformEnd = () => {
-    const node = transformerRef.current?.nodes()[0];
-    if (!node || !element) {
-      return;
-    }
-    const transform: NodeTransform = {
-      rotation: node.rotation(),
-      scaleX: node.scaleX(),
-      scaleY: node.scaleY(),
-      x: node.x(),
-      y: node.y(),
-    };
+    const transformed = (transformerRef.current?.nodes() ?? []).flatMap(
+      (node) => {
+        const element = elements.find((item) => item.id === node.id());
+        if (!element) {
+          return [];
+        }
+        const transform: NodeTransform = {
+          rotation: node.rotation(),
+          scaleX: node.scaleX(),
+          scaleY: node.scaleY(),
+          x: node.x(),
+          y: node.y(),
+        };
+        // Scale is baked into the element; the node goes back to scale 1
+        node.scale({ x: 1, y: 1 });
+        return [{ element, node, transform }];
+      }
+    );
     targetsRef.current = null;
     store.getState().setGuides([]);
-    // Scale is baked into the element; the node goes back to scale 1
-    node.scale({ x: 1, y: 1 });
-    onTransformEnd(element, transform, node);
+    onTransformEnd(transformed);
   };
 
   // Konva asks where a dragged handle may go (in stage pixels)
@@ -162,7 +176,8 @@ export const SelectionTransformer = ({
     return toStage.point(result.point);
   };
 
-  const locked = element?.locked ?? false;
+  // Several elements only move together for now
+  const locked = single ? single.locked : elements.length !== 1;
 
   return (
     <Transformer
@@ -174,10 +189,10 @@ export const SelectionTransformer = ({
       borderStroke={ACCENT}
       anchorDragBoundFunc={snapAnchor}
       boundBoxFunc={limitBox}
-      enabledAnchors={element ? anchorsFor(element) : []}
+      enabledAnchors={single ? anchorsFor(single) : []}
       flipEnabled={false}
       ignoreStroke
-      keepRatio={element ? keepsRatio(element) : true}
+      keepRatio={single ? keepsRatio(single) : true}
       resizeEnabled={!locked}
       rotateAnchorOffset={24}
       rotateEnabled={!locked}
@@ -185,16 +200,14 @@ export const SelectionTransformer = ({
       rotationSnaps={ROTATION_SNAPS}
       onTransformStart={() => {
         const page = pageNodeRef.current;
-        if (element && page) {
+        if (page) {
           targetsRef.current = collectSnapTargets(
             page,
             selectDocument(store.getState()),
-            new Set([element.id])
+            new Set(elements.map((element) => element.id))
           );
         }
-        if (element) {
-          onTransformStart(element);
-        }
+        onTransformStart(elements);
       }}
       onTransformEnd={handleTransformEnd}
     />

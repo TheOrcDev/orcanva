@@ -16,22 +16,23 @@ import type { DesignElement } from "@/lib/document/schema";
 import { MIN_ELEMENT_SIZE } from "@/lib/editor/bake";
 import { ELEMENT_NODE_NAME } from "@/lib/editor/node-names";
 
+interface Position {
+  x: number;
+  y: number;
+}
+
 export interface ElementNodeProps {
   element: DesignElement;
-  onSelect: (id: string) => void;
-  onMove: (id: string, position: { x: number; y: number }) => void;
+  // Pointer down on the element; `additive` when Shift is held
+  onPress: (id: string, additive: boolean) => void;
+  // Released without dragging
+  onClick: (id: string, additive: boolean) => void;
   onEditText: (id: string) => void;
-  // A drag started / ended: remote updates to the element wait meanwhile
-  onHold: (id: string) => void;
-  onRelease: (id: string) => void;
-  // Reports the in-progress drag so others can watch it move
-  onDragPreview: (id: string, position: { x: number; y: number }) => void;
+  onDragStart: (id: string) => void;
+  onDragMove: (id: string) => void;
+  onDragEnd: (id: string, position: Position) => void;
   // Where the dragged node may go, in stage pixels (snapping)
-  onDragBound: (
-    id: string,
-    position: { x: number; y: number },
-    event: unknown
-  ) => { x: number; y: number };
+  onDragBound: (id: string, position: Position, event: unknown) => Position;
   // Someone else is dragging this element right now
   preview: { x: number; y: number } | null;
 }
@@ -90,12 +91,12 @@ const rewrapText = (event: Konva.KonvaEventObject<Event>) => {
 // what drags and what the Transformer scales; scale is baked on release.
 export const ElementNode = ({
   element,
-  onSelect,
-  onMove,
+  onPress,
+  onClick,
   onEditText,
-  onHold,
-  onRelease,
-  onDragPreview,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
   onDragBound,
   preview,
 }: ElementNodeProps) => {
@@ -127,17 +128,8 @@ export const ElementNode = ({
     return () => tween.destroy();
   }, [previewX, previewY, elementX, elementY]);
 
-  const select = () => onSelect(element.id);
-  const handleDragStart = () => {
-    select();
-    onHold(element.id);
-  };
-  const handleDragMove = (event: Konva.KonvaEventObject<DragEvent>) => {
-    onDragPreview(element.id, { x: event.target.x(), y: event.target.y() });
-  };
   const handleDragEnd = (event: Konva.KonvaEventObject<DragEvent>) => {
-    onMove(element.id, { x: event.target.x(), y: event.target.y() });
-    onRelease(element.id);
+    onDragEnd(element.id, { x: event.target.x(), y: event.target.y() });
   };
   const editText = () => {
     if (isText && !element.locked) {
@@ -159,10 +151,12 @@ export const ElementNode = ({
       dragBoundFunc={(position, event) =>
         onDragBound(element.id, position, event)
       }
-      onMouseDown={select}
-      onTap={select}
-      onDragStart={handleDragStart}
-      onDragMove={handleDragMove}
+      onMouseDown={(event) => onPress(element.id, event.evt.shiftKey)}
+      onTouchStart={() => onPress(element.id, false)}
+      onClick={(event) => onClick(element.id, event.evt.shiftKey)}
+      onTap={() => onClick(element.id, false)}
+      onDragStart={() => onDragStart(element.id)}
+      onDragMove={() => onDragMove(element.id)}
       onDragEnd={handleDragEnd}
       onDblClick={editText}
       onDblTap={editText}
