@@ -27,3 +27,9 @@ export const signInUrl = (path: string): string =>
   path === STUDIO_PATH
     ? "/auth/sign-in"
     : `/auth/sign-in?next=${encodeURIComponent(path)}`;
+
+// The sign-up page, for people new to Orcanva, likewise
+export const signUpUrl = (path: string): string =>
+  path === STUDIO_PATH
+    ? "/auth/sign-up"
+    : `/auth/sign-up?next=${encodeURIComponent(path)}`;
