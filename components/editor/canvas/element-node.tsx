@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { Group } from "react-konva";
 
 import { BoxShapeNode } from "@/components/editor/canvas/box-shape-node";
+import { FrameNode } from "@/components/editor/canvas/frame-node";
 import { ImageNode } from "@/components/editor/canvas/image-node";
 import { LineNode } from "@/components/editor/canvas/line-node";
 import { SELECTION_HANDLES_NAME } from "@/components/editor/canvas/selection-transformer";
@@ -56,6 +57,9 @@ const ElementContent = ({ element }: { element: DesignElement }) => {
     }
     case "image": {
       return <ImageNode element={element} />;
+    }
+    case "frame": {
+      return <FrameNode element={element} />;
     }
     case "text": {
       return <TextNode element={element} />;
@@ -198,7 +202,10 @@ export const ElementNode = ({
     }
     if (isText) {
       onEditText(element.id);
-    } else if (element.type === "image") {
+    } else if (
+      element.type === "image" ||
+      (element.type === "frame" && element.assetId)
+    ) {
       onCrop(element.id);
     }
   };

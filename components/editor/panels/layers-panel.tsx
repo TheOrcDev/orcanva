@@ -28,6 +28,7 @@ import {
   RiImageLine,
   RiLockLine,
   RiLockUnlockLine,
+  RiShapeLine,
   RiStackLine,
   RiSubtractLine,
   RiText,
@@ -67,6 +68,7 @@ import { cn } from "@/lib/utils";
 const TYPE_ICONS: Record<ElementType, RemixiconComponentType> = {
   arrow: RiArrowRightLine,
   ellipse: RiCheckboxBlankCircleLine,
+  frame: RiShapeLine,
   image: RiImageLine,
   line: RiSubtractLine,
   rect: RiCheckboxBlankLine,

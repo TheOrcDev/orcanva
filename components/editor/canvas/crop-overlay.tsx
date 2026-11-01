@@ -26,7 +26,7 @@ import {
   photoRect,
 } from "@/lib/document/crop";
 import type { Point, Rect as Box } from "@/lib/document/geometry";
-import type { ImageElement } from "@/lib/document/schema";
+import type { PhotoElement } from "@/lib/document/schema";
 import { updateElement } from "@/lib/editor/document-ops";
 
 // Nodes of the crop tools: pressing anything else ends cropping
@@ -60,16 +60,17 @@ const rotate = (point: Point, degrees: number): Point => {
 export const isCropUi = (node: Konva.Node): boolean =>
   node.hasName(CROP_UI_NAME) || Boolean(node.findAncestor(`.${CROP_UI_NAME}`));
 
-// Crop mode for one image. Everything is drawn in the image's own space at
-// the moment cropping started (its position and rotation then): the frame
-// is the part that shows and the photo is the whole picture behind it.
+// Crop mode for one image, or the photo in a frame. Everything is drawn in
+// the element's own space at the moment cropping started (its position and
+// rotation then): the frame is the part that shows and the photo is the
+// whole picture behind it.
 // Both come from the element on every render, and every gesture writes the
 // element back, so undo, the panel and others' views all stay in step.
 export const CropOverlay = ({
   element,
   zoom,
 }: {
-  element: ImageElement;
+  element: PhotoElement;
   zoom: number;
 }) => {
   const store = useEditorStoreApi();
@@ -241,7 +242,8 @@ export const CropOverlay = ({
         anchorSize={10}
         anchorStroke={ACCENT}
         borderStroke={ACCENT}
-        enabledAnchors={ALL_ANCHORS}
+        // A frame keeps its size: only the photo moves inside it
+        enabledAnchors={element.type === "frame" ? [] : ALL_ANCHORS}
         flipEnabled={false}
         ignoreStroke
         keepRatio={false}

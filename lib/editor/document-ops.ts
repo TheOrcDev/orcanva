@@ -1,3 +1,4 @@
+import { refitFrameCrop } from "@/lib/document/crop";
 import { duplicateElement } from "@/lib/document/factories";
 import type { Size } from "@/lib/document/geometry";
 import type {
@@ -249,6 +250,15 @@ const scaleElement = (
         ...position,
         height: element.height * sy,
         width: element.width * sx,
+      };
+    }
+    case "frame": {
+      const size = { height: element.height * sy, width: element.width * sx };
+      return {
+        ...element,
+        ...position,
+        ...size,
+        crop: element.assetId ? refitFrameCrop(element, size) : element.crop,
       };
     }
     case "text": {

@@ -107,6 +107,23 @@ export const imageElementSchema = z.object({
   width: length,
 });
 
+// A shape a photo fills, cropped to cover it. Empty frames wait for a photo
+// to be dropped on them. Same photo fields as images, so they share the
+// drawing, cropping and filters. The shape id is a plain string so a client
+// that doesn't know a newer shape still keeps the frame (it draws a square).
+export const frameElementSchema = z.object({
+  ...baseElement,
+  assetId: z.uuid().nullable(),
+  crop: imageCropSchema.nullable().default(null),
+  filter: imageFilterSchema.nullable().default(null),
+  flipX: z.boolean(),
+  flipY: z.boolean(),
+  height: length,
+  shape: z.string().min(1).max(32),
+  type: z.literal("frame"),
+  width: length,
+});
+
 // Effect sizes are stored in em (relative to fontSize) so scaling keeps the look
 export const textStrokeSchema = z.object({
   color,
@@ -187,6 +204,7 @@ export const arrowElementSchema = z.object({
 
 export const elementSchema = z.discriminatedUnion("type", [
   imageElementSchema,
+  frameElementSchema,
   textElementSchema,
   rectElementSchema,
   ellipseElementSchema,
@@ -209,6 +227,9 @@ export type ImageElement = z.infer<typeof imageElementSchema>;
 export type ImageAdjustments = z.infer<typeof imageAdjustmentsSchema>;
 export type ImageFilter = z.infer<typeof imageFilterSchema>;
 export type ImageCrop = z.infer<typeof imageCropSchema>;
+export type FrameElement = z.infer<typeof frameElementSchema>;
+// Elements that show a photo
+export type PhotoElement = ImageElement | FrameElement;
 export type TextElement = z.infer<typeof textElementSchema>;
 export type TextAlign = z.infer<typeof textAlignSchema>;
 export type TextStroke = z.infer<typeof textStrokeSchema>;

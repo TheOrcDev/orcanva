@@ -11,6 +11,7 @@ import {
   fullPhotoSize,
   mirrorCrop,
   photoRect,
+  refitCrop,
   zoomCrop,
 } from "@/lib/document/crop";
 import { createImageElement } from "@/lib/document/factories";
@@ -140,5 +141,27 @@ describe("crop", () => {
     expect(zoomed).toEqual({ height: 0.25, width: 0.5, x: 0.25, y: 0.375 });
     expect(cropZoom(zoomed)).toBe(2);
     expect(zoomCrop(zoomed, 1)).toEqual(crop);
+  });
+
+  it("keeps a frame's photo covering it after a resize", () => {
+    const photo = { height: 600, width: 800 };
+    // A 400x300 frame showing the whole photo at half size
+    const wider = refitCrop(
+      null,
+      photo,
+      { height: 300, width: 400 },
+      { height: 300, width: 600 }
+    );
+    // Too small to cover 600 wide at half size: grows to 0.75, keeps the centre
+    expect(wider.width).toBeCloseTo(1);
+    expect(wider.height).toBeCloseTo(300 / 450);
+    expect(wider.y).toBeCloseTo((1 - 300 / 450) / 2);
+    const smaller = refitCrop(
+      null,
+      photo,
+      { height: 300, width: 400 },
+      { height: 150, width: 200 }
+    );
+    expect(smaller).toEqual({ height: 0.5, width: 0.5, x: 0.25, y: 0.25 });
   });
 });

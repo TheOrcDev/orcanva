@@ -2,7 +2,8 @@ import { confirmUpload, createUpload } from "@/lib/actions/assets";
 import type { CreateUploadSource } from "@/lib/actions/assets";
 import { createImageElement } from "@/lib/document/factories";
 import type { Point } from "@/lib/document/geometry";
-import { insertElement } from "@/lib/editor/document-ops";
+import { findElement, insertElement } from "@/lib/editor/document-ops";
+import { fillFrame } from "@/lib/editor/frames";
 import type { EditorAsset, EditorStoreApi } from "@/lib/editor/store";
 import { selectDocument } from "@/lib/editor/store";
 import { UploadError, prepareImage } from "@/lib/upload/prepare-image";
@@ -80,7 +81,8 @@ export interface UploadFailure {
 const uploadAndPlace = async (
   store: EditorStoreApi,
   file: File,
-  at: Point | undefined
+  at: Point | undefined,
+  frameId: string | undefined
 ): Promise<UploadFailure | null> => {
   try {
     const prepared = await prepareImage(file);
@@ -89,6 +91,12 @@ const uploadAndPlace = async (
     state.addAsset(asset);
 
     const document = selectDocument(state);
+    // Dropped on a frame that's still there: the photo fills it
+    if (frameId && findElement(document, frameId)?.type === "frame") {
+      state.change((doc) => fillFrame(doc, frameId, asset));
+      state.select([frameId]);
+      return null;
+    }
     const element = createImageElement(
       { ...asset, name: prepared.name },
       { height: document.height, width: document.width },
@@ -111,11 +119,13 @@ const uploadAndPlace = async (
 };
 
 // Uploads images to the library and places each on the canvas, centered on
-// `at` (page coordinates) or the page center. Resolves with any failures.
+// `at` (page coordinates) or the page center; the first fills `frameId`
+// instead when given. Resolves with any failures.
 export const uploadImagesToCanvas = async (
   store: EditorStoreApi,
   files: readonly File[],
-  at?: Point
+  at?: Point,
+  frameId?: string
 ): Promise<UploadFailure[]> => {
   store.getState().adjustUploads(files.length);
   const results = await Promise.all(
@@ -126,7 +136,8 @@ export const uploadImagesToCanvas = async (
         at && {
           x: at.x + index * STACK_OFFSET,
           y: at.y + index * STACK_OFFSET,
-        }
+        },
+        index === 0 ? frameId : undefined
       )
     )
   );

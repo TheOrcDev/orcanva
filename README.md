@@ -5,6 +5,7 @@ A free and open-source, Canva-style editor for YouTube thumbnails and social ima
 - Pick a canvas size (YouTube thumbnail, Full HD, 4K, square, story, … or custom)
 - Upload images (button, drag from the desktop, or paste a screenshot) and move, scale, rotate, and flip them
 - **Crop** photos: drag a side handle to crop that side, or double-click one (or press Crop) to drag the frame's handles, slide the photo under it and zoom; Enter keeps it, Esc puts it back
+- **Frames**: circles, stars, hearts and more from the Shapes tab; drop a photo on one to fill it, double-click to move or zoom it inside, and resizing keeps the photo covering the frame
 - One-click **Remove background** for any image, run by an open-source model in your browser (no API key, no per-image cost)
 - Instagram-style **filters** for images: 11 one-tap looks previewed on your own photo, with an intensity slider, plus brightness, contrast, highlights, shadows, saturation, warmth, tint, fade, vignette, sharpen, grain, and blur
 - Text with 40 curated Google Fonts, inline editing, outline, drop shadow, and highlight effects

@@ -15,7 +15,10 @@ export const unknownAssetIds = (
   const known = new Set(assets.map((asset) => asset.id));
   const wanted = new Set<string>();
   for (const element of document.elements) {
-    if (element.type === "image") {
+    if (
+      (element.type === "image" || element.type === "frame") &&
+      element.assetId
+    ) {
       wanted.add(element.assetId);
     }
   }

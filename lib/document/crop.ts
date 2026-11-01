@@ -148,3 +148,52 @@ export const zoomCrop = (crop: ImageCrop | null, zoom: number): ImageCrop => {
     y: current.y + (current.height - height) / 2,
   });
 };
+
+// A frame changed size: its photo keeps covering it around the same centre,
+// zoomed as before unless it has to grow to cover. `photo` is the photo's
+// own size; `from` and `to` are the frame's size before and after.
+export const refitCrop = (
+  crop: ImageCrop | null,
+  photo: Size,
+  from: Size,
+  to: Size
+): ImageCrop => {
+  const current = cropOrFull(crop);
+  // Page pixels per photo pixel before the change
+  const scale = Math.max(
+    from.width / (current.width * photo.width),
+    from.height / (current.height * photo.height)
+  );
+  const cover = Math.max(
+    scale,
+    to.width / photo.width,
+    to.height / photo.height
+  );
+  const width = to.width / (cover * photo.width);
+  const height = to.height / (cover * photo.height);
+  return clampCrop({
+    height,
+    width,
+    x: current.x + current.width / 2 - width / 2,
+    y: current.y + current.height / 2 - height / 2,
+  });
+};
+
+// A frame's crop after it changed size to `to`. Frames always show their
+// photo at its own ratio, so its size on the page follows from the frame
+// and its crop, with no need to know the photo itself.
+export const refitFrameCrop = (
+  frame: Size & { crop: ImageCrop | null },
+  to: Size
+): ImageCrop | null => {
+  if (!frame.crop && frame.width === to.width && frame.height === to.height) {
+    return null;
+  }
+  const crop = refitCrop(
+    frame.crop,
+    fullPhotoSize(frame, frame.crop),
+    frame,
+    to
+  );
+  return isFullCrop(crop) ? null : crop;
+};

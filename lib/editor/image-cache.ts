@@ -48,7 +48,11 @@ export const setAssetResolver = (
 
 const waitForImages = async (document: DesignDocument): Promise<void> => {
   const ids = document.elements.flatMap((element) =>
-    element.type === "image" && element.visible ? [element.assetId] : []
+    (element.type === "image" || element.type === "frame") &&
+    element.visible &&
+    element.assetId
+      ? [element.assetId]
+      : []
   );
   // A collaborator's fresh upload: find its URL before drawing
   const unknown = ids.filter((id) => !assetUrls.has(id));

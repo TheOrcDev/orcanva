@@ -30,8 +30,8 @@ export const listLibrary = async (ownerId: string): Promise<EditorAsset[]> => {
   return rows.map(toEditorAsset);
 };
 
-// Everything a design's images show, whoever uploaded it, plus the
-// originals behind its cutouts ("Restore original")
+// Everything a design's images and frames show, whoever uploaded it, plus
+// the originals behind its cutouts ("Restore original")
 export const listDesignAssets = async (
   designId: string
 ): Promise<EditorAsset[]> => {
@@ -42,7 +42,8 @@ export const listDesignAssets = async (
     .where(
       and(
         eq(designElements.designId, designId),
-        sql`${designElements.data}->>'type' = 'image'`
+        sql`${designElements.data}->>'type' IN ('image', 'frame')`,
+        sql`${designElements.data}->>'assetId' IS NOT NULL`
       )
     );
   const rows = await db

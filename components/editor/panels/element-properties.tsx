@@ -14,6 +14,7 @@ import {
 } from "@/components/editor/panels/arrange-actions";
 import { BoxShapeProperties } from "@/components/editor/panels/box-shape-properties";
 import { EffectsProperties } from "@/components/editor/panels/effects-properties";
+import { FrameProperties } from "@/components/editor/panels/frame-properties";
 import { IconAction } from "@/components/editor/panels/icon-action";
 import { ImageProperties } from "@/components/editor/panels/image-properties";
 import { LineProperties } from "@/components/editor/panels/line-properties";
@@ -34,6 +35,7 @@ import type { ArrangeDirection } from "@/lib/editor/document-ops";
 const TYPE_LABELS: Record<DesignElement["type"], string> = {
   arrow: "Arrow",
   ellipse: "Ellipse",
+  frame: "Frame",
   image: "Image",
   line: "Line",
   rect: "Rectangle",
@@ -44,6 +46,7 @@ const hasBox = (
   element: DesignElement
 ): element is Extract<DesignElement, { width: number; height: number }> =>
   element.type === "image" ||
+  element.type === "frame" ||
   element.type === "rect" ||
   element.type === "ellipse";
 
@@ -109,6 +112,9 @@ const TypeProperties = ({ element }: { element: DesignElement }) => {
     }
     case "image": {
       return <ImageProperties element={element} />;
+    }
+    case "frame": {
+      return <FrameProperties element={element} />;
     }
     case "line":
     case "arrow": {

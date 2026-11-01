@@ -9,14 +9,14 @@ import {
 } from "@/components/editor/editor-store-context";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { cropZoom, zoomCrop } from "@/lib/document/crop";
-import type { ImageElement } from "@/lib/document/schema";
+import { coverCrop, cropZoom, zoomCrop } from "@/lib/document/crop";
+import type { PhotoElement } from "@/lib/document/schema";
 import { updateElement } from "@/lib/editor/document-ops";
 
 const MAX_ZOOM = 5;
 
 // Floats over the canvas while an image is cropped
-export const CropToolbar = ({ element }: { element: ImageElement }) => {
+export const CropToolbar = ({ element }: { element: PhotoElement }) => {
   const store = useEditorStoreApi();
   const zoomId = useId();
   const asset = useEditor((state) =>
@@ -32,16 +32,23 @@ export const CropToolbar = ({ element }: { element: ImageElement }) => {
     );
   };
 
-  // The whole photo again, at its own ratio and the current width
+  // An image shows its whole photo again, at its own ratio and the current
+  // width; a frame centres its photo to cover it
   const reset = () => {
     if (!asset) {
       return;
     }
     store.getState().change((doc) =>
-      updateElement(doc, element.id, {
-        crop: null,
-        height: (element.width * asset.height) / asset.width,
-      })
+      updateElement(
+        doc,
+        element.id,
+        element.type === "frame"
+          ? { crop: coverCrop(asset, element) }
+          : {
+              crop: null,
+              height: (element.width * asset.height) / asset.width,
+            }
+      )
     );
   };
 

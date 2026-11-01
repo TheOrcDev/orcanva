@@ -1,7 +1,7 @@
 import type {
   DesignDocument,
   DesignElement,
-  ImageElement,
+  PhotoElement,
   LinearElement,
   TextElement,
 } from "@/lib/document/schema";
@@ -18,7 +18,8 @@ export interface SelectionView {
   // Selected but left out of the handles (locked or hidden ones)
   outlinedIds: string[];
   editingText: TextElement | undefined;
-  cropping: ImageElement | undefined;
+  // An image, or a frame with a photo in it
+  cropping: PhotoElement | undefined;
 }
 
 // What the canvas draws for the selection and the tools in use. One element
@@ -52,7 +53,11 @@ export const selectionView = (
   }
 
   return {
-    cropping: cropping?.type === "image" ? cropping : undefined,
+    cropping:
+      cropping?.type === "image" ||
+      (cropping?.type === "frame" && cropping.assetId)
+        ? cropping
+        : undefined,
     editingText: editing?.type === "text" ? editing : undefined,
     line:
       selected && isLinear(selected) && !selected.locked ? selected : undefined,

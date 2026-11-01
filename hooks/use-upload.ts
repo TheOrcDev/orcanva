@@ -7,18 +7,19 @@ import { toast } from "@/components/ui/toast";
 import type { Point } from "@/lib/document/geometry";
 import { uploadImagesToCanvas } from "@/lib/upload/upload-images";
 
-// Uploads images and places them on the canvas, toasting any failures
+// Uploads images and places them on the canvas (the first fills `frameId`
+// when given), toasting any failures
 export const useUpload = () => {
   const store = useEditorStoreApi();
 
   return useCallback(
-    async (files: readonly File[], at?: Point) => {
+    async (files: readonly File[], at?: Point, frameId?: string) => {
       const images = files.filter((file) => file.type.startsWith("image/"));
       if (images.length === 0) {
         toast.add({ title: "Only image files can be added", type: "error" });
         return;
       }
-      const failures = await uploadImagesToCanvas(store, images, at);
+      const failures = await uploadImagesToCanvas(store, images, at, frameId);
       for (const failure of failures) {
         toast.add({
           description: failure.message,

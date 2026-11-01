@@ -6,6 +6,7 @@ import {
 } from "@/lib/document/crop";
 import type {
   BoxShapeElement,
+  FrameElement,
   ImageCrop,
   ImageElement,
   LinearElement,
@@ -31,7 +32,9 @@ export const normalizeRotation = (degrees: number): number => {
   return Math.abs(signed) < 1e-6 ? 0 : signed;
 };
 
-export const bakeBoxTransform = <T extends ImageElement | BoxShapeElement>(
+export const bakeBoxTransform = <
+  T extends ImageElement | FrameElement | BoxShapeElement,
+>(
   element: T,
   transform: NodeTransform
 ): T => ({

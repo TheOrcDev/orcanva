@@ -31,6 +31,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useElementDrag } from "@/hooks/use-element-drag";
 import { useSelectionBox } from "@/hooks/use-selection-box";
 import { useUpload } from "@/hooks/use-upload";
+import { refitFrameCrop } from "@/lib/document/crop";
 import { createImageElement } from "@/lib/document/factories";
 import { fitZoom } from "@/lib/document/geometry";
 import type { DesignElement } from "@/lib/document/schema";
@@ -40,10 +41,18 @@ import {
   bakeTextTransform,
 } from "@/lib/editor/bake";
 import type { NodeTransform } from "@/lib/editor/bake";
-import { insertElement, replaceElement } from "@/lib/editor/document-ops";
+import {
+  findElement,
+  insertElement,
+  replaceElement,
+} from "@/lib/editor/document-ops";
 import { ASSET_DRAG_TYPE } from "@/lib/editor/drag-data";
+import { fillFrame } from "@/lib/editor/frames";
 import { unitOf } from "@/lib/editor/groups";
-import { BACKGROUND_NODE_NAME } from "@/lib/editor/node-names";
+import {
+  BACKGROUND_NODE_NAME,
+  ELEMENT_NODE_NAME,
+} from "@/lib/editor/node-names";
 import { toggleUnit } from "@/lib/editor/selection";
 import { MAX_ZOOM, MIN_ZOOM, selectDocument } from "@/lib/editor/store";
 
@@ -78,6 +87,13 @@ const bakeTransform = (
     case "rect":
     case "ellipse": {
       return bakeBoxTransform(element, transform);
+    }
+    case "frame": {
+      // The photo keeps covering the frame's new size
+      const baked = bakeBoxTransform(element, transform);
+      return element.assetId
+        ? { ...baked, crop: refitFrameCrop(element, baked) }
+        : baked;
     }
     case "text": {
       const textNode = (node as Konva.Group).findOne("Text");
@@ -371,6 +387,27 @@ export const WorkspaceStage = () => {
   };
   const clearPointer = () => store.getState().setPointer(null);
 
+  // The unlocked frame under a point in the window, if any: photos dropped
+  // there fill it
+  const frameAt = (clientX: number, clientY: number): string | null => {
+    const page = pageNodeRef.current;
+    const layer = page?.getLayer();
+    const stage = page?.getStage();
+    if (!(layer && stage)) {
+      return null;
+    }
+    const bounds = stage.container().getBoundingClientRect();
+    const shape = layer.getIntersection({
+      x: clientX - bounds.left,
+      y: clientY - bounds.top,
+    });
+    const node = shape?.findAncestor(`.${ELEMENT_NODE_NAME}`);
+    const element = node
+      ? findElement(selectDocument(store.getState()), node.id())
+      : undefined;
+    return element?.type === "frame" && !element.locked ? element.id : null;
+  };
+
   // Files from the desktop upload; library assets place directly. Both land
   // where the pointer is, converted from screen to page coordinates.
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
@@ -386,11 +423,15 @@ export const WorkspaceStage = () => {
       y: (event.clientY - bounds.top - origin.y) / zoom,
     };
 
+    const frameId = frameAt(event.clientX, event.clientY);
     const assetId = event.dataTransfer.getData(ASSET_DRAG_TYPE);
     if (assetId) {
       const state = store.getState();
       const asset = state.assets.find((item) => item.id === assetId);
-      if (asset) {
+      if (asset && frameId) {
+        state.change((doc) => fillFrame(doc, frameId, asset));
+        state.select([frameId]);
+      } else if (asset) {
         const element = createImageElement(
           asset,
           { height: pageHeight, width: pageWidth },
@@ -401,7 +442,9 @@ export const WorkspaceStage = () => {
       }
       return;
     }
-    upload([...event.dataTransfer.files], at).catch(() => null);
+    upload([...event.dataTransfer.files], at, frameId ?? undefined).catch(
+      () => null
+    );
   };
 
   return (

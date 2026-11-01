@@ -1,3 +1,4 @@
+import { DEFAULT_FRAME_SHAPE } from "@/lib/document/frame-shapes";
 import { centerIn, fitWithin } from "@/lib/document/geometry";
 import type { Point, Size } from "@/lib/document/geometry";
 import { DOCUMENT_VERSION } from "@/lib/document/schema";
@@ -5,6 +6,7 @@ import type {
   DesignDocument,
   DesignElement,
   EllipseElement,
+  FrameElement,
   ImageElement,
   LinearElement,
   RectElement,
@@ -242,6 +244,29 @@ export const createBoxElement = (
   return type === "rect"
     ? { ...fields, type: "rect" }
     : { ...fields, type: "ellipse" };
+};
+
+// An empty frame in the middle of the page, waiting for a photo
+export const createFrameElement = (
+  page: Size,
+  shape: string = DEFAULT_FRAME_SHAPE
+): FrameElement => {
+  const side = Math.round(Math.min(page.width, page.height) * 0.4);
+  const origin = centerIn({ height: side, width: side }, page);
+  return {
+    ...baseFields("Frame"),
+    assetId: null,
+    crop: null,
+    filter: null,
+    flipX: false,
+    flipY: false,
+    height: side,
+    shape,
+    type: "frame",
+    width: side,
+    x: origin.x,
+    y: origin.y,
+  };
 };
 
 export const createLinearElement = (
