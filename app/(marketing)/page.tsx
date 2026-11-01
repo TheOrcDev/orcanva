@@ -5,8 +5,6 @@ import { FeatureGrid } from "@/components/landing/feature-grid";
 import { Hero } from "@/components/landing/hero";
 import { SiteFooter } from "@/components/landing/site-footer";
 import { SiteNav } from "@/components/landing/site-nav";
-import { SizesStrip } from "@/components/landing/sizes-strip";
-import { Stats } from "@/components/landing/stats";
 import { JsonLd } from "@/components/seo/json-ld";
 import { FONT_CATALOG } from "@/lib/fonts/catalog";
 import { FILTER_PRESETS } from "@/lib/image-filters/presets";
@@ -41,8 +39,6 @@ const LandingPage = () => (
     <SiteNav />
     <main>
       <Hero />
-      <SizesStrip />
-      <Stats />
       <FeatureGrid />
       <ClosingCta />
     </main>
