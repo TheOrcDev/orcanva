@@ -7,7 +7,7 @@ import { PanelSection } from "@/components/editor/panels/panel-section";
 import { TransactionSlider } from "@/components/editor/panels/transaction-slider";
 import { useAssetImage } from "@/hooks/use-asset-image";
 import { useUpdateElement } from "@/hooks/use-selected-element";
-import type { ImageElement } from "@/lib/document/schema";
+import type { PhotoElement } from "@/lib/document/schema";
 import { withPreset, withStrength } from "@/lib/image-filters/edit";
 import { FILTER_PRESETS, findPreset } from "@/lib/image-filters/presets";
 import {
@@ -59,7 +59,7 @@ const PresetTile = ({
 };
 
 // One-tap looks previewed on this photo, plus how strongly to apply them
-export const ImageFilters = ({ element }: { element: ImageElement }) => {
+export const ImageFilters = ({ element }: { element: PhotoElement }) => {
   const update = useUpdateElement(element.id);
   const url = useEditor(
     (state) => state.assets.find((asset) => asset.id === element.assetId)?.url

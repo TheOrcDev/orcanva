@@ -6,7 +6,7 @@ import { PanelSection } from "@/components/editor/panels/panel-section";
 import { TransactionSlider } from "@/components/editor/panels/transaction-slider";
 import { Button } from "@/components/ui/button";
 import { useUpdateElement } from "@/hooks/use-selected-element";
-import type { ImageElement } from "@/lib/document/schema";
+import type { PhotoElement } from "@/lib/document/schema";
 import {
   ADJUSTMENTS,
   ADJUSTMENT_MAX,
@@ -27,7 +27,7 @@ const signed = (value: number) => {
 };
 
 // Instagram-style sliders on top of any preset; one scrub is one undo step
-export const ImageAdjustments = ({ element }: { element: ImageElement }) => {
+export const ImageAdjustments = ({ element }: { element: PhotoElement }) => {
   const update = useUpdateElement(element.id);
   const { filter } = element;
   const adjust = filter?.adjust ?? NEUTRAL_ADJUSTMENTS;
