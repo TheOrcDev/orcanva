@@ -4,6 +4,7 @@ import {
   RiAlignCenter,
   RiAlignLeft,
   RiAlignRight,
+  RiBold,
   RiItalic,
   RiStrikethrough,
   RiText,
@@ -11,7 +12,10 @@ import {
 } from "@remixicon/react";
 import { useState } from "react";
 
-import { useEditorStoreApi } from "@/components/editor/editor-store-context";
+import {
+  useEditor,
+  useEditorStoreApi,
+} from "@/components/editor/editor-store-context";
 import { ColorPicker } from "@/components/editor/panels/color-picker";
 import { FontPicker } from "@/components/editor/panels/font-picker";
 import {
@@ -37,6 +41,14 @@ import { useUpdateElement } from "@/hooks/use-selected-element";
 import { textAlignSchema } from "@/lib/document/schema";
 import type { TextElement } from "@/lib/document/schema";
 import { getFont, nearestWeight } from "@/lib/fonts/catalog";
+import { rebaseMarks } from "@/lib/text/marks";
+import {
+  isBold,
+  styleText,
+  styleValue,
+  toggleBold,
+  toggleStyle,
+} from "@/lib/text/text-style";
 
 // Left to right, across the line
 const TEXT_GRADIENT_ANGLE = 90;
@@ -76,7 +88,11 @@ const TextContentField = ({ element }: { element: TextElement }) => {
         const text = event.target.value;
         setDraft(text);
         if (text.trim() !== "") {
-          update({ text });
+          // Styled parts stay on the characters they styled
+          update({
+            marks: rebaseMarks(element.text, text, element.marks),
+            text,
+          });
         }
       }}
       onBlur={() => {
@@ -89,8 +105,22 @@ const TextContentField = ({ element }: { element: TextElement }) => {
 
 export const TextProperties = ({ element }: { element: TextElement }) => {
   const update = useUpdateElement(element.id);
+  // While typing with characters selected, the controls style just those
+  const range = useEditor((state) => {
+    const selection =
+      state.editingTextId === element.id ? state.textSelection : null;
+    return selection && selection.end > selection.start ? selection : null;
+  });
   const font = getFont(element.fontId);
-  const weight = nearestWeight(font, element.weight);
+  const shownWeight = styleValue(element, range, "weight");
+  const weight = nearestWeight(
+    font,
+    typeof shownWeight === "number" ? shownWeight : element.weight
+  );
+  const hasBold = font.weights.some((value) => value >= 600);
+  const pressed = (key: "italic" | "underline" | "strike") =>
+    styleValue(element, range, key) === true;
+  const shownFill = styleValue(element, range, "fill");
   const weightItems = font.weights.map((value) => ({
     label: `${WEIGHT_NAMES[value] ?? value} · ${value}`,
     value: String(value),
@@ -114,7 +144,9 @@ export const TextProperties = ({ element }: { element: TextElement }) => {
           <Select
             items={weightItems}
             value={String(weight)}
-            onValueChange={(value) => update({ weight: Number(value) })}
+            onValueChange={(value) =>
+              update(styleText(element, range, "weight", Number(value)))
+            }
           >
             <SelectTrigger aria-label="Font weight" className="w-full">
               <SelectValue />
@@ -163,10 +195,22 @@ export const TextProperties = ({ element }: { element: TextElement }) => {
             <Toggle
               variant="outline"
               size="sm"
+              aria-label="Bold"
+              disabled={!hasBold}
+              pressed={isBold(shownWeight)}
+              onPressedChange={() => update(toggleBold(element, range))}
+            >
+              <RiBold />
+            </Toggle>
+            <Toggle
+              variant="outline"
+              size="sm"
               aria-label="Italic"
               disabled={!font.italic}
-              pressed={element.italic && font.italic}
-              onPressedChange={(italic) => update({ italic })}
+              pressed={pressed("italic") && font.italic}
+              onPressedChange={() =>
+                update(toggleStyle(element, range, "italic"))
+              }
             >
               <RiItalic />
             </Toggle>
@@ -174,8 +218,10 @@ export const TextProperties = ({ element }: { element: TextElement }) => {
               variant="outline"
               size="sm"
               aria-label="Underline"
-              pressed={element.underline}
-              onPressedChange={(underline) => update({ underline })}
+              pressed={pressed("underline")}
+              onPressedChange={() =>
+                update(toggleStyle(element, range, "underline"))
+              }
             >
               <RiUnderline />
             </Toggle>
@@ -183,8 +229,10 @@ export const TextProperties = ({ element }: { element: TextElement }) => {
               variant="outline"
               size="sm"
               aria-label="Strikethrough"
-              pressed={element.strike}
-              onPressedChange={(strike) => update({ strike })}
+              pressed={pressed("strike")}
+              onPressedChange={() =>
+                update(toggleStyle(element, range, "strike"))
+              }
             >
               <RiStrikethrough />
             </Toggle>
@@ -231,8 +279,8 @@ export const TextProperties = ({ element }: { element: TextElement }) => {
         ) : (
           <ColorPicker
             label="Text color"
-            value={element.fill}
-            onChange={(fill) => update({ fill })}
+            value={typeof shownFill === "string" ? shownFill : element.fill}
+            onChange={(fill) => update(styleText(element, range, "fill", fill))}
           />
         )}
       </PanelSection>

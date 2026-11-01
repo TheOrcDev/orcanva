@@ -115,6 +115,9 @@ export interface EditorState {
   // Everything below is session UI state and never enters undo history
   selectedIds: string[];
   editingTextId: string | null;
+  // The characters selected in the text being edited, kept while the
+  // panel has focus so its controls can style them
+  textSelection: { start: number; end: number } | null;
   // The image being cropped (one undo step from start to finish). The
   // workspace finishes the crop if someone deletes the image meanwhile.
   cropTargetId: string | null;
@@ -174,6 +177,7 @@ export interface EditorActions {
   select: (ids: string[]) => void;
   clearSelection: () => void;
   setEditingText: (id: string | null) => void;
+  setTextSelection: (selection: { start: number; end: number } | null) => void;
   startCrop: (id: string) => void;
   // Keeps the crop, or puts the image back as it was
   finishCrop: (keep: boolean) => void;
@@ -511,7 +515,7 @@ export const createEditorStore = (init: EditorInit) => {
       set((state) =>
         state.dropTargetId === id ? state : { dropTargetId: id }
       ),
-    setEditingText: (id) => set({ editingTextId: id }),
+    setEditingText: (id) => set({ editingTextId: id, textSelection: null }),
     setFileDragActive: (active) =>
       set((state) =>
         state.fileDragActive === active ? state : { fileDragActive: active }
@@ -550,6 +554,13 @@ export const createEditorStore = (init: EditorInit) => {
         state.saveStatus === status ? state : { saveStatus: status }
       ),
     setServerOffset: (offset) => set({ serverOffset: offset }),
+    setTextSelection: (selection) =>
+      set((state) =>
+        state.textSelection?.start === selection?.start &&
+        state.textSelection?.end === selection?.end
+          ? state
+          : { textSelection: selection }
+      ),
     setVisibility: (visibility) =>
       set((state) =>
         state.visibility === visibility ? state : { visibility }
@@ -575,6 +586,7 @@ export const createEditorStore = (init: EditorInit) => {
         selectedIds: [id],
       })),
     synced: syncedFromDocument(doc, init.name),
+    textSelection: null,
     undo: () =>
       set((state) => {
         const { history, step } = undo(state.history);

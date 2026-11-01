@@ -195,6 +195,13 @@ export const WorkspaceStage = () => {
       .setFitZoom(fitZoom({ height: pageHeight, width: pageWidth }, viewport));
   }, [store, zoomMode, viewport, pageWidth, pageHeight]);
 
+  // Selecting something else (e.g. in Layers) ends typing
+  useEffect(() => {
+    if (editingTextId && !selectedIds.includes(editingTextId)) {
+      store.getState().setEditingText(null);
+    }
+  }, [editingTextId, selectedIds, store]);
+
   // Someone deleted the image being cropped: close the crop's undo step
   useEffect(() => {
     if (
@@ -309,6 +316,11 @@ export const WorkspaceStage = () => {
     // Pressing anything but the crop tools keeps the crop and carries on
     if (store.getState().cropTargetId && !isCropUi(event.target)) {
       store.getState().finishCrop(true);
+    }
+    // Pressing the canvas ends typing (the text itself sits under the
+    // typing surface, which takes those presses)
+    if (store.getState().editingTextId) {
+      store.getState().setEditingText(null);
     }
     if (isCropUi(event.target)) {
       return;
