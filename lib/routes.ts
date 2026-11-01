@@ -24,3 +24,5 @@ export const newDesignPath = (presetId: string): string =>
 
 // The landing's pages for what people search for, beside `/`
 export const BACKGROUND_REMOVER_PATH = "/background-remover";
+export const CANVA_ALTERNATIVE_PATH = "/canva-alternative";
+export const REMOVE_BG_ALTERNATIVE_PATH = "/remove-bg-alternative";
