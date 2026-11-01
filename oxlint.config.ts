@@ -38,7 +38,11 @@ export default defineConfig({
       // next/og renders share images without a stylesheet: inline styles and
       // literal colours are the only way to style them, and a plain <img> the
       // only way to draw a picture
-      files: ["**/opengraph-image.tsx", "**/twitter-image.tsx"],
+      files: [
+        "**/opengraph-image.tsx",
+        "**/twitter-image.tsx",
+        "lib/seo/share-image.tsx",
+      ],
       rules: {
         "nextjs/no-img-element": "off",
         "shadcn/no-inline-styles": "off",

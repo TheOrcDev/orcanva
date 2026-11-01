@@ -34,9 +34,10 @@ export const Hero = () => (
       </h1>
       {/* Full ink: the painting behind it is too busy for muted text */}
       <p className="max-w-xl text-lg text-pretty">
-        A blank canvas, every size from Story to 4K, and the tools to fill it
-        fast: background removal in your browser, {FONT_CATALOG.length} fonts,
-        filters, and your team on the same canvas, live.
+        The free Canva alternative for thumbnails and social images: every size
+        from Story to 4K, background removal in your browser,{" "}
+        {FONT_CATALOG.length} fonts, filters, and your team on the same canvas,
+        live.
       </p>
       <Link
         href={STUDIO_PATH}
