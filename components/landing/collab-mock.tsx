@@ -62,7 +62,7 @@ export const CollabMock = () => (
           <Handle className="-right-1 -bottom-1" />
         </div>
         <Cursor tone="primary" className="top-full left-full">
-          Mila
+          Jay
         </Cursor>
       </div>
       <div className="bg-muted-foreground/30 ml-2 h-3 w-1/4 rounded-full" />

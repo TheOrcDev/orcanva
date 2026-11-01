@@ -23,7 +23,7 @@ export const Collaboration = () => (
       </div>
       <CollabMock />
       <p className="sr-only">
-        Two people editing the same thumbnail: Mila has the title selected while
+        Two people editing the same thumbnail: Jay has the title selected while
         Jonas points at the photo.
       </p>
     </Container>
