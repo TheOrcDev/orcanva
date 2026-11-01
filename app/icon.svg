@@ -1,7 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <!-- components/logo-mark.tsx snapped to whole pixels at 16 and 32px. The
-       eyes are blockier than the mark's so they still read at 16px; the tab
-       follows the browser's light or dark scheme -->
+  <!-- components/logo-mark.tsx with the frame, horizon and water snapped to
+       whole pixels at 16 and 32px, and the orc's ears, eyes and tusks scaled
+       straight from the mark; the tab follows the browser's light or dark
+       scheme -->
   <style>
     .frame { stroke: #9c7096 }
     .horizon { fill: #9c7096 }
@@ -13,10 +14,10 @@
     }
   </style>
   <rect class="frame" x="1" y="1" width="30" height="30" rx="6" stroke-width="2"/>
-  <path d="M9 11C7.2 10.5 5.6 10 4.5 9c.4 2.1 1.6 4 3 5zM23 11c1.8-.5 3.4-1 4.5-2-.4 2.1-1.6 4-3 5z" fill="#f19b89"/>
+  <path d="M8.9 11C7.15 10.55 5.6 9.95 4.35 8.95c.45 2.15 1.65 4 3.2 5.1zM23.1 11c1.75-.45 3.3-1.05 4.55-2.05-.45 2.15-1.65 4-3.2 5.1z" fill="#f19b89"/>
   <path d="M7 16a9 9 0 0 1 18 0z" fill="#f19b89"/>
-  <path d="M10 10l4 1v1a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1zM22 10l-4 1v1a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1z" fill="#1f1322"/>
-  <path d="M10 16c-.2-.8-.2-1.5 0-2.4 1.2.5 2.1 1.3 2.5 2.4zM22 16c.2-.8.2-1.5 0-2.4-1.2.5-2.1 1.3-2.5 2.4z" fill="#fef4e5"/>
+  <path d="M11 10.35l3.6 1c-.15 1.05-.9 1.55-1.95 1.55-1.15 0-1.8-1-1.65-2.55zM21 10.35l-3.6 1c.15 1.05.9 1.55 1.95 1.55 1.15 0 1.8-1 1.65-2.55z" fill="#1f1322"/>
+  <path d="M10.85 16c-.25-1.05-.4-1.8-.25-2.95 1.4.75 2.45 1.8 2.85 2.95zM21.15 16c.25-1.05.4-1.8.25-2.95-1.4.75-2.45 1.8-2.85 2.95z" fill="#fef4e5"/>
   <rect class="horizon" x="4" y="16" width="24" height="2" rx="1"/>
   <rect class="water" x="8" y="20" width="16" height="2" rx="1"/>
   <rect class="water" x="12" y="24" width="8" height="2" rx="1"/>
