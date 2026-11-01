@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { createDocument, createFrameElement } from "@/lib/document/factories";
-import { detachPhoto, fillFrame } from "@/lib/editor/frames";
+import {
+  createDocument,
+  createFrameElement,
+  createImageElement,
+} from "@/lib/document/factories";
+import { detachPhoto, fillFrame, photoIntoFrame } from "@/lib/editor/frames";
 
 const PAGE = { height: 720, width: 1280 };
 const PHOTO = {
@@ -50,5 +54,15 @@ describe("fillFrame", () => {
       type: "image",
       width: 300,
     });
+  });
+
+  it("moves an image's photo into a frame and removes the image", () => {
+    const frame = { ...createFrameElement(PAGE), height: 300, width: 300 };
+    const image = { ...createImageElement(PHOTO, PAGE), flipX: true };
+    const document = { ...createDocument(PAGE), elements: [frame, image] };
+    const moved = photoIntoFrame(document, image.id, frame.id, PHOTO);
+    expect(moved.elements).toHaveLength(1);
+    expect(moved.elements[0]).toMatchObject({ assetId: PHOTO.id, flipX: true });
+    expect(photoIntoFrame(document, frame.id, frame.id, PHOTO)).toBe(document);
   });
 });

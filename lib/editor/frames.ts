@@ -5,6 +5,7 @@ import type { DesignDocument, ImageElement } from "@/lib/document/schema";
 import {
   findElement,
   insertElement,
+  removeElements,
   updateElement,
 } from "@/lib/editor/document-ops";
 
@@ -71,4 +72,29 @@ export const detachPhoto = (
     document: insertElement(emptied, photo, index + 1),
     imageId: photo.id,
   };
+};
+
+// Moves an image's photo into a frame (keeping its filter and flips) and
+// removes the image, as dropping one on a frame does. `photo` is the
+// photo's own size.
+export const photoIntoFrame = (
+  document: DesignDocument,
+  imageId: string,
+  frameId: string,
+  photo: Size
+): DesignDocument => {
+  const image = findElement(document, imageId);
+  if (image?.type !== "image") {
+    return document;
+  }
+  const filled = fillFrame(document, frameId, { ...photo, id: image.assetId });
+  if (filled === document) {
+    return document;
+  }
+  const styled = updateElement(filled, frameId, {
+    filter: image.filter,
+    flipX: image.flipX,
+    flipY: image.flipY,
+  });
+  return removeElements(styled, [imageId]);
 };

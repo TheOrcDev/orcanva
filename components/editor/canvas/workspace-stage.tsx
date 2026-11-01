@@ -163,6 +163,7 @@ export const WorkspaceStage = () => {
   const held = useEditor((state) => state.held);
   const editingTextId = useEditor((state) => state.editingTextId);
   const cropTargetId = useEditor((state) => state.cropTargetId);
+  const dropTargetId = useEditor((state) => state.dropTargetId);
 
   const { height: pageHeight, width: pageWidth } = document;
 
@@ -527,6 +528,8 @@ export const WorkspaceStage = () => {
             <RemoteSelections />
             <SnapGuides origin={origin} zoom={zoom} />
             <SelectionOutline ids={outlinedIds} />
+            {/* The frame a dragged photo would fill */}
+            <SelectionOutline ids={dropTargetId ? [dropTargetId] : []} />
             <SelectionTransformer
               elements={transformTargets}
               onTransformStart={holdTransformed}

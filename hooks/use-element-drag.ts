@@ -1,5 +1,6 @@
 "use client";
 
+import type Konva from "konva";
 import { useCallback, useEffect, useRef } from "react";
 
 import { usePageNodeRef } from "@/components/editor/canvas-context";
@@ -11,7 +12,9 @@ import {
 import { useEditorStoreApi } from "@/components/editor/editor-store-context";
 import { MAX_DRAG_MOVES } from "@/lib/collab/presence";
 import type { Point, Rect } from "@/lib/document/geometry";
-import { updateElement } from "@/lib/editor/document-ops";
+import type { DesignDocument } from "@/lib/document/schema";
+import { findElement, updateElement } from "@/lib/editor/document-ops";
+import { photoIntoFrame } from "@/lib/editor/frames";
 import { editableSelection } from "@/lib/editor/selection";
 import {
   NO_SNAP,
@@ -41,7 +44,41 @@ interface DragGesture {
   targets: Rect[];
   // Drop positions, collected as Konva ends each node's drag
   dropped: Map<string, Point>;
+  // A lone image being dragged: dropped on a frame, its photo fills it
+  photoId: string | null;
 }
+
+// The topmost unlocked frame under a point in stage pixels, other than the
+// dragged element itself
+const frameUnder = (
+  page: Konva.Group,
+  document: DesignDocument,
+  point: Point,
+  exclude: string
+): string | null => {
+  for (const element of document.elements.toReversed()) {
+    if (
+      element.type !== "frame" ||
+      element.locked ||
+      !element.visible ||
+      element.id === exclude
+    ) {
+      continue;
+    }
+    const node = page.findOne(`#${element.id}`);
+    const local = node?.getAbsoluteTransform().copy().invert().point(point);
+    if (
+      local &&
+      local.x >= 0 &&
+      local.y >= 0 &&
+      local.x <= element.width &&
+      local.y <= element.height
+    ) {
+      return element.id;
+    }
+  }
+  return null;
+};
 
 // Moving elements on the canvas: snapping, the live preview others see, and
 // one committed change (one undo step) for everything that moved
@@ -86,10 +123,12 @@ export const useElementDrag = () => {
           boxes.push(boxOf(node, page));
         }
       }
+      const lone = ids.length === 1 ? findElement(document, id) : undefined;
       gestureRef.current = {
         box: unionRect(boxes),
         dropped: new Map(),
         ids,
+        photoId: lone?.type === "image" ? lone.id : null,
         press:
           page && press
             ? page.getAbsoluteTransform().copy().invert().point(press)
@@ -148,6 +187,19 @@ export const useElementDrag = () => {
       });
       clearTimeout(previewEndRef.current);
       store.getState().setDragPreview({ moves });
+      const pointer = page.getStage()?.getPointerPosition();
+      if (gesture.photoId && pointer) {
+        store
+          .getState()
+          .setDropTarget(
+            frameUnder(
+              page,
+              selectDocument(store.getState()),
+              pointer,
+              gesture.photoId
+            )
+          );
+      }
     },
     [pageNodeRef, store]
   );
@@ -158,13 +210,28 @@ export const useElementDrag = () => {
         gestureRef.current = null;
       }
       const state = store.getState();
-      state.change((doc) => {
-        let next = doc;
-        for (const [id, position] of gesture.dropped) {
-          next = updateElement(next, id, position);
-        }
-        return next;
-      });
+      const frameId = gesture.photoId ? state.dropTargetId : null;
+      const image = gesture.photoId
+        ? findElement(selectDocument(state), gesture.photoId)
+        : undefined;
+      const photo =
+        image?.type === "image"
+          ? state.assets.find((asset) => asset.id === image.assetId)
+          : undefined;
+      if (frameId && image && photo) {
+        // Into the frame: one change, one undo step
+        state.change((doc) => photoIntoFrame(doc, image.id, frameId, photo));
+        state.select([frameId]);
+      } else {
+        state.change((doc) => {
+          let next = doc;
+          for (const [id, position] of gesture.dropped) {
+            next = updateElement(next, id, position);
+          }
+          return next;
+        });
+      }
+      state.setDropTarget(null);
       state.release(gesture.ids);
       state.setGuides([]);
       clearTimeout(previewEndRef.current);

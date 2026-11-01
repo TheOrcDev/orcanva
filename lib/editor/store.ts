@@ -120,6 +120,8 @@ export interface EditorState {
   cropTargetId: string | null;
   // Lines shown while something snaps during a drag
   guides: SnapGuide[];
+  // The frame a dragged photo would drop into
+  dropTargetId: string | null;
   zoom: number;
   zoomMode: "fit" | "manual";
   saveStatus: SaveStatus;
@@ -176,6 +178,7 @@ export interface EditorActions {
   // Keeps the crop, or puts the image back as it was
   finishCrop: (keep: boolean) => void;
   setGuides: (guides: SnapGuide[]) => void;
+  setDropTarget: (id: string | null) => void;
   setZoom: (zoom: number) => void;
   // Fit mode recomputes zoom from the viewport without leaving fit mode
   setFitZoom: (zoom: number) => void;
@@ -390,6 +393,7 @@ export const createEditorStore = (init: EditorInit) => {
     designId: init.designId,
     doc,
     dragPreview: null,
+    dropTargetId: null,
     dropWrites: (batch) =>
       set((state) =>
         reconcile(state, state.synced, dropBatch(state.pending, batch))
@@ -503,6 +507,10 @@ export const createEditorStore = (init: EditorInit) => {
         };
       }),
     setDragPreview: (preview) => set({ dragPreview: preview }),
+    setDropTarget: (id) =>
+      set((state) =>
+        state.dropTargetId === id ? state : { dropTargetId: id }
+      ),
     setEditingText: (id) => set({ editingTextId: id }),
     setFileDragActive: (active) =>
       set((state) =>
