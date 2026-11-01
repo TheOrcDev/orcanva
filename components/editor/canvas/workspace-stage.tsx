@@ -21,6 +21,7 @@ import type { TransformedElement } from "@/components/editor/canvas/selection-tr
 import { selectionView } from "@/components/editor/canvas/selection-view";
 import { SnapGuides } from "@/components/editor/canvas/snap-guides";
 import { TextEditOverlay } from "@/components/editor/canvas/text-edit-overlay";
+import { TEXT_BODY_NAME } from "@/components/editor/canvas/text-node";
 import { RemoteCursors } from "@/components/editor/collab/remote-cursors";
 import { CropToolbar } from "@/components/editor/crop-toolbar";
 import {
@@ -96,7 +97,7 @@ const bakeTransform = (
         : baked;
     }
     case "text": {
-      const textNode = (node as Konva.Group).findOne("Text");
+      const textNode = (node as Konva.Group).findOne(`.${TEXT_BODY_NAME}`);
       return bakeTextTransform(
         element,
         transform,

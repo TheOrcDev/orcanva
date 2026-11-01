@@ -11,8 +11,10 @@ import { LineNode } from "@/components/editor/canvas/line-node";
 import { SELECTION_HANDLES_NAME } from "@/components/editor/canvas/selection-transformer";
 import {
   HIGHLIGHT_NODE_NAME,
+  TEXT_BODY_NAME,
   TextNode,
   layoutHighlight,
+  textLayoutOf,
 } from "@/components/editor/canvas/text-node";
 import { cropToPixels } from "@/lib/document/crop";
 import type {
@@ -90,16 +92,17 @@ const rewrapText = (event: Konva.KonvaEventObject<Event>) => {
   if (!SIDE_ANCHORS.has(activeAnchor(group) ?? "")) {
     return;
   }
-  const text = group.findOne("Text");
+  const text = group.findOne(`.${TEXT_BODY_NAME}`);
   if (!text) {
     return;
   }
   const width = Math.max(MIN_ELEMENT_SIZE, text.width() * group.scaleX());
   group.scaleX(1);
   text.width(width);
+  text.height(textLayoutOf(text).height);
   const highlight = group.findOne(`.${HIGHLIGHT_NODE_NAME}`);
   if (highlight) {
-    layoutHighlight(text as Konva.Text, highlight);
+    layoutHighlight(text, highlight);
   }
 };
 

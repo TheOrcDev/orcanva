@@ -1,8 +1,8 @@
 "use client";
 
 import type Konva from "konva";
-import { useLayoutEffect, useRef } from "react";
-import { Rect, Text } from "react-konva";
+import { useLayoutEffect, useMemo, useRef } from "react";
+import { Rect, Shape } from "react-konva";
 
 import { useFontReady } from "@/hooks/use-font-ready";
 import type { TextElement } from "@/lib/document/schema";
@@ -10,38 +10,88 @@ import {
   FALLBACK_FAMILIES,
   cssFamily,
   getFont,
-  konvaFontStyle,
   nearestWeight,
 } from "@/lib/fonts/catalog";
+import { canvasFont, canvasMeasurer, paintTextLayout } from "@/lib/text/canvas";
+import type { TextPaint } from "@/lib/text/canvas";
+import { layoutText } from "@/lib/text/layout";
+import type { StyledRun, TextLayout, TextStyle } from "@/lib/text/layout";
 
 export const displayText = (element: TextElement): string =>
   element.uppercase ? element.text.toUpperCase() : element.text;
 
 // Konva strokes are centered on the glyph edge and the fill is painted on
-// top (fillAfterStrokeEnabled), so the visible outline is half the stroke.
+// top, so the visible outline is half the stroke.
 export const textStrokeWidth = (element: TextElement): number =>
   element.stroke ? element.stroke.widthEm * element.fontSize * 2 : 0;
 
 export const HIGHLIGHT_NODE_NAME = "text-highlight";
+// The shape that draws the text itself
+export const TEXT_BODY_NAME = "text-body";
 
 const ALIGN_FACTOR: Record<string, number> = { center: 0.5, left: 0, right: 1 };
 
-// The highlight hugs the longest rendered line (not the whole wrap box),
-// offset by alignment. Konva only knows line widths after layout.
-export const layoutHighlight = (text: Konva.Text, box: Konva.Node) => {
+// What the text shape draws from. It lives on the node, so a side handle
+// can re-wrap the text live by changing only the node's width.
+export interface TextShapeInput {
+  runs: StyledRun[];
+  align: TextElement["align"];
+  lineHeight: number;
+  paint: TextPaint;
+}
+
+const layouts = new WeakMap<
+  Konva.Node,
+  { input: TextShapeInput; width: number; layout: TextLayout }
+>();
+
+export const textLayoutOf = (node: Konva.Node): TextLayout => {
+  const input = node.getAttr("textInput") as TextShapeInput;
+  const width = node.width();
+  const cached = layouts.get(node);
+  if (cached && cached.input === input && cached.width === width) {
+    return cached.layout;
+  }
+  const layout = layoutText(
+    input.runs,
+    { align: input.align, lineHeight: input.lineHeight, width },
+    canvasMeasurer
+  );
+  layouts.set(node, { input, layout, width });
+  return layout;
+};
+
+const drawText = (context: Konva.Context, shape: Konva.Shape) => {
+  const input = shape.getAttr("textInput") as TextShapeInput;
+  paintTextLayout(context._context, textLayoutOf(shape), () => input.paint);
+};
+
+// Clicks anywhere in the text's box hit it, as with Konva's Text
+const hitText = (context: Konva.Context, shape: Konva.Shape) => {
+  context.beginPath();
+  context.rect(0, 0, shape.width(), shape.height());
+  context.closePath();
+  context.fillStrokeShape(shape);
+};
+
+// The highlight hugs the longest line (not the whole wrap box), offset by
+// alignment
+export const layoutHighlight = (text: Konva.Node, box: Konva.Node) => {
+  const layout = textLayoutOf(text);
+  const input = text.getAttr("textInput") as TextShapeInput;
   const padding = Number(box.getAttr("padding") ?? 0);
-  const contentWidth = Math.min(text.width(), text.getTextWidth());
+  const contentWidth = Math.min(text.width(), layout.textWidth);
   const offset =
-    (text.width() - contentWidth) * (ALIGN_FACTOR[text.align()] ?? 0);
+    (text.width() - contentWidth) * (ALIGN_FACTOR[input.align] ?? 0);
   box.setAttrs({
-    height: text.height() + padding * 2,
+    height: layout.height + padding * 2,
     width: contentWidth + padding * 2,
     x: offset - padding,
   });
 };
 
 export const TextNode = ({ element }: { element: TextElement }) => {
-  const textRef = useRef<Konva.Text>(null);
+  const textRef = useRef<Konva.Shape>(null);
   const highlightRef = useRef<Konva.Rect>(null);
   const font = getFont(element.fontId);
   const weight = nearestWeight(font, element.weight);
@@ -56,6 +106,53 @@ export const TextNode = ({ element }: { element: TextElement }) => {
 
   const { fontSize, highlight, shadow, stroke } = element;
   const padding = highlight ? highlight.paddingEm * fontSize : 0;
+  const family = ready ? cssFamily(font) : FALLBACK_FAMILIES[font.category];
+  const letterSpacing = element.letterSpacingEm * fontSize;
+  const strokeWidth = textStrokeWidth(element);
+
+  const input = useMemo((): TextShapeInput => {
+    const style: TextStyle = {
+      font: canvasFont({ family, fontSize, italic, weight }),
+      fontSize,
+      letterSpacing,
+    };
+    return {
+      align: element.align,
+      lineHeight: element.lineHeight,
+      paint: {
+        fill: element.fill,
+        stroke: stroke && stroke.widthEm > 0 ? stroke.color : null,
+        strokeWidth,
+      },
+      runs: [{ style, text }],
+    };
+  }, [
+    element.align,
+    element.fill,
+    element.lineHeight,
+    family,
+    fontSize,
+    italic,
+    letterSpacing,
+    stroke,
+    strokeWidth,
+    text,
+    weight,
+  ]);
+
+  const height = useMemo(
+    () =>
+      layoutText(
+        input.runs,
+        {
+          align: input.align,
+          lineHeight: input.lineHeight,
+          width: element.width,
+        },
+        canvasMeasurer
+      ).height,
+    [input, element.width]
+  );
 
   // Sized after every render because it depends on measured text
   useLayoutEffect(() => {
@@ -78,23 +175,15 @@ export const TextNode = ({ element }: { element: TextElement }) => {
           cornerRadius={highlight.radiusEm * fontSize}
         />
       ) : null}
-      <Text
+      <Shape
         ref={textRef}
-        text={text}
+        name={TEXT_BODY_NAME}
+        textInput={input}
         width={element.width}
-        fontFamily={ready ? cssFamily(font) : FALLBACK_FAMILIES[font.category]}
-        fontStyle={konvaFontStyle(weight, italic)}
-        fontSize={fontSize}
-        lineHeight={element.lineHeight}
-        letterSpacing={element.letterSpacingEm * fontSize}
-        align={element.align}
+        height={height}
         fill={element.fill}
-        wrap="word"
-        stroke={stroke?.color}
-        strokeWidth={textStrokeWidth(element)}
-        strokeEnabled={stroke !== null && stroke.widthEm > 0}
-        fillAfterStrokeEnabled
-        lineJoin="round"
+        sceneFunc={drawText}
+        hitFunc={hitText}
         shadowEnabled={shadow !== null}
         shadowColor={shadow?.color}
         shadowBlur={(shadow?.blurEm ?? 0) * fontSize}
