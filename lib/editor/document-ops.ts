@@ -115,6 +115,30 @@ export const duplicateElements = (
   };
 };
 
+// Puts the elements in the given order (bottom of the stack first); ids
+// it doesn't mention keep their place at the end
+export const reorderElements = (
+  document: DesignDocument,
+  ids: readonly string[]
+): DesignDocument => {
+  const byId = new Map(
+    document.elements.map((element) => [element.id, element])
+  );
+  const ordered = ids.flatMap((id) => {
+    const element = byId.get(id);
+    return element ? [element] : [];
+  });
+  const listed = new Set(ids);
+  const elements = [
+    ...ordered,
+    ...document.elements.filter((element) => !listed.has(element.id)),
+  ];
+  const unchanged = elements.every(
+    (element, index) => element === document.elements[index]
+  );
+  return unchanged ? document : { ...document, elements };
+};
+
 export type ArrangeDirection = "forward" | "backward" | "front" | "back";
 
 export const moveElementTo = (

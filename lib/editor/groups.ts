@@ -14,14 +14,24 @@ const memberCounts = (document: DesignDocument): Map<string, number> => {
   return counts;
 };
 
+// Finds the group each element is in (null when it stands alone), counting
+// members once for the whole document
+export const groupResolver = (
+  document: DesignDocument
+): ((element: DesignElement) => string | null) => {
+  const counts = memberCounts(document);
+  const resolve = (element: DesignElement): string | null =>
+    element.groupId && (counts.get(element.groupId) ?? 0) > 1
+      ? element.groupId
+      : null;
+  return resolve;
+};
+
 // The group an element is in, or null when it stands alone
 export const groupOf = (
   document: DesignDocument,
   element: DesignElement
-): string | null =>
-  element.groupId && (memberCounts(document).get(element.groupId) ?? 0) > 1
-    ? element.groupId
-    : null;
+): string | null => groupResolver(document)(element);
 
 // What selecting an element picks: its whole group, or just itself
 export const unitOf = (document: DesignDocument, id: string): string[] => {
@@ -67,12 +77,13 @@ export const selectionUnits = (
   ids: readonly string[]
 ): string[][] => {
   const selected = new Set(ids);
+  const groupFor = groupResolver(document);
   const units = new Map<string, string[]>();
   for (const element of document.elements) {
     if (!selected.has(element.id)) {
       continue;
     }
-    const key = groupOf(document, element) ?? `element:${element.id}`;
+    const key = groupFor(element) ?? `element:${element.id}`;
     units.set(key, [...(units.get(key) ?? []), element.id]);
   }
   return [...units.values()];
