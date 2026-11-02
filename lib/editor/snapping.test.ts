@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   snapBox,
+  snapBoxEdges,
   snapPoint,
   snapResize,
   unionRect,
@@ -89,6 +90,19 @@ describe("equal spacing", () => {
     const result = snapBox(box, pair, 6);
     expect(result.dx).toBe(4);
     expect(result.guides.filter((guide) => guide.gap)).toHaveLength(2);
+  });
+
+  it("snaps only edges and centres when spacing is off", () => {
+    // Evenly between the two, but on none of their lines
+    const box = { height: 60, width: 100, x: 147, y: 200 };
+    expect(snapBoxEdges(box, [left, right], 6)).toEqual({
+      dx: 0,
+      dy: 0,
+      guides: [],
+    });
+    const result = snapBoxEdges({ ...box, x: 196 }, [left, right], 6);
+    expect(result.dx).toBe(4);
+    expect(result.guides.some((guide) => guide.gap)).toBe(false);
   });
 
   it("only counts neighbours in the same row", () => {

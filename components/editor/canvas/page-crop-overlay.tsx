@@ -4,12 +4,25 @@ import type Konva from "konva";
 import { useEffect, useRef } from "react";
 import { Group, Rect, Shape, Transformer } from "react-konva";
 
+import { usePageNodeRef } from "@/components/editor/canvas-context";
 import { CROP_UI_NAME } from "@/components/editor/canvas/crop-overlay";
+import {
+  collectSnapTargets,
+  isFreeMove,
+} from "@/components/editor/canvas/snap-targets";
 import { useEditorStoreApi } from "@/components/editor/editor-store-context";
 import { isInsidePopup, isTypingTarget } from "@/hooks/use-editor-shortcuts";
 import type { Point, Rect as Box, Size } from "@/lib/document/geometry";
 import { MIN_CANVAS_SIZE } from "@/lib/document/schema";
 import { keepBoxInPage, limitCropBox } from "@/lib/editor/page-crop";
+import {
+  NO_SNAP,
+  SNAP_DISTANCE_PX,
+  offsetRect,
+  snapBoxEdges,
+  snapResize,
+} from "@/lib/editor/snapping";
+import { selectDocument } from "@/lib/editor/store";
 
 const ACCENT = "#2563eb";
 const DIM = "rgba(15, 23, 42, 0.55)";
@@ -47,7 +60,7 @@ interface StageBox extends Box {
 // Crop mode for the whole page, drawn over it in page coordinates: the box
 // is the part that stays and the rest is dimmed. The box lives in the store
 // and the page only changes when the crop is applied, so a cancelled crop
-// leaves no trace.
+// leaves no trace. Its edges and centre snap to the elements and the page.
 export const PageCropOverlay = ({
   box,
   page,
@@ -61,7 +74,10 @@ export const PageCropOverlay = ({
   zoom: number;
 }) => {
   const store = useEditorStoreApi();
+  const pageNodeRef = usePageNodeRef();
   const groupRef = useRef<Konva.Group>(null);
+  // What the box snaps to, measured when a gesture starts
+  const targetsRef = useRef<Box[] | null>(null);
   const boxRef = useRef<Konva.Rect>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
 
@@ -100,14 +116,67 @@ export const PageCropOverlay = ({
   const toStage = (point: Point): Point =>
     groupRef.current?.getAbsoluteTransform().point(point) ?? point;
 
-  const boundDrag = (position: Point): Point =>
-    toStage(keepBoxInPage({ ...box, ...toPage(position) }, page));
+  const startGesture = () => {
+    const pageNode = pageNodeRef.current;
+    targetsRef.current = pageNode
+      ? collectSnapTargets(
+          pageNode,
+          selectDocument(store.getState()),
+          new Set()
+        )
+      : null;
+  };
+
+  const endGesture = () => {
+    targetsRef.current = null;
+    store.getState().setGuides([]);
+  };
+
+  const boundDrag = (position: Point, event?: unknown): Point => {
+    const moved = { ...box, ...toPage(position) };
+    const targets = targetsRef.current;
+    const snap =
+      targets && !isFreeMove(event)
+        ? snapBoxEdges(moved, targets, SNAP_DISTANCE_PX / zoom)
+        : NO_SNAP;
+    store.getState().setGuides(snap.guides);
+    return toStage(
+      keepBoxInPage(offsetRect(moved, { x: snap.dx, y: snap.dy }), page)
+    );
+  };
 
   const moveBox = () => {
     const node = boxRef.current;
     if (node) {
       store.getState().setPageCrop({ ...box, x: node.x(), y: node.y() });
     }
+  };
+
+  // Konva asks where a dragged handle may go (in stage pixels); the box it
+  // makes is then kept on the page by boundResize
+  const snapAnchor = (_previous: Point, next: Point, event: unknown): Point => {
+    const anchor = transformerRef.current?.getActiveAnchor();
+    const node = boxRef.current;
+    const targets = targetsRef.current;
+    if (!(anchor && node && targets) || isFreeMove(event)) {
+      store.getState().setGuides([]);
+      return next;
+    }
+    const result = snapResize({
+      anchor,
+      box: {
+        height: node.height() * node.scaleY(),
+        width: node.width() * node.scaleX(),
+        x: node.x(),
+        y: node.y(),
+      },
+      distance: SNAP_DISTANCE_PX / zoom,
+      keepRatio: ratio !== null,
+      point: toPage(next),
+      targets,
+    });
+    store.getState().setGuides(result.guides);
+    return toStage(result.point);
   };
 
   const boundResize = (previous: StageBox, next: StageBox): StageBox => {
@@ -198,10 +267,18 @@ export const PageCropOverlay = ({
           height={box.height}
           draggable
           dragBoundFunc={boundDrag}
+          onDragStart={startGesture}
           onDragMove={moveBox}
-          onDragEnd={moveBox}
+          onDragEnd={() => {
+            moveBox();
+            endGesture();
+          }}
+          onTransformStart={startGesture}
           onTransform={resizeBox}
-          onTransformEnd={resizeBox}
+          onTransformEnd={() => {
+            resizeBox();
+            endGesture();
+          }}
         />
       </Group>
       <Transformer
@@ -212,6 +289,7 @@ export const PageCropOverlay = ({
         anchorSize={10}
         anchorStroke={ACCENT}
         borderStroke={ACCENT}
+        anchorDragBoundFunc={snapAnchor}
         boundBoxFunc={boundResize}
         // A locked shape resizes from its corners, and Shift can't free it
         enabledAnchors={ratio === null ? ALL_ANCHORS : CORNER_ANCHORS}

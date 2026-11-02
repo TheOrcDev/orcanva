@@ -281,6 +281,26 @@ export const snapBox = (
   };
 };
 
+// Snaps only a box's edges and centre to the targets' lines, with no equal
+// spacing (a crop box has no neighbours to space evenly from)
+export const snapBoxEdges = (
+  box: Rect,
+  targets: readonly Rect[],
+  distance: number
+): SnapResult => {
+  const dx = nearestShift(linesOf(box, "x"), targets, "x", distance) ?? 0;
+  const dy = nearestShift(linesOf(box, "y"), targets, "y", distance) ?? 0;
+  const snapped = offsetRect(box, { x: dx, y: dy });
+  return {
+    dx,
+    dy,
+    guides: [
+      ...guidesAt("x", linesOf(snapped, "x"), spanOf(snapped, "y"), targets),
+      ...guidesAt("y", linesOf(snapped, "y"), spanOf(snapped, "x"), targets),
+    ],
+  };
+};
+
 // Snaps a single point, e.g. a line's endpoint, on both axes
 export const snapPoint = (
   point: Point,
