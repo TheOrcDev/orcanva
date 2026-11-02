@@ -8,6 +8,7 @@ import {
 import type { LineElement } from "@/lib/document/schema";
 import { cropDocument } from "@/lib/editor/document-ops";
 import {
+  cropGradient,
   fitRatio,
   fullPage,
   keepBoxInPage,
@@ -142,6 +143,55 @@ describe("page crop", () => {
         ratio: 2,
       })
     ).toEqual({ height: 16, width: 32, x: 400, y: 200 });
+  });
+
+  it("keeps a cropped gradient's colours where they were", () => {
+    const wide = { height: 100, width: 1000 };
+    // 90° runs left to right
+    const background = {
+      angle: 90,
+      stops: [
+        { color: "#000000", offset: 0 },
+        { color: "#ff0000", offset: 0.5 },
+        { color: "#ffffff", offset: 1 },
+      ],
+      type: "linear" as const,
+    };
+    expect(
+      cropGradient(background, wide, { height: 100, width: 500, x: 250, y: 0 })
+        .stops
+    ).toEqual([
+      { color: "#800000", offset: 0 },
+      { color: "#ff0000", offset: 0.5 },
+      { color: "#ff8080", offset: 1 },
+    ]);
+    // Cut off across the gradient: nothing to change
+    expect(
+      cropGradient(background, wide, { height: 50, width: 1000, x: 0, y: 25 })
+        .stops
+    ).toEqual(background.stops);
+    // Only the left quarter: the middle stop falls off the end
+    expect(
+      cropGradient(background, wide, { height: 100, width: 250, x: 0, y: 0 })
+        .stops
+    ).toEqual([
+      { color: "#000000", offset: 0 },
+      { color: "#800000", offset: 1 },
+    ]);
+  });
+
+  it("leaves gradients it can't read alone", () => {
+    const background = {
+      angle: 45,
+      stops: [
+        { color: "rgb(0, 0, 0)", offset: 0 },
+        { color: "#ffffff", offset: 1 },
+      ],
+      type: "linear" as const,
+    };
+    expect(
+      cropGradient(background, PAGE, { height: 100, width: 100, x: 10, y: 10 })
+    ).toBe(background);
   });
 
   it("makes the box the page, moving everything with it", () => {

@@ -7,7 +7,7 @@ import type {
   DesignElement,
 } from "@/lib/document/schema";
 import { regroupCopies } from "@/lib/editor/groups";
-import { isFullPage, wholeBox } from "@/lib/editor/page-crop";
+import { cropGradient, isFullPage, wholeBox } from "@/lib/editor/page-crop";
 
 type DistributivePartial<T> = T extends unknown
   ? Partial<Omit<T, "id" | "type">>
@@ -308,7 +308,8 @@ export const resizeDocument = (
 };
 
 // Keeps part of the page as the whole page: everything moves with it, so
-// nothing shifts on screen. Elements left outside stay, off the page.
+// nothing shifts on screen (a gradient background keeps its colours where
+// they were). Elements left outside stay, off the page.
 export const cropDocument = (
   document: DesignDocument,
   box: Rect
@@ -318,8 +319,13 @@ export const cropDocument = (
     return document;
   }
   const moved = area.x !== 0 || area.y !== 0;
+  const { background } = document;
   return {
     ...document,
+    background:
+      background.type === "linear"
+        ? cropGradient(background, document, area)
+        : background,
     elements: moved
       ? document.elements.map((element) => ({
           ...element,

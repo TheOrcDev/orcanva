@@ -1,5 +1,9 @@
+import { formatHex, mixRgba, parseHex } from "@/lib/document/color";
+import type { Rgba } from "@/lib/document/color";
+import { gradientPoints } from "@/lib/document/geometry";
 import type { Point, Rect, Size } from "@/lib/document/geometry";
 import { MIN_CANVAS_SIZE } from "@/lib/document/schema";
+import type { Background, GradientStop } from "@/lib/document/schema";
 
 // Cropping the page: a box over it marks the part to keep. The box lives
 // in page coordinates and stays inside the page; nothing changes until it's
@@ -146,4 +150,87 @@ export const limitCropBox = ({
     y: top,
   };
   return ratio === null ? limited : keepRatio(limited, anchor, ratio, min);
+};
+
+type LinearBackground = Extract<Background, { type: "linear" }>;
+
+const MAX_STOPS = 8;
+// Stops this close to the new page's ends are replaced by its end colours
+const AT_END = 1e-6;
+
+// Where a point falls along a gradient line, 0 at its start and 1 at its end
+const offsetOn = (line: { start: Point; end: Point }, point: Point) => {
+  const dx = line.end.x - line.start.x;
+  const dy = line.end.y - line.start.y;
+  return (
+    ((point.x - line.start.x) * dx + (point.y - line.start.y) * dy) /
+    (dx * dx + dy * dy)
+  );
+};
+
+// The colour a gradient shows at an offset; its end colours carry on past
+// its ends, as a canvas draws them
+const colorAt = (
+  stops: readonly { offset: number; color: Rgba }[],
+  offset: number
+): Rgba => {
+  const [first] = stops;
+  if (!first || offset <= first.offset) {
+    return first?.color ?? [0, 0, 0, 0];
+  }
+  for (let index = 1; index < stops.length; index += 1) {
+    const before = stops[index - 1] ?? first;
+    const after = stops[index] ?? first;
+    if (offset <= after.offset) {
+      const span = after.offset - before.offset;
+      return span > 0
+        ? mixRgba(before.color, after.color, (offset - before.offset) / span)
+        : after.color;
+    }
+  }
+  return stops.at(-1)?.color ?? first.color;
+};
+
+// A page gradient runs corner to corner of the page, so a cropped page would
+// spread it anew. This keeps every colour on the same spot of the page,
+// along the cropped page's own gradient line. Colours that aren't hex, or
+// more stops than a gradient holds, leave it as it was.
+export const cropGradient = (
+  background: LinearBackground,
+  page: Size,
+  box: Rect
+): LinearBackground => {
+  const parsed = background.stops.map((stop) => ({
+    color: parseHex(stop.color),
+    offset: stop.offset,
+  }));
+  const stops = parsed
+    .flatMap((stop) => (stop.color ? [{ ...stop, color: stop.color }] : []))
+    .toSorted((a, b) => a.offset - b.offset);
+  if (stops.length !== parsed.length) {
+    return background;
+  }
+  const line = gradientPoints(background.angle, page);
+  const cropped = gradientPoints(background.angle, box);
+  // The cropped line's ends, as offsets on the page's line
+  const from = offsetOn(line, {
+    x: box.x + cropped.start.x,
+    y: box.y + cropped.start.y,
+  });
+  const to = offsetOn(line, {
+    x: box.x + cropped.end.x,
+    y: box.y + cropped.end.y,
+  });
+  const between: GradientStop[] = stops.flatMap((stop) => {
+    const offset = (stop.offset - from) / (to - from);
+    return offset > AT_END && offset < 1 - AT_END
+      ? [{ color: formatHex(stop.color), offset }]
+      : [];
+  });
+  const next = [
+    { color: formatHex(colorAt(stops, from)), offset: 0 },
+    ...between,
+    { color: formatHex(colorAt(stops, to)), offset: 1 },
+  ];
+  return next.length > MAX_STOPS ? background : { ...background, stops: next };
 };
