@@ -36,8 +36,11 @@ export interface LayoutOptions {
   // Wrap width; null lays every paragraph out on one line
   width: number | null;
   align: TextAlign;
-  // Multiple of the largest font size on each line
+  // Multiple of each run's font size, as CSS line-height
   lineHeight: number;
+  // The text's own style, which every line makes room for even where its
+  // runs are smaller (CSS's strut)
+  strut?: TextStyle;
 }
 
 // A stretch of one line in one style
@@ -194,8 +197,11 @@ interface OpenLine<S extends TextStyle> {
   style: S | undefined;
 }
 
-// Each line is as tall as its largest font, with the baseline placed the way
-// Konva places it for one font: centred by the font's box
+// Lines stack like CSS line boxes, so the canvas and the typing surface
+// agree: each run is lineHeight × its size tall with its font's box centred
+// in that, the baselines line up, and the line reaches from the highest of
+// them to the lowest. With one font this is exactly where Konva's Text
+// puts the baseline.
 const placeLines = <S extends TextStyle>(
   lines: readonly OpenLine<S>[],
   options: LayoutOptions,
@@ -204,22 +210,25 @@ const placeLines = <S extends TextStyle>(
   let top = 0;
   let textWidth = 0;
   const placed = lines.map(({ pieces, width, offset, style }) => {
-    const styles = pieces.length > 0 ? pieces.map((piece) => piece.style) : [];
+    const styles: TextStyle[] =
+      pieces.length > 0 ? pieces.map((piece) => piece.style) : [];
     if (styles.length === 0 && style) {
       styles.push(style);
     }
-    let fontSize = 0;
-    let ascent = 0;
-    let descent = 0;
+    if (options.strut) {
+      styles.push(options.strut);
+    }
+    let above = 0;
+    let below = 0;
     for (const item of styles) {
       const box = measure.fontBox(item);
-      fontSize = Math.max(fontSize, item.fontSize);
-      ascent = Math.max(ascent, box.ascent);
-      descent = Math.max(descent, box.descent);
+      const half = (options.lineHeight * item.fontSize) / 2;
+      above = Math.max(above, half + (box.ascent - box.descent) / 2);
+      below = Math.max(below, half - (box.ascent - box.descent) / 2);
     }
-    const height = options.lineHeight * fontSize;
+    const height = above + below;
     const line: LaidOutLine<S> = {
-      baseline: top + (ascent - descent) / 2 + height / 2,
+      baseline: top + above,
       height,
       offset,
       pieces,

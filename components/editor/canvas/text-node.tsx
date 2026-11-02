@@ -33,6 +33,7 @@ import { paintWithEffect } from "@/lib/text/effects";
 import { layoutText } from "@/lib/text/layout";
 import type { StyledRun, TextLayout, TextStyle } from "@/lib/text/layout";
 import { styledSegments } from "@/lib/text/marks";
+import type { MarkStyle } from "@/lib/text/marks";
 
 export const displayText = (element: TextElement): string =>
   element.uppercase ? element.text.toUpperCase() : element.text;
@@ -57,6 +58,8 @@ export interface RunStyle extends TextStyle {
 
 export interface TextShapeInput {
   runs: StyledRun<RunStyle>[];
+  // The text's own style: every line makes room for it
+  strut: RunStyle;
   align: TextElement["align"];
   lineHeight: number;
   paint: TextPaint;
@@ -145,7 +148,12 @@ export const textLayoutOf = (node: Konva.Node): TextLayout<RunStyle> => {
   }
   const layout = layoutText(
     input.runs,
-    { align: input.align, lineHeight: input.lineHeight, width },
+    {
+      align: input.align,
+      lineHeight: input.lineHeight,
+      strut: input.strut,
+      width,
+    },
     canvasMeasurer
   );
   layouts.set(node, { input, layout, width });
@@ -233,51 +241,63 @@ export const layoutHighlight = (text: Konva.Node, box: Konva.Node) => {
   });
 };
 
-// The text cut into runs where its marks change its style, and the font
-// faces they draw with. Faces still loading draw in a fallback family.
+// How a stretch of text with some marks' style draws, and the font face it
+// needs. Faces still loading draw in a fallback family.
+const styleFor = (
+  element: TextElement,
+  style: MarkStyle,
+  text: string
+): { request: FontRequest; style: RunStyle } => {
+  const font = getFont(style.fontId ?? element.fontId);
+  const weight = nearestWeight(font, style.weight ?? element.weight);
+  const italic = (style.italic ?? element.italic) && font.italic;
+  const fontSize = element.fontSize * (style.sizeEm ?? 1);
+  const request = { fontId: font.id, italic, text, weight };
+  return {
+    request,
+    style: {
+      fill: style.fill ?? null,
+      font: canvasFont({
+        family: isFontReady(request)
+          ? cssFamily(font)
+          : FALLBACK_FAMILIES[font.category],
+        fontSize,
+        italic,
+        weight,
+      }),
+      fontSize,
+      letterSpacing: element.letterSpacingEm * fontSize,
+      strike: style.strike ?? element.strike,
+      underline: style.underline ?? element.underline,
+    },
+  };
+};
+
+// The text cut into runs where its marks change its style, its own style
+// (which every line makes room for), and the faces they all need
 const runsOf = (
   element: TextElement
-): { runs: StyledRun<RunStyle>[]; fonts: FontRequest[] } => {
+): { fonts: FontRequest[]; runs: StyledRun<RunStyle>[]; strut: RunStyle } => {
+  const own = styleFor(element, {}, "");
+  const fonts: FontRequest[] = [own.request];
   const runs: StyledRun<RunStyle>[] = [];
-  const fonts: FontRequest[] = [];
   for (const segment of styledSegments(element.text, element.marks)) {
-    const font = getFont(segment.style.fontId ?? element.fontId);
-    const weight = nearestWeight(font, segment.style.weight ?? element.weight);
-    const italic = (segment.style.italic ?? element.italic) && font.italic;
-    const fontSize = element.fontSize * (segment.style.sizeEm ?? 1);
     // Per run, since uppercasing can change a string's length
     const text = element.uppercase ? segment.text.toUpperCase() : segment.text;
-    const request = { fontId: font.id, italic, text, weight };
+    const { request, style } = styleFor(element, segment.style, text);
     fonts.push(request);
-    runs.push({
-      style: {
-        fill: segment.style.fill ?? null,
-        font: canvasFont({
-          family: isFontReady(request)
-            ? cssFamily(font)
-            : FALLBACK_FAMILIES[font.category],
-          fontSize,
-          italic,
-          weight,
-        }),
-        fontSize,
-        letterSpacing: element.letterSpacingEm * fontSize,
-        strike: segment.style.strike ?? element.strike,
-        underline: segment.style.underline ?? element.underline,
-      },
-      text,
-    });
+    runs.push({ style, text });
   }
-  return { fonts, runs };
+  return { fonts, runs, strut: own.style };
 };
 
 export const TextNode = ({ element }: { element: TextElement }) => {
   const textRef = useRef<Konva.Shape>(null);
   const highlightRef = useRef<Konva.Rect>(null);
-  const { fonts, runs } = runsOf(element);
+  const { fonts, runs, strut } = runsOf(element);
   useFontsReady(fonts);
   // Stands for the runs, so the input only changes when they do
-  const runsKey = JSON.stringify(runs);
+  const runsKey = JSON.stringify({ runs, strut });
 
   const { fontSize, shadow, stroke } = element;
   // Typing straightens curved text, so the caret lines up with it
@@ -301,7 +321,10 @@ export const TextNode = ({ element }: { element: TextElement }) => {
         stroke: stroke && stroke.widthEm > 0 ? stroke.color : null,
         strokeWidth,
       },
-      runs: JSON.parse(runsKey) as StyledRun<RunStyle>[],
+      ...(JSON.parse(runsKey) as {
+        runs: StyledRun<RunStyle>[];
+        strut: RunStyle;
+      }),
     }),
     [
       curve,
@@ -329,6 +352,7 @@ export const TextNode = ({ element }: { element: TextElement }) => {
       {
         align: input.align,
         lineHeight: input.lineHeight,
+        strut: input.strut,
         width: element.width,
       },
       canvasMeasurer

@@ -131,4 +131,15 @@ describe("layoutText", () => {
     );
     expect(lineTexts(layout)).toEqual(["aaaa bbbb", "cc"]);
   });
+
+  it("stacks mixed sizes like CSS line boxes, with room for the text's own size", () => {
+    const layout = layoutText(
+      [{ style: style(10), text: "small" }],
+      { ...options, strut: style(40), width: null },
+      measure
+    );
+    // The 40px strut sets the line: 60 tall, baseline 30 + (32 - 8) / 2
+    expect(layout.lines[0]?.height).toBe(60);
+    expect(layout.lines[0]?.baseline).toBe(42);
+  });
 });

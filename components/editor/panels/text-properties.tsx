@@ -111,7 +111,16 @@ export const TextProperties = ({ element }: { element: TextElement }) => {
       state.editingTextId === element.id ? state.textSelection : null;
     return selection && selection.end > selection.start ? selection : null;
   });
-  const font = getFont(element.fontId);
+  const shownFontId = styleValue(element, range, "fontId");
+  const shownFont = getFont(
+    typeof shownFontId === "string" ? shownFontId : element.fontId
+  );
+  const sizeEm = styleValue(element, range, "sizeEm");
+  const shownSize = Math.round(
+    element.fontSize * (typeof sizeEm === "number" ? sizeEm : 1)
+  );
+  // Weights and italic follow the font the selection shows
+  const font = shownFont;
   const shownWeight = styleValue(element, range, "weight");
   const weight = nearestWeight(
     font,
@@ -131,13 +140,17 @@ export const TextProperties = ({ element }: { element: TextElement }) => {
       <PanelSection title="Text">
         <TextContentField element={element} />
         <FontPicker
-          value={font}
+          value={shownFont}
           onChange={(next) =>
-            update({
-              fontId: next.id,
-              italic: element.italic && next.italic,
-              weight: nearestWeight(next, element.weight),
-            })
+            update(
+              range
+                ? styleText(element, range, "fontId", next.id)
+                : {
+                    ...styleText(element, null, "fontId", next.id),
+                    italic: element.italic && next.italic,
+                    weight: nearestWeight(next, element.weight),
+                  }
+            )
           }
         />
         <div className="grid grid-cols-2 gap-2">
@@ -165,8 +178,16 @@ export const TextProperties = ({ element }: { element: TextElement }) => {
             label="Size"
             min={1}
             max={4000}
-            value={element.fontSize}
-            onCommit={(fontSize) => update({ fontSize })}
+            value={shownSize}
+            onCommit={(size) =>
+              // Selected words get a size relative to the text's; the whole
+              // text's size keeps words' relative sizes
+              update(
+                range
+                  ? styleText(element, range, "sizeEm", size / element.fontSize)
+                  : { fontSize: size }
+              )
+            }
           />
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2">
