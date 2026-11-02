@@ -77,6 +77,23 @@ describe("editor store", () => {
     expect(page().elements[0]).toMatchObject({ x: rect.x, y: rect.y });
   });
 
+  it("refits the page crop's box to a picked shape", () => {
+    const { store } = setup();
+    store.getState().startPageCrop();
+    store.getState().setPageCropRatio("1:1");
+    expect(store.getState().pageCrop).toEqual({
+      height: 720,
+      width: 720,
+      x: 280,
+      y: 0,
+    });
+    store.getState().setPageCropRatio("free");
+    expect(store.getState().pageCrop?.width).toBe(720);
+    store.getState().finishPageCrop(false);
+    store.getState().startPageCrop();
+    expect(store.getState().pageCropRatio).toBe("free");
+  });
+
   it("makes a whole drag gesture a single undo step", () => {
     const { rect, store } = setup();
     const { begin, change, end, undo } = store.getState();

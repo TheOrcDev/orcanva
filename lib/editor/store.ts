@@ -52,7 +52,8 @@ import {
   undo,
 } from "@/lib/editor/history";
 import type { History } from "@/lib/editor/history";
-import { fullPage } from "@/lib/editor/page-crop";
+import { fitRatio, fullPage, ratioValue } from "@/lib/editor/page-crop";
+import type { PageCropRatio } from "@/lib/editor/page-crop";
 import type { SnapGuide } from "@/lib/editor/snapping";
 import type {
   LiveConfig,
@@ -127,6 +128,8 @@ export interface EditorState {
   // The part of the page a page crop keeps (page coordinates), while the
   // page is cropped. The page only changes when it's applied.
   pageCrop: Rect | null;
+  // The shape the page crop's box keeps
+  pageCropRatio: PageCropRatio;
   // Lines shown while something snaps during a drag
   guides: SnapGuide[];
   // The frame a dragged photo would drop into
@@ -189,6 +192,8 @@ export interface EditorActions {
   finishCrop: (keep: boolean) => void;
   startPageCrop: () => void;
   setPageCrop: (box: Rect) => void;
+  // Locks the box to a shape, refitting it to the page
+  setPageCropRatio: (ratio: PageCropRatio) => void;
   // Crops the page to the box (one undo step), or leaves it as it was
   finishPageCrop: (keep: boolean) => void;
   setGuides: (guides: SnapGuide[]) => void;
@@ -461,6 +466,7 @@ export const createEditorStore = (init: EditorInit) => {
     missingAssetIds: [],
     name: init.name,
     pageCrop: null,
+    pageCropRatio: "free",
     peers: [],
     pending: EMPTY_PENDING,
     pointer: null,
@@ -552,6 +558,18 @@ export const createEditorStore = (init: EditorInit) => {
         state.liveStatus === status ? state : { liveStatus: status }
       ),
     setPageCrop: (box) => set({ pageCrop: box }),
+    setPageCropRatio: (ratio) =>
+      set((state) => {
+        const page = state.doc.document;
+        const value = ratioValue(ratio, page);
+        return {
+          pageCrop:
+            state.pageCrop && value !== null
+              ? fitRatio(state.pageCrop, value, page)
+              : state.pageCrop,
+          pageCropRatio: ratio,
+        };
+      }),
     setPointer: (point) =>
       set((state) => {
         const same =
@@ -613,6 +631,7 @@ export const createEditorStore = (init: EditorInit) => {
       set((state) => ({
         editingTextId: null,
         pageCrop: fullPage(state.doc.document),
+        pageCropRatio: "free",
         selectedIds: [],
       }));
     },

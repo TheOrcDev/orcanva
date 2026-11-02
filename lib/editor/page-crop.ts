@@ -5,6 +5,30 @@ import { MIN_CANVAS_SIZE } from "@/lib/document/schema";
 // in page coordinates and stays inside the page; nothing changes until it's
 // applied (see cropDocument).
 
+// Shapes the box can keep while it's resized
+export const PAGE_CROP_RATIOS = [
+  { label: "Free", value: "free" },
+  { label: "Original", value: "original" },
+  { label: "1:1", value: "1:1" },
+  { label: "4:5", value: "4:5" },
+  { label: "16:9", value: "16:9" },
+  { label: "9:16", value: "9:16" },
+] as const;
+
+export type PageCropRatio = (typeof PAGE_CROP_RATIOS)[number]["value"];
+
+// Width over height, or null when the box is free
+export const ratioValue = (ratio: PageCropRatio, page: Size): number | null => {
+  if (ratio === "free") {
+    return null;
+  }
+  if (ratio === "original") {
+    return page.width / page.height;
+  }
+  const [width = 1, height = 1] = ratio.split(":").map(Number);
+  return width / height;
+};
+
 export const fullPage = (page: Size): Rect => ({
   height: page.height,
   width: page.width,
@@ -47,21 +71,57 @@ export const keepBoxInPage = (box: Rect, page: Size): Point => ({
   y: clamp(box.y, 0, page.height - box.height),
 });
 
+// The biggest box of a ratio that fits the page, centred where the box was
+export const fitRatio = (box: Rect, ratio: number, page: Size): Rect => {
+  const width = Math.min(page.width, page.height * ratio);
+  const height = width / ratio;
+  const centred = {
+    height,
+    width,
+    x: box.x + box.width / 2 - width / 2,
+    y: box.y + box.height / 2 - height / 2,
+  };
+  return { ...centred, ...keepBoxInPage(centred, page) };
+};
+
+// Pulled corners keep the ratio: the box shrinks to it, at least `min` on
+// both sides, and the corner opposite the handle stays put
+const keepRatio = (
+  box: Rect,
+  anchor: string,
+  ratio: number,
+  min: number
+): Rect => {
+  const tall = box.width / box.height < ratio;
+  const minWidth = Math.max(min, min * ratio);
+  const width = Math.max(minWidth, tall ? box.width : box.height * ratio);
+  const height = width / ratio;
+  return {
+    height,
+    width,
+    x: anchor.includes("left") ? box.x + box.width - width : box.x,
+    y: anchor.includes("top") ? box.y + box.height - height : box.y,
+  };
+};
+
 // A handle (Konva's anchor names, e.g. "top-left" or "middle-right") moved
 // the box from `previous` to `next`: the sides it pulls stay inside the
-// page and at least `min` from the opposite side, which stays put
+// page and at least `min` from the opposite side, which stays put. With a
+// ratio, only corners resize the box.
 export const limitCropBox = ({
   anchor,
   min,
   next,
   page,
   previous,
+  ratio,
 }: {
   anchor: string;
   min: number;
   next: Rect;
   page: Size;
   previous: Rect;
+  ratio: number | null;
 }): Rect => {
   let left = previous.x;
   let right = previous.x + previous.width;
@@ -79,5 +139,11 @@ export const limitCropBox = ({
   if (anchor.includes("bottom")) {
     bottom = clamp(next.y + next.height, top + min, page.height);
   }
-  return { height: bottom - top, width: right - left, x: left, y: top };
+  const limited = {
+    height: bottom - top,
+    width: right - left,
+    x: left,
+    y: top,
+  };
+  return ratio === null ? limited : keepRatio(limited, anchor, ratio, min);
 };

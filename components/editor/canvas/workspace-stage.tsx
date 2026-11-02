@@ -56,6 +56,7 @@ import {
   BACKGROUND_NODE_NAME,
   ELEMENT_NODE_NAME,
 } from "@/lib/editor/node-names";
+import { ratioValue } from "@/lib/editor/page-crop";
 import { toggleUnit } from "@/lib/editor/selection";
 import { MAX_ZOOM, MIN_ZOOM, selectDocument } from "@/lib/editor/store";
 
@@ -169,6 +170,7 @@ export const WorkspaceStage = () => {
   const cropTargetId = useEditor((state) => state.cropTargetId);
   const dropTargetId = useEditor((state) => state.dropTargetId);
   const pageCrop = useEditor((state) => state.pageCrop);
+  const pageCropRatio = useEditor((state) => state.pageCropRatio);
 
   const { height: pageHeight, width: pageWidth } = document;
 
@@ -556,6 +558,7 @@ export const WorkspaceStage = () => {
                 <PageCropOverlay
                   box={pageCrop}
                   page={{ height: pageHeight, width: pageWidth }}
+                  ratio={ratioValue(pageCropRatio, document)}
                   zoom={zoom}
                 />
               </Group>

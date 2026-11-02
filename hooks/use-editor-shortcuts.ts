@@ -40,7 +40,7 @@ export const isTypingTarget = (target: EventTarget | null): boolean =>
 const POPUP_SELECTOR =
   '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]';
 
-const isInsidePopup = (target: EventTarget | null): boolean =>
+export const isInsidePopup = (target: EventTarget | null): boolean =>
   target instanceof Element && target.closest(POPUP_SELECTOR) !== null;
 
 const editableSelection = (store: EditorStoreApi): string[] => {

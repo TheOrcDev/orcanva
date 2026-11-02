@@ -6,7 +6,7 @@ import { Group, Rect, Shape, Transformer } from "react-konva";
 
 import { CROP_UI_NAME } from "@/components/editor/canvas/crop-overlay";
 import { useEditorStoreApi } from "@/components/editor/editor-store-context";
-import { isTypingTarget } from "@/hooks/use-editor-shortcuts";
+import { isInsidePopup, isTypingTarget } from "@/hooks/use-editor-shortcuts";
 import type { Point, Rect as Box, Size } from "@/lib/document/geometry";
 import { MIN_CANVAS_SIZE } from "@/lib/document/schema";
 import { keepBoxInPage, limitCropBox } from "@/lib/editor/page-crop";
@@ -20,6 +20,7 @@ const GRID_SHADOW = "rgba(15, 23, 42, 0.3)";
 const MIN_BOX_SCREEN = 24;
 const THIRDS = [1 / 3, 2 / 3];
 
+const CORNER_ANCHORS = ["top-left", "top-right", "bottom-left", "bottom-right"];
 const ALL_ANCHORS = [
   "top-left",
   "top-center",
@@ -30,6 +31,13 @@ const ALL_ANCHORS = [
   "bottom-center",
   "bottom-right",
 ];
+
+// Keys meant for a field, a menu or the crop's own toolbar (focus stays on
+// the panel's Crop button, so Enter there still applies the crop)
+const isForControl = (target: EventTarget | null): boolean =>
+  isTypingTarget(target) ||
+  isInsidePopup(target) ||
+  (target instanceof Element && target.closest('[role="toolbar"]') !== null);
 
 // A box as Konva's Transformer measures it, in stage pixels
 interface StageBox extends Box {
@@ -43,10 +51,13 @@ interface StageBox extends Box {
 export const PageCropOverlay = ({
   box,
   page,
+  ratio,
   zoom,
 }: {
   box: Box;
   page: Size;
+  // Width over height the box keeps, or null when it's free
+  ratio: number | null;
   zoom: number;
 }) => {
   const store = useEditorStoreApi();
@@ -69,7 +80,7 @@ export const PageCropOverlay = ({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
         (event.key !== "Enter" && event.key !== "Escape") ||
-        isTypingTarget(event.target)
+        isForControl(event.target)
       ) {
         return;
       }
@@ -115,6 +126,7 @@ export const PageCropOverlay = ({
       next: inPage(next),
       page,
       previous: inPage(previous),
+      ratio,
     });
     return {
       ...next,
@@ -201,10 +213,12 @@ export const PageCropOverlay = ({
         anchorStroke={ACCENT}
         borderStroke={ACCENT}
         boundBoxFunc={boundResize}
-        enabledAnchors={ALL_ANCHORS}
+        // A locked shape resizes from its corners, and Shift can't free it
+        enabledAnchors={ratio === null ? ALL_ANCHORS : CORNER_ANCHORS}
         flipEnabled={false}
         ignoreStroke
-        keepRatio={false}
+        keepRatio={ratio !== null}
+        shiftBehavior={ratio === null ? "default" : "none"}
         rotateEnabled={false}
       />
     </>
