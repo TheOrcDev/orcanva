@@ -1,5 +1,7 @@
 "use client";
 
+import { RiCropLine } from "@remixicon/react";
+
 import {
   useEditor,
   useEditorStoreApi,
@@ -12,6 +14,7 @@ import {
 } from "@/components/editor/panels/gradient-fields";
 import { PanelSection } from "@/components/editor/panels/panel-section";
 import { ResizeCanvasDialog } from "@/components/editor/resize-canvas-dialog";
+import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { DEFAULT_BACKGROUND_COLOR } from "@/lib/document/factories";
 import type { Background } from "@/lib/document/schema";
@@ -56,7 +59,22 @@ export const PageProperties = () => {
 
   return (
     <>
-      <PanelSection title="Canvas" action={<ResizeCanvasDialog />}>
+      <PanelSection
+        title="Canvas"
+        action={
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => store.getState().startPageCrop()}
+            >
+              <RiCropLine data-icon="inline-start" />
+              Crop
+            </Button>
+            <ResizeCanvasDialog />
+          </div>
+        }
+      >
         <p className="text-sm tabular-nums">
           {formatSize(document.width, document.height)} px
         </p>

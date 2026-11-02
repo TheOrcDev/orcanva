@@ -207,7 +207,8 @@ export const useEditorShortcuts = () => {
         isTypingTarget(event.target) ||
         isInsidePopup(event.target) ||
         store.getState().editingTextId ||
-        store.getState().cropTargetId
+        store.getState().cropTargetId ||
+        store.getState().pageCrop
       ) {
         return;
       }

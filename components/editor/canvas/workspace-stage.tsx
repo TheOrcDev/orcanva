@@ -14,6 +14,7 @@ import {
 } from "@/components/editor/canvas/element-node";
 import type { LiveCrop } from "@/components/editor/canvas/element-node";
 import { LineHandles } from "@/components/editor/canvas/line-handles";
+import { PageCropOverlay } from "@/components/editor/canvas/page-crop-overlay";
 import { RemoteSelections } from "@/components/editor/canvas/remote-selections";
 import { SelectionOutline } from "@/components/editor/canvas/selection-outline";
 import { SelectionTransformer } from "@/components/editor/canvas/selection-transformer";
@@ -28,6 +29,7 @@ import {
   useEditor,
   useEditorStoreApi,
 } from "@/components/editor/editor-store-context";
+import { PageCropToolbar } from "@/components/editor/page-crop-toolbar";
 import { Spinner } from "@/components/ui/spinner";
 import { useElementDrag } from "@/hooks/use-element-drag";
 import { useSelectionBox } from "@/hooks/use-selection-box";
@@ -166,6 +168,7 @@ export const WorkspaceStage = () => {
   const editingTextId = useEditor((state) => state.editingTextId);
   const cropTargetId = useEditor((state) => state.cropTargetId);
   const dropTargetId = useEditor((state) => state.dropTargetId);
+  const pageCrop = useEditor((state) => state.pageCrop);
 
   const { height: pageHeight, width: pageWidth } = document;
 
@@ -211,6 +214,13 @@ export const WorkspaceStage = () => {
       store.getState().finishCrop(true);
     }
   }, [cropTargetId, document, store]);
+
+  // Selecting something (e.g. in Layers) applies a page crop
+  useEffect(() => {
+    if (pageCrop && selectedIds.length > 0) {
+      store.getState().finishPageCrop(true);
+    }
+  }, [pageCrop, selectedIds, store]);
 
   // Fit mode always centers the page; pan only applies after manual zoom/pan
   const effectivePan = zoomMode === "fit" ? { x: 0, y: 0 } : pan;
@@ -314,8 +324,9 @@ export const WorkspaceStage = () => {
     const stage = event.target.getStage();
     recordPress(stage?.getPointerPosition() ?? null);
     // Pressing anything but the crop tools keeps the crop and carries on
-    if (store.getState().cropTargetId && !isCropUi(event.target)) {
+    if (!isCropUi(event.target)) {
       store.getState().finishCrop(true);
+      store.getState().finishPageCrop(true);
     }
     // Pressing the canvas ends typing (the text itself sits under the
     // typing surface, which takes those presses)
@@ -473,6 +484,7 @@ export const WorkspaceStage = () => {
     >
       <WorkspaceOverlays />
       {cropping ? <CropToolbar element={cropping} /> : null}
+      {pageCrop ? <PageCropToolbar box={pageCrop} /> : null}
       <RemoteCursors origin={origin} zoom={zoom} />
       {viewport.width > 0 && viewport.height > 0 ? (
         <Stage
@@ -537,6 +549,15 @@ export const WorkspaceStage = () => {
             {cropping ? (
               <Group x={origin.x} y={origin.y} scaleX={zoom} scaleY={zoom}>
                 <CropOverlay key={cropping.id} element={cropping} zoom={zoom} />
+              </Group>
+            ) : null}
+            {pageCrop ? (
+              <Group x={origin.x} y={origin.y} scaleX={zoom} scaleY={zoom}>
+                <PageCropOverlay
+                  box={pageCrop}
+                  page={{ height: pageHeight, width: pageWidth }}
+                  zoom={zoom}
+                />
               </Group>
             ) : null}
             <RemoteSelections />

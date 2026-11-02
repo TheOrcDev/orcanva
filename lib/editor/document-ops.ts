@@ -1,12 +1,13 @@
 import { refitFrameCrop } from "@/lib/document/crop";
 import { duplicateElement } from "@/lib/document/factories";
-import type { Size } from "@/lib/document/geometry";
+import type { Rect, Size } from "@/lib/document/geometry";
 import type {
   Background,
   DesignDocument,
   DesignElement,
 } from "@/lib/document/schema";
 import { regroupCopies } from "@/lib/editor/groups";
+import { isFullPage, wholeBox } from "@/lib/editor/page-crop";
 
 type DistributivePartial<T> = T extends unknown
   ? Partial<Omit<T, "id" | "type">>
@@ -303,5 +304,30 @@ export const resizeDocument = (
       : document.elements,
     height: size.height,
     width: size.width,
+  };
+};
+
+// Keeps part of the page as the whole page: everything moves with it, so
+// nothing shifts on screen. Elements left outside stay, off the page.
+export const cropDocument = (
+  document: DesignDocument,
+  box: Rect
+): DesignDocument => {
+  const area = wholeBox(box, document);
+  if (isFullPage(area, document)) {
+    return document;
+  }
+  const moved = area.x !== 0 || area.y !== 0;
+  return {
+    ...document,
+    elements: moved
+      ? document.elements.map((element) => ({
+          ...element,
+          x: element.x - area.x,
+          y: element.y - area.y,
+        }))
+      : document.elements,
+    height: area.height,
+    width: area.width,
   };
 };

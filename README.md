@@ -3,6 +3,7 @@
 A free and open-source, Canva-style editor for YouTube thumbnails and social images.
 
 - Pick a canvas size (YouTube thumbnail, Full HD, 4K, square, story, … or custom)
+- **Crop the page**: press Crop next to Resize and drag the box (or its handles) over the part to keep; everything stays where it is on screen, and anything left outside stays in Layers, off the page
 - Upload images (button, drag from the desktop, or paste a screenshot) and move, scale, rotate, and flip them
 - **Crop** photos: drag a side handle to crop that side, or double-click one (or press Crop) to drag the frame's handles, slide the photo under it and zoom; Enter keeps it, Esc puts it back
 - **Frames**: circles, stars, hearts and more from the Shapes tab; drop a photo on one (or drag an image onto it) to fill it, double-click to move or zoom it inside, and resizing keeps the photo covering the frame
@@ -143,6 +144,7 @@ Uses [BEN2](https://huggingface.co/onnx-community/BEN2-ONNX), whose weights are 
 | ⌘] / ⌘[ (⇧ for front/back) | Bring forward / send backward |
 | Enter or double-click | Edit selected text |
 | Double-click an image | Crop it (Enter keeps the crop, Esc cancels) |
+| Enter / Esc while cropping the page | Crop to the box / leave the page as it was |
 | ⌘B / ⌘I / ⌘U while typing | Bold, italic or underline the selected words |
 | Shift while resizing | Shapes: keep ratio (photos always keep theirs; their side handles crop) |
 | ⌘ while dragging | Place freely, without snapping |

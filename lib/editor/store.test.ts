@@ -51,6 +51,32 @@ describe("editor store", () => {
     expect(x()).toBe(rect.x);
   });
 
+  it("crops the page in one undo step, or not at all when cancelled", () => {
+    const { rect, store } = setup();
+    const page = () => selectDocument(store.getState());
+    store.getState().select([rect.id]);
+
+    store.getState().startPageCrop();
+    expect(store.getState().selectedIds).toEqual([]);
+    expect(store.getState().pageCrop).toEqual({ ...PAGE, x: 0, y: 0 });
+    store.getState().setPageCrop({ height: 300, width: 400, x: 10, y: 20 });
+    store.getState().finishPageCrop(false);
+    expect(store.getState().pageCrop).toBeNull();
+    expect(page().width).toBe(PAGE.width);
+
+    store.getState().startPageCrop();
+    store.getState().setPageCrop({ height: 300, width: 400, x: 10, y: 20 });
+    store.getState().finishPageCrop(true);
+    expect(page()).toMatchObject({ height: 300, width: 400 });
+    expect(page().elements[0]).toMatchObject({
+      x: rect.x - 10,
+      y: rect.y - 20,
+    });
+    store.getState().undo();
+    expect(page()).toMatchObject(PAGE);
+    expect(page().elements[0]).toMatchObject({ x: rect.x, y: rect.y });
+  });
+
   it("makes a whole drag gesture a single undo step", () => {
     const { rect, store } = setup();
     const { begin, change, end, undo } = store.getState();

@@ -39,7 +39,9 @@ import type {
   SyncedState,
 } from "@/lib/collab/sync-state";
 import { createId } from "@/lib/document/factories";
+import type { Rect } from "@/lib/document/geometry";
 import type { DesignDocument } from "@/lib/document/schema";
+import { cropDocument } from "@/lib/editor/document-ops";
 import {
   beginTransaction,
   cancelTransaction,
@@ -50,6 +52,7 @@ import {
   undo,
 } from "@/lib/editor/history";
 import type { History } from "@/lib/editor/history";
+import { fullPage } from "@/lib/editor/page-crop";
 import type { SnapGuide } from "@/lib/editor/snapping";
 import type {
   LiveConfig,
@@ -121,6 +124,9 @@ export interface EditorState {
   // The image being cropped (one undo step from start to finish). The
   // workspace finishes the crop if someone deletes the image meanwhile.
   cropTargetId: string | null;
+  // The part of the page a page crop keeps (page coordinates), while the
+  // page is cropped. The page only changes when it's applied.
+  pageCrop: Rect | null;
   // Lines shown while something snaps during a drag
   guides: SnapGuide[];
   // The frame a dragged photo would drop into
@@ -181,6 +187,10 @@ export interface EditorActions {
   startCrop: (id: string) => void;
   // Keeps the crop, or puts the image back as it was
   finishCrop: (keep: boolean) => void;
+  startPageCrop: () => void;
+  setPageCrop: (box: Rect) => void;
+  // Crops the page to the box (one undo step), or leaves it as it was
+  finishPageCrop: (keep: boolean) => void;
   setGuides: (guides: SnapGuide[]) => void;
   setDropTarget: (id: string | null) => void;
   setZoom: (zoom: number) => void;
@@ -422,6 +432,17 @@ export const createEditorStore = (init: EditorInit) => {
       set({ cropTargetId: null });
       get().release([id]);
     },
+    finishPageCrop: (keep) => {
+      const box = get().pageCrop;
+      if (!box) {
+        return;
+      }
+      set({ pageCrop: null });
+      if (keep) {
+        get().change((document) => cropDocument(document, box));
+        get().zoomToFit();
+      }
+    },
     guides: [],
     held: new Set(),
     history: createHistory(),
@@ -439,6 +460,7 @@ export const createEditorStore = (init: EditorInit) => {
       }),
     missingAssetIds: [],
     name: init.name,
+    pageCrop: null,
     peers: [],
     pending: EMPTY_PENDING,
     pointer: null,
@@ -529,6 +551,7 @@ export const createEditorStore = (init: EditorInit) => {
       set((state) =>
         state.liveStatus === status ? state : { liveStatus: status }
       ),
+    setPageCrop: (box) => set({ pageCrop: box }),
     setPointer: (point) =>
       set((state) => {
         const same =
@@ -585,6 +608,14 @@ export const createEditorStore = (init: EditorInit) => {
         history: beginTransaction(state.history),
         selectedIds: [id],
       })),
+    startPageCrop: () => {
+      get().finishCrop(true);
+      set((state) => ({
+        editingTextId: null,
+        pageCrop: fullPage(state.doc.document),
+        selectedIds: [],
+      }));
+    },
     synced: syncedFromDocument(doc, init.name),
     textSelection: null,
     undo: () =>
