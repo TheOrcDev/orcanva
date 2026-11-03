@@ -201,6 +201,9 @@ export interface EditorState {
   openThreadId: string | null;
   // A new thread being written, and where its pin goes
   draftPin: CommentPin | null;
+  // Asks the workspace to bring a thread's pin into view; `seq` counts the
+  // asks, so asking again for the same thread pans again
+  focusRequest: { threadId: string; seq: number } | null;
 }
 
 export interface EditorActions {
@@ -295,6 +298,10 @@ export interface EditorActions {
   // A comment this window posted or changed, shown before the live query
   // brings it
   upsertComment: (comment: DesignComment) => void;
+  // A comment this window deleted (a thread takes its replies with it)
+  removeComment: (id: string) => void;
+  // Opens a thread and brings its pin into view (the Comments tab, a link)
+  focusThread: (id: string) => void;
 }
 
 export type EditorStore = EditorState & EditorActions;
@@ -597,6 +604,13 @@ export const createEditorStore = (init: EditorInit) => {
     },
     flushThumbnail: null,
     flushWrites: null,
+    focusRequest: null,
+    focusThread: (id) =>
+      set((state) => ({
+        draftPin: null,
+        focusRequest: { seq: (state.focusRequest?.seq ?? 0) + 1, threadId: id },
+        openThreadId: id,
+      })),
     guides: [],
     held: new Set(),
     history: createHistory(),
@@ -701,6 +715,19 @@ export const createEditorStore = (init: EditorInit) => {
           held,
         };
       }),
+    removeComment: (id) =>
+      set((state) => ({
+        // Its replies went with it, waiting ones included
+        commentEchoes: new Map(
+          [...state.commentEchoes].filter(
+            ([, echo]) => echo.comment?.threadId !== id
+          )
+        ).set(id, { at: Date.now(), comment: null }),
+        comments: state.comments.filter(
+          (comment) => comment.id !== id && comment.threadId !== id
+        ),
+        openThreadId: state.openThreadId === id ? null : state.openThreadId,
+      })),
     rename: (name) =>
       set((state) =>
         state.outdated

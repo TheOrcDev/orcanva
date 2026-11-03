@@ -6,6 +6,8 @@ import type { FormEvent, KeyboardEvent, RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { encodeMentions } from "@/lib/comments/body";
+import type { ComposerMention } from "@/lib/comments/body";
 import { MAX_COMMENT_LENGTH } from "@/lib/comments/limits";
 
 // Shows how much is left once a comment gets this close to the limit
@@ -16,8 +18,11 @@ interface ComposerProps {
   label: string;
   placeholder: string;
   submitLabel: string;
-  initialText?: string;
-  // Sends the text; resolves true once it's stored, so the box empties
+  // A comment being edited: its text with "@Name"s, and who they are
+  initial?: { text: string; mentions: ComposerMention[] };
+  autoFocus?: boolean;
+  // Sends the body (mentions as tokens); resolves true once it's stored,
+  // so the box empties
   onSubmit: (body: string) => Promise<boolean>;
   onCancel?: () => void;
   textareaRef?: RefObject<HTMLTextAreaElement | null>;
@@ -29,13 +34,18 @@ export const Composer = ({
   label,
   placeholder,
   submitLabel,
-  initialText = "",
+  initial,
+  autoFocus = false,
   onSubmit,
   onCancel,
   textareaRef,
 }: ComposerProps) => {
   const id = useId();
-  const [text, setText] = useState(initialText);
+  const [text, setText] = useState(initial?.text ?? "");
+  // People picked for "@Name"s in the text
+  const [mentions, setMentions] = useState<ComposerMention[]>(
+    initial?.mentions ?? []
+  );
   const [sending, setSending] = useState(false);
   const empty = text.trim() === "";
 
@@ -44,10 +54,11 @@ export const Composer = ({
       return;
     }
     setSending(true);
-    const sent = await onSubmit(text);
+    const sent = await onSubmit(encodeMentions(text, mentions));
     setSending(false);
     if (sent) {
       setText("");
+      setMentions([]);
     }
   };
 
@@ -75,6 +86,9 @@ export const Composer = ({
       <Textarea
         ref={textareaRef}
         id={id}
+        // Only when the person asked for it (Edit), never on page load
+        // oxlint-disable-next-line jsx-a11y/no-autofocus
+        autoFocus={autoFocus}
         value={text}
         placeholder={placeholder}
         maxLength={MAX_COMMENT_LENGTH}

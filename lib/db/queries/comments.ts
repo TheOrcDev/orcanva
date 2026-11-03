@@ -11,7 +11,7 @@ import {
 import { COMMENT_COLUMNS, commentFromRow } from "@/lib/comments/live-rows";
 import type { CommentPin, DesignComment } from "@/lib/comments/schema";
 import { getDb } from "@/lib/db/client";
-import { visibleTo } from "@/lib/db/queries/designs";
+import { sharedWith, visibleTo } from "@/lib/db/queries/designs";
 
 // Comments are raw SQL, like the save statement: each write is one
 // statement that checks access on the design row itself (visibleTo, with
@@ -153,4 +153,103 @@ export const postComment = async ({
   }
   // The account is gone
   return { status: "not-found" };
+};
+
+// The design the comment is on, when the viewer may open it and `rule`
+// holds (raw SQL about the unaliased `designs`, and the comment row being
+// changed as `design_comments`)
+const onVisibleDesign = (
+  designId: string,
+  viewerId: string,
+  rule: SQL
+): SQL => sql`
+  design_comments.design_id = ${designId}::uuid
+  AND EXISTS (
+    SELECT 1 FROM designs
+    WHERE designs.id = ${designId}::uuid AND ${visibleTo(viewerId)} AND ${rule}
+  )`;
+
+const changedComment = (rows: readonly unknown[]): DesignComment | null => {
+  const [row] = rows;
+  return row ? commentFromRow(row) : null;
+};
+
+// New text for a comment, by its author (canEditComment). Null when there's
+// no such comment for them.
+export const editComment = async ({
+  body,
+  commentId,
+  designId,
+  viewerId,
+}: {
+  body: string;
+  commentId: string;
+  designId: string;
+  viewerId: string;
+}): Promise<DesignComment | null> => {
+  const result = await getDb().execute(sql`
+    UPDATE design_comments SET body = ${body}, edited_at = now()
+    WHERE design_comments.id = ${commentId}::uuid
+      AND design_comments.author_id = ${viewerId}::uuid
+      AND ${onVisibleDesign(designId, viewerId, sql`true`)}
+    RETURNING ${columns}
+  `);
+  return changedComment(result.rows);
+};
+
+// Resolves or reopens a thread (canResolveThread: the owner, people it's
+// shared with, and whoever started it). Resolving one again keeps when it
+// was first resolved. Null when there's no such thread for them.
+export const resolveThread = async ({
+  designId,
+  resolved,
+  threadId,
+  viewerId,
+}: {
+  designId: string;
+  resolved: boolean;
+  threadId: string;
+  viewerId: string;
+}): Promise<DesignComment | null> => {
+  const result = await getDb().execute(sql`
+    UPDATE design_comments SET
+      resolved_at = CASE WHEN ${resolved} THEN COALESCE(resolved_at, now()) END,
+      resolved_by = CASE WHEN ${resolved}
+        THEN (SELECT id FROM neon_auth."user" WHERE id = ${viewerId}::uuid)
+      END
+    WHERE design_comments.id = ${threadId}::uuid
+      AND design_comments.thread_id IS NULL
+      AND ${onVisibleDesign(
+        designId,
+        viewerId,
+        sql`(designs.owner_id = ${viewerId}::uuid OR ${sharedWith(viewerId)} OR design_comments.author_id = ${viewerId}::uuid)`
+      )}
+    RETURNING ${columns}
+  `);
+  return changedComment(result.rows);
+};
+
+// Deletes a comment, by its author or the design's owner
+// (canDeleteComment); a thread's replies go with it. False when there's no
+// such comment for them.
+export const deleteComment = async ({
+  commentId,
+  designId,
+  viewerId,
+}: {
+  commentId: string;
+  designId: string;
+  viewerId: string;
+}): Promise<boolean> => {
+  const result = await getDb().execute(sql`
+    DELETE FROM design_comments
+    WHERE design_comments.id = ${commentId}::uuid
+      AND ${onVisibleDesign(
+        designId,
+        viewerId,
+        sql`(design_comments.author_id = ${viewerId}::uuid OR designs.owner_id = ${viewerId}::uuid)`
+      )}
+    RETURNING design_comments.id
+  `);
+  return result.rows.length > 0;
 };

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  RiChat3Line,
   RiEmotionLine,
   RiImageLine,
   RiLayoutMasonryLine,
@@ -11,6 +12,10 @@ import {
 import type { RemixiconComponentType } from "@remixicon/react";
 import type { ReactNode } from "react";
 
+import {
+  CommentsPanel,
+  OpenCommentCount,
+} from "@/components/editor/comments/comments-panel";
 import { GraphicsPanel } from "@/components/editor/panels/graphics-panel";
 import { LayersPanel } from "@/components/editor/panels/layers-panel";
 import { ShapesPanel } from "@/components/editor/panels/shapes-panel";
@@ -25,6 +30,8 @@ interface SidebarTab {
   label: string;
   icon: RemixiconComponentType;
   panel: ReactNode;
+  // Shown on the tab, e.g. how many comments are open
+  badge?: ReactNode;
 }
 
 const TABS: SidebarTab[] = [
@@ -64,6 +71,13 @@ const TABS: SidebarTab[] = [
     panel: <LayersPanel />,
     value: "layers",
   },
+  {
+    badge: <OpenCommentCount />,
+    icon: RiChat3Line,
+    label: "Comments",
+    panel: <CommentsPanel />,
+    value: "comments",
+  },
 ];
 
 export const EditorSidebar = () => (
@@ -76,11 +90,12 @@ export const EditorSidebar = () => (
             <TabsTrigger
               key={tab.value}
               value={tab.value}
-              className="flex-col"
+              className="relative flex-col"
               aria-label={tab.label}
             >
               <tab.icon />
               <span className="text-xs">{tab.label}</span>
+              {tab.badge}
             </TabsTrigger>
           ))}
         </TabsList>

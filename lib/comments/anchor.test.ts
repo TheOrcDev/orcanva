@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { anchorFor, pinPoint } from "@/lib/comments/anchor";
+import { anchorFor, elementSpot, pinPoint } from "@/lib/comments/anchor";
 import type { PinSource } from "@/lib/comments/anchor";
 import {
   createBoxElement,
@@ -131,5 +131,34 @@ describe("pins whose element is gone", () => {
         undefined
       )
     ).toEqual({ state: "page", x: 12, y: 34 });
+  });
+});
+
+describe("elementSpot", () => {
+  it("finds the middle of a box, turned with it", () => {
+    close(elementSpot(rect()), 200, 100);
+    close(elementSpot(rect({ rotation: 90 })), 50, 150);
+  });
+
+  it("finds a line's midpoint", () => {
+    const line = {
+      ...createLinearElement("line", PAGE),
+      points: [0, 0, 100, 50],
+      x: 10,
+      y: 10,
+    } as DesignElement;
+    close(elementSpot(line), 60, 35);
+  });
+
+  it("gives a spot a pin can stay on", () => {
+    const element = rect({ rotation: 30 });
+    const spot = elementSpot(element);
+    const anchor = anchorFor(element, spot);
+    expect(anchor).not.toBeNull();
+    close(
+      pinPoint({ ...anchor, ...spot } as PinSource, element),
+      spot.x,
+      spot.y
+    );
   });
 });

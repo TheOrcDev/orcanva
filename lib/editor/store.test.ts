@@ -589,4 +589,31 @@ describe("comments in the editor store", () => {
     store.getState().applyLiveComments([liveRow("a")]);
     expect(store.getState().openThreadId).toBeNull();
   });
+
+  it("removes a deleted thread with its replies, and keeps it gone", () => {
+    const { store } = setup();
+    store.getState().upsertComment(comment("a"));
+    store.getState().upsertComment(comment("r", { threadId: "a" }));
+    store.getState().upsertComment(comment("b"));
+    store.getState().openThread("a");
+    store.getState().removeComment("a");
+    expect(store.getState().comments.map((item) => item.id)).toEqual(["b"]);
+    expect(store.getState().openThreadId).toBeNull();
+    // A live result from before the delete doesn't bring it back
+    store.getState().applyLiveComments([liveRow("a"), liveRow("b")]);
+    expect(store.getState().comments.map((item) => item.id)).toEqual(["b"]);
+  });
+
+  it("opens a thread and asks to bring it into view, every time", () => {
+    const { store } = setup();
+    store.getState().placeDraft(PIN);
+    store.getState().focusThread("a");
+    expect(store.getState()).toMatchObject({
+      draftPin: null,
+      focusRequest: { seq: 1, threadId: "a" },
+      openThreadId: "a",
+    });
+    store.getState().focusThread("a");
+    expect(store.getState().focusRequest).toEqual({ seq: 2, threadId: "a" });
+  });
 });

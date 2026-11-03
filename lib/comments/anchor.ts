@@ -170,3 +170,19 @@ export const pinPoint = (
   const local = rotate(anchorLocal(anchor, element), element.rotation);
   return { state: "element", x: element.x + local.x, y: element.y + local.y };
 };
+
+// A spot on the element for a comment placed without a click (the Comments
+// tab's New comment): a box's centre, the middle of text's first line
+// height (text has no stored height), a line's midpoint. Page coordinates.
+export const elementSpot = (element: DesignElement): Point => {
+  if (isLinear(element)) {
+    const [x1, y1, x2, y2] = element.points;
+    return { x: element.x + (x1 + x2) / 2, y: element.y + (y1 + y2) / 2 };
+  }
+  const { height, width } = anchorSize(element);
+  const local = rotate(
+    { x: width / 2, y: height === null ? 0 : height / 2 },
+    element.rotation
+  );
+  return { x: element.x + local.x, y: element.y + local.y };
+};

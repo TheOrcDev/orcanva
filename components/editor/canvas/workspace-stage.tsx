@@ -46,7 +46,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useElementDrag } from "@/hooks/use-element-drag";
 import { useSelectionBox } from "@/hooks/use-selection-box";
 import { useUpload } from "@/hooks/use-upload";
-import { anchorFor } from "@/lib/comments/anchor";
+import { anchorFor, pinPoint } from "@/lib/comments/anchor";
 import { refitFrameCrop } from "@/lib/document/crop";
 import {
   createGraphicElement,
@@ -82,6 +82,10 @@ import { graphicEntrySchema } from "@/lib/graphics/entry";
 import type { GraphicEntry } from "@/lib/graphics/entry";
 
 const PINCH_ZOOM_SPEED = 0.01;
+
+// How close to the workspace's edge a comment pin may be and still count as
+// in view (screen pixels)
+const PIN_VIEW_MARGIN = 80;
 
 const isAcceptedDrag = (event: DragEvent<HTMLDivElement>) =>
   event.dataTransfer.types.includes("Files") ||
@@ -485,6 +489,60 @@ export const WorkspaceStage = () => {
     const element = elementAt(clientX, clientY);
     return element?.type === "frame" && !element.locked ? element.id : null;
   };
+
+  // A thread picked in the Comments tab (or a link to one): bring its pin
+  // into view, centred, unless it already shows
+  const bringPinIntoView = useEffectEvent((threadId: string) => {
+    const state = store.getState();
+    const root = state.comments.find((comment) => comment.id === threadId);
+    if (!root || viewport.width === 0) {
+      return;
+    }
+    const element =
+      root.elementId === null
+        ? undefined
+        : findElement(selectDocument(state), root.elementId);
+    const point = pinPoint(root, element);
+    const screen = {
+      x: origin.x + point.x * zoom,
+      y: origin.y + point.y * zoom,
+    };
+    const margin = PIN_VIEW_MARGIN;
+    const visible =
+      screen.x >= margin &&
+      screen.y >= margin &&
+      screen.x <= viewport.width - margin &&
+      screen.y <= viewport.height - margin;
+    if (visible) {
+      return;
+    }
+    setPan({
+      x:
+        viewport.width / 2 -
+        point.x * zoom -
+        (viewport.width - pageWidth * zoom) / 2,
+      y:
+        viewport.height / 2 -
+        point.y * zoom -
+        (viewport.height - pageHeight * zoom) / 2,
+    });
+    if (zoomMode === "fit") {
+      state.setZoom(zoom);
+    }
+  });
+  // A link's thread needs no panning: the page opens fitted, pins and all
+  useEffect(
+    () =>
+      store.subscribe((state, previous) => {
+        if (
+          state.focusRequest &&
+          state.focusRequest !== previous.focusRequest
+        ) {
+          bringPinIntoView(state.focusRequest.threadId);
+        }
+      }),
+    [store]
+  );
 
   // Comment mode: a click on the page starts a new thread pinned there, on
   // the element under it if there's one (so the pin follows it). The layer

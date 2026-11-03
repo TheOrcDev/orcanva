@@ -1,4 +1,8 @@
-import type { DesignComment, NewComment } from "@/lib/comments/schema";
+import type {
+  CommentPatch,
+  DesignComment,
+  NewComment,
+} from "@/lib/comments/schema";
 
 // The editor's calls to the comment routes (app/api/designs/[id]/comments)
 
@@ -62,4 +66,29 @@ export const postComment = async (
   const response = await send(commentsUrl(designId), jsonBody(comment, "POST"));
   const { comment: stored }: { comment: DesignComment } = await response.json();
   return stored;
+};
+
+const commentUrl = (designId: string, commentId: string) =>
+  `${commentsUrl(designId)}/${commentId}`;
+
+// New text, or resolving and reopening a thread; resolves with the comment
+export const patchComment = async (
+  designId: string,
+  commentId: string,
+  patch: CommentPatch
+): Promise<DesignComment> => {
+  const response = await send(
+    commentUrl(designId, commentId),
+    jsonBody(patch, "PATCH")
+  );
+  const { comment }: { comment: DesignComment } = await response.json();
+  return comment;
+};
+
+// Deletes a comment; a thread's replies go with it
+export const deleteComment = async (
+  designId: string,
+  commentId: string
+): Promise<void> => {
+  await send(commentUrl(designId, commentId), { method: "DELETE" });
 };
