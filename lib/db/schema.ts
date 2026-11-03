@@ -359,12 +359,14 @@ export const assets = pgTable(
     // One copy of a file per account. Guests (null owner) never collide.
     uniqueIndex("assets_owner_sha256_idx").on(table.ownerId, table.sha256),
     // One cached result per account, source image and variant, except
-    // erases, which depend on their mask. The cast keeps the predicate off
-    // the enum's newer values: Postgres can't use a value in the transaction
-    // that adds it, and drizzle runs pending migrations in one.
+    // erases, which depend on their mask. Erases sort before "no-background"
+    // (see ASSET_VARIANTS), so the predicate only names the enum's first
+    // value: Postgres can't use a value in the transaction that adds it,
+    // drizzle runs pending migrations in one, and an index predicate can't
+    // cast an enum to text (that isn't immutable).
     uniqueIndex("assets_owner_source_variant_idx")
       .on(table.ownerId, table.sourceAssetId, table.variant)
-      .where(sql`${table.variant}::text <> 'erased'`),
+      .where(sql`${table.variant} >= 'no-background'`),
   ]
 );
 

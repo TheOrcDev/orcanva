@@ -1,5 +1,5 @@
 {
-  "id": "eab7ab04-557d-4abd-8829-f6be8315b545",
+  "id": "9ca204eb-5810-41b8-9807-6ab78a74f8a1",
   "prevId": "85c98763-3c9b-4ac2-869d-8817c129a9b0",
   "version": "7",
   "dialect": "postgresql",
@@ -188,7 +188,7 @@
             }
           ],
           "isUnique": true,
-          "where": "\"assets\".\"variant\"::text <> 'erased'",
+          "where": "\"assets\".\"variant\" >= 'no-background'",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -1337,8 +1337,8 @@
       "name": "asset_variant",
       "schema": "public",
       "values": [
-        "no-background",
         "erased",
+        "no-background",
         "upscaled-2x",
         "upscaled-4x"
       ]
