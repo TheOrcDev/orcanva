@@ -150,12 +150,19 @@ export const EditorToolbar = ({
 }) => {
   const router = useRouter();
   const store = useEditorStoreApi();
-  // Undo waits while a version preview hides the canvas
+  // Undo waits while a version preview hides the canvas, and while the
+  // magic eraser steps through its own strokes
   const undoable = useEditor(
-    (state) => canUndo(state.history) && state.previewVersionId === null
+    (state) =>
+      canUndo(state.history) &&
+      state.previewVersionId === null &&
+      state.eraseTargetId === null
   );
   const redoable = useEditor(
-    (state) => canRedo(state.history) && state.previewVersionId === null
+    (state) =>
+      canRedo(state.history) &&
+      state.previewVersionId === null &&
+      state.eraseTargetId === null
   );
   const [isLeaving, startLeaving] = useTransition();
 

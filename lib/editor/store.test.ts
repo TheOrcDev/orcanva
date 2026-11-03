@@ -52,6 +52,49 @@ describe("editor store", () => {
     expect(x()).toBe(rect.x);
   });
 
+  it("opens the magic eraser on one image, with the document's undo waiting", () => {
+    const { rect, store } = setup();
+    const x = () => selectDocument(store.getState()).elements[0]?.x;
+    store.getState().startCrop(rect.id);
+    store.getState().change((doc) => updateElement(doc, rect.id, { x: 5 }));
+
+    store.getState().startErase(rect.id);
+    // The crop under way is kept
+    expect(store.getState().cropTargetId).toBeNull();
+    expect(x()).toBe(5);
+    expect(store.getState().eraseTargetId).toBe(rect.id);
+    expect(store.getState().selectedIds).toEqual([rect.id]);
+    expect(store.getState().held.has(rect.id)).toBe(true);
+
+    // ⌘Z belongs to the eraser's own strokes meanwhile
+    store.getState().undo();
+    expect(x()).toBe(5);
+
+    store.getState().finishErase();
+    expect(store.getState().eraseTargetId).toBeNull();
+    expect(store.getState().held.has(rect.id)).toBe(false);
+    store.getState().undo();
+    expect(x()).toBe(rect.x);
+  });
+
+  it("closes the magic eraser when a crop, comments or a version open", () => {
+    const { rect, store } = setup();
+    for (const open of [
+      () => store.getState().startCrop(rect.id),
+      () => store.getState().startPageCrop(),
+      () => store.getState().setCommentMode(true),
+      () => store.getState().previewVersion("v1"),
+    ]) {
+      store.getState().startErase(rect.id);
+      open();
+      expect(store.getState().eraseTargetId).toBeNull();
+      store.getState().finishCrop(false);
+      store.getState().finishPageCrop(false);
+      store.getState().setCommentMode(false);
+      store.getState().previewVersion(null);
+    }
+  });
+
   it("tracks which AI tool is working on which image", () => {
     const { rect, store } = setup();
     const { history, seq } = store.getState();

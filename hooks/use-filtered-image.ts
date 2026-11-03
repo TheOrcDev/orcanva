@@ -9,7 +9,12 @@ import { cropToPixels, fullPhotoSize } from "@/lib/document/crop";
 import type { Size } from "@/lib/document/geometry";
 import type { ImageCrop, ImageFilter } from "@/lib/document/schema";
 import { filterOutputSize } from "@/lib/image-filters/output-size";
-import { maxFilterSide, renderFilter } from "@/lib/image-filters/renderer";
+import {
+  maxFilterSide,
+  naturalSize,
+  renderFilter,
+} from "@/lib/image-filters/renderer";
+import type { FilterSource } from "@/lib/image-filters/renderer";
 import { resolveFilter, toUniforms } from "@/lib/image-filters/resolve";
 
 let warnedUnsupported = false;
@@ -41,7 +46,8 @@ const release = (canvas: HTMLCanvasElement | null) => {
 // here as well, in pixels of whichever of the two is drawn.
 export const useFilteredImage = (
   nodeRef: RefObject<Konva.Image | null>,
-  image: HTMLImageElement | undefined,
+  // The photo, or a canvas of it (the magic eraser's work in progress)
+  image: FilterSource | undefined,
   filter: ImageFilter | null,
   box: Size,
   crop: ImageCrop | null
@@ -51,7 +57,7 @@ export const useFilteredImage = (
   const output =
     image && resolveFilter(filter)
       ? filterOutputSize(
-          { height: image.naturalHeight, width: image.naturalWidth },
+          naturalSize(image),
           // Cropped in, the whole photo is drawn bigger than the box
           fullPhotoSize(box, crop),
           maxFilterSide()
@@ -70,7 +76,7 @@ export const useFilteredImage = (
       return;
     }
     const resolved = resolveFilter(filter);
-    let source: HTMLImageElement | HTMLCanvasElement = image;
+    let source: FilterSource = image;
     if (resolved) {
       const canvas = canvasRef.current ?? document.createElement("canvas");
       canvasRef.current = canvas;

@@ -5,7 +5,6 @@ import { useEffect, useRef } from "react";
 import { Group, Rect, Shape, Transformer } from "react-konva";
 
 import { usePageNodeRef } from "@/components/editor/canvas-context";
-import { CROP_UI_NAME } from "@/components/editor/canvas/crop-overlay";
 import {
   collectSnapTargets,
   isFreeMove,
@@ -14,6 +13,7 @@ import { useEditorStoreApi } from "@/components/editor/editor-store-context";
 import { isInsidePopup, isTypingTarget } from "@/hooks/use-editor-shortcuts";
 import type { Point, Rect as Box, Size } from "@/lib/document/geometry";
 import { MIN_CANVAS_SIZE } from "@/lib/document/schema";
+import { TOOL_UI_NAME } from "@/lib/editor/node-names";
 import { keepBoxInPage, limitCropBox } from "@/lib/editor/page-crop";
 import {
   NO_SNAP,
@@ -223,7 +223,7 @@ export const PageCropOverlay = ({
 
   return (
     <>
-      <Group ref={groupRef} name={CROP_UI_NAME}>
+      <Group ref={groupRef} name={TOOL_UI_NAME}>
         {/* Takes presses on the dimmed part, so they don't reach elements */}
         <Rect width={page.width} height={page.height} />
         <Shape
@@ -283,7 +283,7 @@ export const PageCropOverlay = ({
       </Group>
       <Transformer
         ref={transformerRef}
-        name={CROP_UI_NAME}
+        name={TOOL_UI_NAME}
         anchorCornerRadius={3}
         anchorFill="#ffffff"
         anchorSize={10}

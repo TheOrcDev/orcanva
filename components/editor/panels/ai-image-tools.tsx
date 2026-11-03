@@ -7,6 +7,7 @@ import {
   useEditorStoreApi,
 } from "@/components/editor/editor-store-context";
 import { BackgroundRemovalButton } from "@/components/editor/panels/background-removal-button";
+import { MagicEraserButton } from "@/components/editor/panels/magic-eraser-button";
 import { PanelSection } from "@/components/editor/panels/panel-section";
 import { UpscaleButtons } from "@/components/editor/panels/upscale-button";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ const RestoreOriginalButton = ({ element }: { element: ImageElement }) => {
 export const AiImageTools = ({ element }: { element: ImageElement }) => (
   <PanelSection title="AI tools">
     <BackgroundRemovalButton element={element} />
+    <MagicEraserButton element={element} />
     <UpscaleButtons element={element} />
     <RestoreOriginalButton element={element} />
   </PanelSection>

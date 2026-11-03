@@ -28,9 +28,7 @@ import {
 import type { Point, Rect as Box } from "@/lib/document/geometry";
 import type { PhotoElement } from "@/lib/document/schema";
 import { updateElement } from "@/lib/editor/document-ops";
-
-// Nodes of the crop tools: pressing anything else ends cropping
-export const CROP_UI_NAME = "crop-ui";
+import { TOOL_UI_NAME } from "@/lib/editor/node-names";
 
 const ACCENT = "#2563eb";
 const DIM = "rgba(15, 23, 42, 0.55)";
@@ -56,9 +54,6 @@ const rotate = (point: Point, degrees: number): Point => {
     y: point.x * sin + point.y * cos,
   };
 };
-
-export const isCropUi = (node: Konva.Node): boolean =>
-  node.hasName(CROP_UI_NAME) || Boolean(node.findAncestor(`.${CROP_UI_NAME}`));
 
 // Crop mode for one image, or the photo in a frame. Everything is drawn in
 // the element's own space at the moment cropping started (its position and
@@ -180,7 +175,7 @@ export const CropOverlay = ({
   return (
     <>
       <Group
-        name={CROP_UI_NAME}
+        name={TOOL_UI_NAME}
         x={space.origin.x}
         y={space.origin.y}
         rotation={space.rotation}
@@ -236,7 +231,7 @@ export const CropOverlay = ({
       </Group>
       <Transformer
         ref={transformerRef}
-        name={CROP_UI_NAME}
+        name={TOOL_UI_NAME}
         anchorCornerRadius={3}
         anchorFill="#ffffff"
         anchorSize={10}

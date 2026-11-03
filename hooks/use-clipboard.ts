@@ -29,11 +29,13 @@ export const useClipboard = () => {
     };
 
     const handleCopy = (event: ClipboardEvent) => {
-      // A version preview hides the canvas: nothing to copy from or paste into
+      // A version preview hides the canvas: nothing to copy from or paste
+      // into; the magic eraser keeps its image as it is
       if (
         isTypingTarget(event.target) ||
         store.getState().editingTextId ||
-        store.getState().previewVersionId
+        store.getState().previewVersionId ||
+        store.getState().eraseTargetId
       ) {
         return;
       }
@@ -55,7 +57,8 @@ export const useClipboard = () => {
       if (
         isTypingTarget(event.target) ||
         store.getState().editingTextId ||
-        store.getState().previewVersionId
+        store.getState().previewVersionId ||
+        store.getState().eraseTargetId
       ) {
         return;
       }

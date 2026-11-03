@@ -170,6 +170,10 @@ export interface EditorState {
   // The image being cropped (one undo step from start to finish). The
   // workspace finishes the crop if someone deletes the image meanwhile.
   cropTargetId: string | null;
+  // The image the magic eraser is open on. Its brush strokes and erases are
+  // its own (lib/editor/magic-eraser.ts) and the document's undo waits;
+  // Done swaps the photo in one step. Ends if the image is deleted.
+  eraseTargetId: string | null;
   // The part of the page a page crop keeps (page coordinates), while the
   // page is cropped. The page only changes when it's applied.
   pageCrop: Rect | null;
@@ -265,6 +269,9 @@ export interface EditorActions {
   setEditingText: (id: string | null) => void;
   setTextSelection: (selection: { start: number; end: number } | null) => void;
   startCrop: (id: string) => void;
+  // Opens the magic eraser on an image (finishing a crop first), or closes it
+  startErase: (id: string) => void;
+  finishErase: () => void;
   // Keeps the crop, or puts the image back as it was
   finishCrop: (keep: boolean) => void;
   startPageCrop: () => void;
@@ -594,6 +601,7 @@ export const createEditorStore = (init: EditorInit) => {
     editingTextId: null,
     end: () => set((state) => ({ history: endTransaction(state.history) })),
     endRestore: () => set({ restoring: false }),
+    eraseTargetId: null,
     fileDragActive: false,
     finishCrop: (keep) => {
       const id = get().cropTargetId;
@@ -606,6 +614,14 @@ export const createEditorStore = (init: EditorInit) => {
         get().rollback();
       }
       set({ cropTargetId: null });
+      get().release([id]);
+    },
+    finishErase: () => {
+      const id = get().eraseTargetId;
+      if (!id) {
+        return;
+      }
+      set({ eraseTargetId: null });
       get().release([id]);
     },
     finishPageCrop: (keep) => {
@@ -688,6 +704,7 @@ export const createEditorStore = (init: EditorInit) => {
       if (id !== null) {
         get().finishCrop(true);
         get().finishPageCrop(false);
+        get().finishErase();
       }
       set(
         id === null
@@ -705,7 +722,7 @@ export const createEditorStore = (init: EditorInit) => {
     reconnectLive: null,
     redo: () =>
       set((state) => {
-        if (state.outdated || state.previewVersionId) {
+        if (state.outdated || state.previewVersionId || state.eraseTargetId) {
           return state;
         }
         const { history, step } = redo(state.history);
@@ -796,6 +813,7 @@ export const createEditorStore = (init: EditorInit) => {
       if (on) {
         get().finishCrop(true);
         get().finishPageCrop(true);
+        get().finishErase();
         set({ commentMode: true, editingTextId: null, selectedIds: [] });
       } else {
         set({ commentMode: false, draftPin: null });
@@ -897,16 +915,32 @@ export const createEditorStore = (init: EditorInit) => {
         return reconcile(state, settled.synced, settled.pending);
       }),
     skippedElementIds: [],
-    startCrop: (id) =>
+    startCrop: (id) => {
+      get().finishErase();
       set((state) => ({
         cropTargetId: id,
         editingTextId: null,
         held: new Set([...state.held, id]),
         history: beginTransaction(state.history),
         selectedIds: [id],
-      })),
+      }));
+    },
+    // Held like a crop, so remote edits wait instead of moving the photo
+    // under the brush
+    startErase: (id) => {
+      get().finishCrop(true);
+      get().finishPageCrop(false);
+      set((state) => ({
+        commentMode: false,
+        editingTextId: null,
+        eraseTargetId: id,
+        held: new Set([...state.held, id]),
+        selectedIds: [id],
+      }));
+    },
     startPageCrop: () => {
       get().finishCrop(true);
+      get().finishErase();
       set((state) => ({
         editingTextId: null,
         pageCrop: fullPage(state.doc.document),
@@ -918,7 +952,7 @@ export const createEditorStore = (init: EditorInit) => {
     textSelection: null,
     undo: () =>
       set((state) => {
-        if (state.outdated || state.previewVersionId) {
+        if (state.outdated || state.previewVersionId || state.eraseTargetId) {
           return state;
         }
         const { history, step } = undo(state.history);

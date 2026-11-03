@@ -17,9 +17,10 @@ import { Group, Layer, Rect, Stage } from "react-konva";
 
 import { usePageNodeRef } from "@/components/editor/canvas-context";
 import { BackgroundNode } from "@/components/editor/canvas/background-node";
-import { CropOverlay, isCropUi } from "@/components/editor/canvas/crop-overlay";
+import { CropOverlay } from "@/components/editor/canvas/crop-overlay";
 import { ElementNode } from "@/components/editor/canvas/element-node";
 import type { LiveCrop } from "@/components/editor/canvas/element-node";
+import { EraseOverlay } from "@/components/editor/canvas/erase-overlay";
 import { LineHandles } from "@/components/editor/canvas/line-handles";
 import { PageCropOverlay } from "@/components/editor/canvas/page-crop-overlay";
 import { RemoteSelections } from "@/components/editor/canvas/remote-selections";
@@ -37,6 +38,7 @@ import {
   useEditor,
   useEditorStoreApi,
 } from "@/components/editor/editor-store-context";
+import { EraseToolbar } from "@/components/editor/erase-toolbar";
 import { PageCropToolbar } from "@/components/editor/page-crop-toolbar";
 import {
   BadgeGuide,
@@ -44,6 +46,7 @@ import {
 } from "@/components/editor/youtube-preview-overlays";
 import { Spinner } from "@/components/ui/spinner";
 import { useElementDrag } from "@/hooks/use-element-drag";
+import { useEraseMode } from "@/hooks/use-erase-mode";
 import { useSelectionBox } from "@/hooks/use-selection-box";
 import { useUpload } from "@/hooks/use-upload";
 import { anchorFor, pinPoint } from "@/lib/comments/anchor";
@@ -73,6 +76,7 @@ import {
   BACKGROUND_NODE_NAME,
   ELEMENT_NODE_NAME,
   LIVE_CROP_ATTR,
+  isToolUi,
   photoNodeOf,
 } from "@/lib/editor/node-names";
 import { ratioValue } from "@/lib/editor/page-crop";
@@ -169,8 +173,10 @@ const IMAGE_JOB_LABELS: Record<ImageJob, string> = {
 const WorkspaceOverlays = () => {
   const fileDragActive = useEditor((state) => state.fileDragActive);
   const uploadsInFlight = useEditor((state) => state.uploadsInFlight);
+  // The magic eraser's toolbar says what it's doing itself
   const imageJob = useEditor(
-    (state) => Object.values(state.imageJobs)[0] ?? null
+    (state) =>
+      Object.values(state.imageJobs).find((job) => job !== "erase") ?? null
   );
   const noun = uploadsInFlight === 1 ? "image" : "images";
 
@@ -215,6 +221,8 @@ export const WorkspaceStage = () => {
   const held = useEditor((state) => state.held);
   const editingTextId = useEditor((state) => state.editingTextId);
   const cropTargetId = useEditor((state) => state.cropTargetId);
+  const eraseTargetId = useEditor((state) => state.eraseTargetId);
+  const eraseMode = useEraseMode();
   const dropTargetId = useEditor((state) => state.dropTargetId);
   const pageCrop = useEditor((state) => state.pageCrop);
   const pageCropRatio = useEditor((state) => state.pageCropRatio);
@@ -264,6 +272,16 @@ export const WorkspaceStage = () => {
       store.getState().finishCrop(true);
     }
   }, [cropTargetId, document, store]);
+
+  // Someone deleted the image being erased: nothing left to save it to
+  useEffect(() => {
+    if (
+      eraseTargetId &&
+      !document.elements.some((element) => element.id === eraseTargetId)
+    ) {
+      store.getState().finishErase();
+    }
+  }, [eraseTargetId, document, store]);
 
   // Selecting something (e.g. in Layers) applies a page crop
   useEffect(() => {
@@ -373,8 +391,8 @@ export const WorkspaceStage = () => {
   ) => {
     const stage = event.target.getStage();
     recordPress(stage?.getPointerPosition() ?? null);
-    // Pressing anything but the crop tools keeps the crop and carries on
-    if (!isCropUi(event.target)) {
+    // Pressing anything but a tool's own UI keeps the crop and carries on
+    if (!isToolUi(event.target)) {
       store.getState().finishCrop(true);
       store.getState().finishPageCrop(true);
     }
@@ -383,7 +401,7 @@ export const WorkspaceStage = () => {
     if (store.getState().editingTextId) {
       store.getState().setEditingText(null);
     }
-    if (isCropUi(event.target)) {
+    if (isToolUi(event.target)) {
       return;
     }
     const onEmpty =
@@ -452,10 +470,17 @@ export const WorkspaceStage = () => {
   const {
     cropping,
     editingText,
+    erasing,
     line: selectedLine,
     outlinedIds,
     transformTargets,
-  } = selectionView(document, selectedIds, editingTextId, cropTargetId);
+  } = selectionView(
+    document,
+    selectedIds,
+    editingTextId,
+    cropTargetId,
+    eraseTargetId
+  );
 
   // Where this session's pointer is on the page, for everyone else's view
   const reportPointer = (event: PointerEvent<HTMLDivElement>) => {
@@ -610,6 +635,10 @@ export const WorkspaceStage = () => {
     // Marks the drop handled so the editor-wide fallback doesn't repeat it
     event.preventDefault();
     store.getState().setFileDragActive(false);
+    // The magic eraser keeps the canvas as it is until it's done
+    if (store.getState().eraseTargetId) {
+      return;
+    }
     const bounds = event.currentTarget.getBoundingClientRect();
     const at = {
       x: (event.clientX - bounds.left - origin.x) / zoom,
@@ -666,6 +695,7 @@ export const WorkspaceStage = () => {
     >
       <WorkspaceOverlays />
       {cropping ? <CropToolbar element={cropping} /> : null}
+      {erasing && eraseMode ? <EraseToolbar mode={eraseMode} /> : null}
       {pageCrop ? <PageCropToolbar box={pageCrop} /> : null}
       {commentMode && !pageCrop ? (
         // A mouse affordance; the Comments tab can start a thread too
@@ -743,6 +773,16 @@ export const WorkspaceStage = () => {
             {cropping ? (
               <Group x={origin.x} y={origin.y} scaleX={zoom} scaleY={zoom}>
                 <CropOverlay key={cropping.id} element={cropping} zoom={zoom} />
+              </Group>
+            ) : null}
+            {erasing && eraseMode ? (
+              <Group x={origin.x} y={origin.y} scaleX={zoom} scaleY={zoom}>
+                <EraseOverlay
+                  key={erasing.id}
+                  element={erasing}
+                  mode={eraseMode}
+                  zoom={zoom}
+                />
               </Group>
             ) : null}
             {pageCrop ? (

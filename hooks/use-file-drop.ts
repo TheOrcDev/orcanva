@@ -57,8 +57,9 @@ export const useFileDrop = () => {
         return;
       }
       event.preventDefault();
-      // Not onto a version preview, which can't change
-      if (store.getState().previewVersionId) {
+      // Not onto a version preview, which can't change, nor while the magic
+      // eraser is open
+      if (store.getState().previewVersionId || store.getState().eraseTargetId) {
         return;
       }
       upload([...(event.dataTransfer?.files ?? [])]).catch(() => null);

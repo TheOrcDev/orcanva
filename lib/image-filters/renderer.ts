@@ -197,7 +197,8 @@ const getRenderer = (): Renderer | null => {
   return renderer;
 };
 
-const naturalSize = (source: FilterSource): Size =>
+// A photo's own pixel size, whether it's a loaded image or a canvas
+export const naturalSize = (source: FilterSource): Size =>
   source instanceof HTMLImageElement
     ? { height: source.naturalHeight, width: source.naturalWidth }
     : { height: source.height, width: source.width };
