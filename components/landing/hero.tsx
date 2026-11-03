@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Container } from "@/components/landing/container";
 import { HeroLandscape } from "@/components/landing/hero-landscape";
+import { HeroOrcEyes } from "@/components/landing/hero-orc-eyes";
 import { ProductFrame } from "@/components/landing/product-frame";
 import { badgeVariants } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -25,8 +26,11 @@ export const Hero = () => (
         aria-hidden
         className="to-background absolute inset-x-0 bottom-0 h-1/3 bg-linear-to-b from-transparent"
       />
+      <HeroOrcEyes />
     </div>
-    <Container className="min-h-below-sun flex flex-col items-center gap-6 pt-32 text-center md:pt-36">
+    {/* The column lets the pointer through to the sun behind it; its copy
+        and buttons still take it first */}
+    <Container className="min-h-below-sun pointer-events-none flex flex-col items-center gap-6 pt-32 text-center *:pointer-events-auto md:pt-36">
       <a href="#features" className={badgeVariants()}>
         New · Filters and blur for every image
       </a>

@@ -11,7 +11,8 @@
    passes AA. The logo's mauve frame, lavender water and ivory tusks have no
    role of their own, so they get --logo-* tokens; at night the frame and
    water swap lightness, like the dusk painting. The favicon (app/icon.svg)
-   and the share image keep literal copies. */
+   and the share image keep literal copies. --orc-eye is the red the hero's
+   sun and moon glare with when hovered. */
 :root {
   --background: oklch(0.983 0.005 75);
   --foreground: oklch(0.21 0.035 320);
@@ -50,6 +51,7 @@
   --logo-frame: oklch(0.602 0.077 331);
   --logo-water: oklch(0.773 0.048 311);
   --logo-tusk: oklch(0.97 0.022 78);
+  --orc-eye: oklch(0.637 0.237 25.3);
 }
 
 .dark {
@@ -279,6 +281,7 @@
   --color-logo-frame: var(--logo-frame);
   --color-logo-water: var(--logo-water);
   --color-logo-tusk: var(--logo-tusk);
+  --color-orc-eye: var(--orc-eye);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
