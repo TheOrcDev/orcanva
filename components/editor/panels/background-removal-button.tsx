@@ -27,9 +27,9 @@ export const BackgroundRemovalButton = ({
   const cutOut = useEditor((state) =>
     hasVariant(state.assets, element.assetId, "no-background")
   );
-  const running = useEditor(
-    (state) => state.imageJobs[element.id] === "background"
-  );
+  // Any AI tool at work on this image keeps the others waiting
+  const job = useEditor((state) => state.imageJobs[element.id] ?? null);
+  const running = job === "background";
 
   if (cutOut && !running) {
     return null;
@@ -73,7 +73,7 @@ export const BackgroundRemovalButton = ({
   return (
     <Button
       className="w-full"
-      disabled={running || element.locked || !asset}
+      disabled={job !== null || element.locked || !asset}
       onClick={run}
     >
       {running ? (

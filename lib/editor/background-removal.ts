@@ -1,36 +1,31 @@
 import { cutOutBackground } from "@/lib/background-removal/cut-out";
 import { findVariant } from "@/lib/editor/asset-variants";
-import { findElement, updateElement } from "@/lib/editor/document-ops";
+import {
+  fetchAssetImage,
+  saveDerivedImage,
+  sourcePhoto,
+  swapPhoto,
+} from "@/lib/editor/derived-images";
 import type { EditorAsset, EditorStoreApi } from "@/lib/editor/store";
-import { selectDocument } from "@/lib/editor/store";
-import { prepareImage } from "@/lib/upload/prepare-image";
-import { uploadImage } from "@/lib/upload/upload-images";
-
-const NAME_SUFFIX = " (no bg)";
-
-const fetchImage = async (asset: EditorAsset): Promise<Blob> => {
-  const response = await fetch(asset.url);
-  if (!response.ok) {
-    throw new Error(`Could not load the image (${response.status})`);
-  }
-  return response.blob();
-};
 
 // Runs the model in the browser, then stores the transparent PNG as a new
 // library asset linked to its source
 const createCutout = async (
+  store: EditorStoreApi,
   source: EditorAsset,
-  designId: string,
   onProgress?: (percent: number) => void
 ): Promise<EditorAsset> => {
-  const cutout = await cutOutBackground(await fetchImage(source), onProgress);
-  const file = new File([cutout.png], `${source.name}${NAME_SUFFIX}.png`, {
-    type: "image/png",
-  });
-  return uploadImage(await prepareImage(file), designId, {
-    assetId: source.id,
-    variant: "no-background",
-  });
+  const cutout = await cutOutBackground(
+    await fetchAssetImage(source),
+    onProgress
+  );
+  return saveDerivedImage(
+    store,
+    cutout.png,
+    source,
+    "no-background",
+    " (no bg)"
+  );
 };
 
 // Swaps an image element to a background-removed copy of its picture (one
@@ -41,31 +36,13 @@ export const removeImageBackground = async (
   elementId: string,
   onProgress?: (percent: number) => void
 ): Promise<EditorAsset> => {
-  const { assets } = store.getState();
-  const element = findElement(selectDocument(store.getState()), elementId);
-  if (element?.type !== "image") {
-    throw new Error("Select an image first");
-  }
-  const sourceAssetId = element.assetId;
-  const source = assets.find((asset) => asset.id === sourceAssetId);
-  if (!source) {
-    throw new Error("Image not found");
-  }
-
+  const source = sourcePhoto(store, elementId);
   store.getState().setImageJob(elementId, "background");
   try {
     const cutout =
-      findVariant(assets, sourceAssetId, "no-background") ??
-      (await createCutout(source, store.getState().designId, onProgress));
-    const state = store.getState();
-    state.addAsset(cutout);
-    // Only swap if the element still shows the image that was processed
-    const current = findElement(selectDocument(state), elementId);
-    if (current?.type === "image" && current.assetId === sourceAssetId) {
-      state.change((doc) =>
-        updateElement(doc, elementId, { assetId: cutout.id })
-      );
-    }
+      findVariant(store.getState().assets, source.id, "no-background") ??
+      (await createCutout(store, source, onProgress));
+    swapPhoto(store, elementId, source.id, cutout);
     return cutout;
   } finally {
     store.getState().setImageJob(elementId, null);

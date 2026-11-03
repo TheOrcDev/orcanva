@@ -8,6 +8,7 @@ import {
 } from "@/components/editor/editor-store-context";
 import { BackgroundRemovalButton } from "@/components/editor/panels/background-removal-button";
 import { PanelSection } from "@/components/editor/panels/panel-section";
+import { UpscaleButtons } from "@/components/editor/panels/upscale-button";
 import { Button } from "@/components/ui/button";
 import type { ImageElement } from "@/lib/document/schema";
 import { originalAssetId } from "@/lib/editor/asset-variants";
@@ -47,6 +48,7 @@ const RestoreOriginalButton = ({ element }: { element: ImageElement }) => {
 export const AiImageTools = ({ element }: { element: ImageElement }) => (
   <PanelSection title="AI tools">
     <BackgroundRemovalButton element={element} />
+    <UpscaleButtons element={element} />
     <RestoreOriginalButton element={element} />
   </PanelSection>
 );
