@@ -6,6 +6,8 @@ import {
   RiAlignRight,
   RiBold,
   RiItalic,
+  RiStarFill,
+  RiStarLine,
   RiStrikethrough,
   RiText,
   RiUnderline,
@@ -37,10 +39,18 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Toggle } from "@/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useBrandKitChange } from "@/hooks/use-brand-kit";
 import { useUpdateElement } from "@/hooks/use-selected-element";
+import { isBrandKitFull } from "@/lib/brand-kit/schema";
 import { textAlignSchema } from "@/lib/document/schema";
 import type { TextElement } from "@/lib/document/schema";
 import { getFont, nearestWeight } from "@/lib/fonts/catalog";
+import type { FontDefinition } from "@/lib/fonts/catalog";
 import { rebaseMarks } from "@/lib/text/marks";
 import {
   isBold,
@@ -103,7 +113,49 @@ const TextContentField = ({ element }: { element: TextElement }) => {
   );
 };
 
+// Stars the font in the signed-in viewer's brand kit, or takes it out
+const BrandFontToggle = ({ font }: { font: FontDefinition }) => {
+  const brandKit = useEditor((state) => state.brandKit);
+  const changeBrandKit = useBrandKitChange();
+  if (!brandKit) {
+    return null;
+  }
+  const saved = brandKit.fonts.includes(font.id);
+  const full = !saved && isBrandKitFull(brandKit, "font");
+  let label = `Add ${font.family} to your brand fonts`;
+  if (saved) {
+    label = `Remove ${font.family} from your brand fonts`;
+  } else if (full) {
+    label = "Your brand kit is full";
+  }
+  const Icon = saved ? RiStarFill : RiStarLine;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Toggle
+            variant="outline"
+            aria-label={label}
+            pressed={saved}
+            disabled={full}
+            onPressedChange={(pressed) => {
+              changeBrandKit({ kind: "font", value: font.id }, pressed).catch(
+                () => null
+              );
+            }}
+          />
+        }
+      >
+        <Icon />
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+};
+
 export const TextProperties = ({ element }: { element: TextElement }) => {
+  const brandFontIds = useEditor((state) => state.brandKit?.fonts);
   const update = useUpdateElement(element.id);
   // While typing with characters selected, the controls style just those
   const range = useEditor((state) => {
@@ -139,20 +191,26 @@ export const TextProperties = ({ element }: { element: TextElement }) => {
     <>
       <PanelSection title="Text">
         <TextContentField element={element} />
-        <FontPicker
-          value={shownFont}
-          onChange={(next) =>
-            update(
-              range
-                ? styleText(element, range, "fontId", next.id)
-                : {
-                    ...styleText(element, null, "fontId", next.id),
-                    italic: element.italic && next.italic,
-                    weight: nearestWeight(next, element.weight),
-                  }
-            )
-          }
-        />
+        <div className="flex gap-2">
+          <div className="min-w-0 flex-1">
+            <FontPicker
+              value={shownFont}
+              brandFontIds={brandFontIds}
+              onChange={(next) =>
+                update(
+                  range
+                    ? styleText(element, range, "fontId", next.id)
+                    : {
+                        ...styleText(element, null, "fontId", next.id),
+                        italic: element.italic && next.italic,
+                        weight: nearestWeight(next, element.weight),
+                      }
+                )
+              }
+            />
+          </div>
+          <BrandFontToggle font={shownFont} />
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <Select
             items={weightItems}

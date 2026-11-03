@@ -2,6 +2,7 @@ import { createStore } from "zustand/vanilla";
 
 import { keepsPrivateAccess } from "@/lib/auth/access";
 import type { DesignRole, Visibility } from "@/lib/auth/access";
+import type { BrandKit } from "@/lib/brand-kit/schema";
 import {
   applyWrites,
   diffDocument,
@@ -93,6 +94,9 @@ export interface EditorState {
   role: DesignRole;
   visibility: Visibility;
   viewer: EditorViewer | null;
+  // The viewer's brand kit; null for guests, who have none. Account data:
+  // not part of the design or its undo history.
+  brandKit: BrandKit | null;
   // The design went private or was deleted under us: stop and say so
   accessLost: boolean;
   // Newer code took over while this tab was open: the design's version went
@@ -228,6 +232,8 @@ export interface EditorActions {
   adjustUploads: (delta: number) => void;
   setFileDragActive: (active: boolean) => void;
   setBackgroundJob: (elementId: string, running: boolean) => void;
+  // The brand kit as it should show; ignored for guests
+  setBrandKit: (kit: BrandKit) => void;
 }
 
 export type EditorStore = EditorState & EditorActions;
@@ -246,6 +252,8 @@ export interface EditorInit {
   role: DesignRole;
   visibility: Visibility;
   viewer: EditorViewer | null;
+  // The signed-in viewer's brand kit; null or missing for guests
+  brandKit?: BrandKit | null;
 }
 
 export const MIN_ZOOM = 0.05;
@@ -416,6 +424,7 @@ export const createEditorStore = (init: EditorInit) => {
     assets: init.assets,
     backgroundJobs: [],
     begin: () => set((state) => ({ history: beginTransaction(state.history) })),
+    brandKit: init.viewer ? (init.brandKit ?? null) : null,
     change: (recipe) =>
       set((state) => {
         if (state.outdated) {
@@ -576,6 +585,19 @@ export const createEditorStore = (init: EditorInit) => {
           backgroundJobs: running
             ? [...state.backgroundJobs, elementId]
             : state.backgroundJobs.filter((id) => id !== elementId),
+        };
+      }),
+    setBrandKit: (kit) =>
+      set((state) => {
+        if (state.viewer === null || isDeepEqual(kit, state.brandKit)) {
+          return state;
+        }
+        // A logo added in another tab may be an upload this one hasn't seen
+        const known = new Set(state.assets.map((asset) => asset.id));
+        const added = kit.logos.filter((logo) => !known.has(logo.id));
+        return {
+          assets: added.length > 0 ? [...state.assets, ...added] : state.assets,
+          brandKit: kit,
         };
       }),
     setDragPreview: (preview) => set({ dragPreview: preview }),

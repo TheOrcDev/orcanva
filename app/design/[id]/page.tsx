@@ -6,6 +6,7 @@ import { EditorLoader } from "@/components/editor/editor-loader";
 import { roleFor } from "@/lib/auth/access";
 import { getViewer } from "@/lib/auth/server";
 import { listDesignAssets, listLibrary } from "@/lib/db/queries/assets";
+import { getBrandKit } from "@/lib/db/queries/brand-kit";
 import {
   getDesign,
   getDesignContent,
@@ -19,7 +20,7 @@ const loadDesign = async (id: string) => {
   // Everything loads alongside the access check (sealing is local crypto),
   // but only leaves the server once the check has passed
   const viewerLoad = getViewer();
-  const [viewer, content, live, designAssets, library, isShared] =
+  const [viewer, content, live, designAssets, library, isShared, brandKit] =
     await Promise.all([
       viewerLoad,
       getDesignContent(id),
@@ -27,6 +28,7 @@ const loadDesign = async (id: string) => {
       listDesignAssets(id),
       viewerLoad.then((found) => (found ? listLibrary(found.id) : [])),
       viewerLoad.then((found) => isDesignSharedWith(id, found?.id ?? null)),
+      viewerLoad.then((found) => (found ? getBrandKit(found.id) : null)),
     ]);
   const role = content
     ? roleFor(content.row, viewer?.id ?? null, isShared)
@@ -41,6 +43,7 @@ const loadDesign = async (id: string) => {
       ...library,
       ...designAssets.filter((asset) => !libraryIds.has(asset.id)),
     ],
+    brandKit,
     designId: content.row.id,
     document: content.document,
     hasThumbnail: content.row.thumbnailKey !== null,

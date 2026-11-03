@@ -269,4 +269,48 @@ describe("editor store", () => {
     member.getState().applyLivePage({ ...row, visibility: "private" });
     expect(member.getState().accessLost).toBe(false);
   });
+
+  it("keeps the viewer's brand kit, and none for guests", () => {
+    const logo = {
+      height: 10,
+      id: "logo",
+      name: "logo.png",
+      sourceAssetId: null,
+      url: "/api/storage/assets/logo.png",
+      width: 10,
+    };
+    const init: EditorInit = {
+      assets: [],
+      brandKit: { colors: ["#ff0000"], fonts: [], logos: [] },
+      designId: "d",
+      document: createDocument(PAGE),
+      hasThumbnail: false,
+      libraryIds: [],
+      name: "Test",
+      role: "owner",
+      viewer: { id: "u", image: null, name: "Orc" },
+      visibility: "public",
+    };
+    const store = createEditorStore(init);
+    expect(store.getState().brandKit?.colors).toEqual(["#ff0000"]);
+
+    const kit = { colors: [], fonts: ["anton"], logos: [logo] };
+    store.getState().setBrandKit(kit);
+    expect(store.getState().brandKit).toBe(kit);
+    // A logo this tab hadn't seen becomes drawable
+    expect(store.getState().assets).toEqual([logo]);
+    // The same kit again changes nothing
+    const before = store.getState();
+    store.getState().setBrandKit({ ...kit });
+    expect(store.getState()).toBe(before);
+
+    // Guests have no kit, whatever they're handed
+    const guest = createEditorStore({ ...init, role: "editor", viewer: null });
+    expect(guest.getState().brandKit).toBeNull();
+    guest.getState().setBrandKit(kit);
+    expect(guest.getState().brandKit).toBeNull();
+    // Signed in but handed no kit: none either
+    const { brandKit: _none, ...withoutKit } = init;
+    expect(createEditorStore(withoutKit).getState().brandKit).toBeNull();
+  });
 });

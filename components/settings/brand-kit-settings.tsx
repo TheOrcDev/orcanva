@@ -2,7 +2,7 @@
 
 import { RiAddLine, RiCloseLine, RiImageAddLine } from "@remixicon/react";
 import Image from "next/image";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import type { ReactNode } from "react";
 
 import { ColorPopover, DEFAULT_SWATCH_ROW } from "@/components/color-popover";
@@ -33,20 +33,18 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { toast } from "@/components/ui/toast";
-import { addBrandKitItem, removeBrandKitItem } from "@/lib/actions/brand-kit";
-import {
-  brandCountLabel,
-  brandFonts,
-  logoChoices,
-  withBrandItem,
-  withoutBrandItem,
-} from "@/lib/brand-kit/kit";
+import { changeBrandKit } from "@/lib/brand-kit/change";
+import { brandCountLabel, brandFonts, logoChoices } from "@/lib/brand-kit/kit";
 import { isBrandKitFull } from "@/lib/brand-kit/schema";
 import type { BrandKit, BrandKitItem } from "@/lib/brand-kit/schema";
 import { loadRecentColors } from "@/lib/editor/recent-colors";
 import type { EditorAsset } from "@/lib/editor/store";
 
-type Change = (item: BrandKitItem, add: boolean, logo?: EditorAsset) => void;
+type Change = (
+  item: BrandKitItem,
+  add: boolean,
+  logo?: EditorAsset
+) => Promise<void>;
 
 const NEW_COLOR = "#ff3b30";
 
@@ -267,7 +265,9 @@ const LogosCard = ({
                 className="absolute top-1.5 right-1.5"
                 aria-label={`Remove ${logo.name} from your brand kit`}
                 title="Remove from your brand kit"
-                onClick={() => change({ kind: "logo", value: logo.id }, false)}
+                onClick={() =>
+                  change({ kind: "logo", value: logo.id }, false, logo)
+                }
               >
                 <RiCloseLine />
               </Button>
@@ -333,7 +333,7 @@ const LogosCard = ({
 };
 
 // The account's colours, fonts and logos. Each change shows at once, then
-// takes the kit the Server Action returns, so it always ends up as stored.
+// takes the kit the Server Action returns, so it ends up as stored.
 export const BrandKitSettings = ({
   initialKit,
   library,
@@ -342,36 +342,21 @@ export const BrandKitSettings = ({
   library: readonly EditorAsset[];
 }) => {
   const [kit, setKit] = useState(initialKit);
-  const [, startTransition] = useTransition();
 
-  const change: Change = (item, add, logo) => {
-    setKit((current) =>
-      add ? withBrandItem(current, item, logo) : withoutBrandItem(current, item)
-    );
-    startTransition(async () => {
-      try {
-        const result = add
-          ? await addBrandKitItem(item)
-          : await removeBrandKitItem(item);
-        setKit(result.kit);
-        if (result.error) {
-          toast.add({ title: result.error, type: "error" });
-        }
-      } catch {
-        // Put it back as it was before this change
-        setKit((current) =>
-          add
-            ? withoutBrandItem(current, item)
-            : withBrandItem(current, item, logo)
-        );
-        toast.add({
-          title: add
-            ? "Couldn't add that to your brand kit"
-            : "Couldn't remove that from your brand kit",
-          type: "error",
-        });
+  const change: Change = async (item, add, logo) => {
+    try {
+      const refusal = await changeBrandKit(setKit, item, add, logo);
+      if (refusal) {
+        toast.add({ title: refusal, type: "error" });
       }
-    });
+    } catch {
+      toast.add({
+        title: add
+          ? "Couldn't add that to your brand kit"
+          : "Couldn't remove that from your brand kit",
+        type: "error",
+      });
+    }
   };
 
   return (
