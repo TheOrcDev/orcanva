@@ -127,6 +127,10 @@ Uses [BEN2](https://huggingface.co/onnx-community/BEN2-ONNX), whose weights are 
 
 Icons are [Tabler Icons](https://tabler.io/icons) (MIT), emoji are [Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji) in their flat style (MIT), and the stickers are Orcanva's own, released as CC0: eight in `lib/graphics/builtin.ts` (so the Shapes tab needs no fetch) and the rest as SVGs in `assets/graphics/stickers/` with their names and keywords in `stickers.json`; their lettering is drawn as paths, and none copies a platform's logo. `pnpm graphics:build` (`scripts/build-graphics.ts`) turns them into a catalog in `public/graphics/<hash>/`: an `index.json` of every graphic's id, kind, name and keywords (the "For thumbnails" set from `lib/graphics/curated.ts` first within its kind), its art in shards of about 70 KB, and `NOTICES.txt` with both MIT licences. `lib/graphics/normalize.ts` makes each SVG drawable from flat paths: shapes become paths, transforms are applied, inherited and `currentColor` paint becomes palette entries, and coordinates are rounded to two decimals; gradients, masks, clip paths, filters, `<use>`, text and images are left out (about 80 emoji are, mostly for having more than 16 colours). The output is committed, so builds need no network. Tabler comes from `node_modules/@tabler/icons`; for the emoji only their names, keywords and upstream commit are kept (`assets/graphics/fluent-flat/metadata.json`), and their art carries over from the last catalog, so after changing the normalizer redraw them with `pnpm graphics:build --fluent <checkout of fluentui-emoji at that commit>` (a sparse checkout of `/LICENSE`, `assets/*/metadata.json` and the flat SVGs is enough).
 
+### Templates
+
+Starter templates are files in `lib/templates/data/`, one JSON design each, with their previews and any photos in `public/template-files/`. To make one, design it in the editor (with only your own photos or CC0 ones), then run `pnpm template:export <design id> --id <template id> --category <name> --tags a,b`. It reads the design from the database, re-encodes its photos as WebP at no more than twice the size they're shown at, names them by their SHA-256, saves a preview (the design's gallery thumbnail, or a sharper `--preview file.png`), rewrites `lib/templates/catalog.ts` and `documents.ts`, and runs the template checks; photos from your uploads need `--source` and `--license`. To change a template, `pnpm template:open <template id> <email>` makes a private design from it for that account; edit it, then export it again under the same id. Template ids are part of URLs, so never rename one. To suggest a template, make it a public design and link it in an issue.
+
 ## Scripts
 
 | Script | What it does |
@@ -139,6 +143,8 @@ Icons are [Tabler Icons](https://tabler.io/icons) (MIT), emoji are [Microsoft Fl
 | `pnpm storage:setup [origins…]` | Bucket CORS + upload smoke test |
 | `pnpm claim-designs <email>` | Give ownerless (pre-accounts) designs and uploads to an account |
 | `pnpm graphics:build [--fluent <checkout>]` | Rebuild the icons, emoji and stickers catalog in `public/graphics/` |
+| `pnpm template:export <design id> --id <id> …` | Turn a design into a starter template; `--catalog` only rewrites the catalog |
+| `pnpm template:open <id> <email>` | Make a private design from a template, to change it |
 
 ## Keyboard shortcuts
 

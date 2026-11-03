@@ -19,6 +19,8 @@
     "storage:setup": "tsx scripts/setup-storage.ts",
     "claim-designs": "tsx scripts/claim-designs.ts",
     "graphics:build": "tsx scripts/build-graphics.ts",
+    "template:export": "tsx scripts/export-template.ts",
+    "template:open": "tsx scripts/open-template.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -68,6 +70,7 @@
     "husky": "^9.1.7",
     "oxfmt": "^0.74.0",
     "oxlint": "^1.89.0",
+    "sharp": "^0.35.5",
     "svgo": "^4.1.0",
     "svgpath": "^2.6.0",
     "tailwindcss": "^4",
