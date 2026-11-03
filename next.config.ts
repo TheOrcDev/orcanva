@@ -7,7 +7,17 @@ import { SITE_URL } from "./lib/site";
 // so tabs still open there keep saving until they're reloaded.
 const VERCEL_HOST = "orcanva.vercel.app";
 
+// The graphics catalog sits under a content hash (pnpm graphics:build), so
+// browsers may keep it for good; public files are otherwise revalidated
+const GRAPHICS_CACHE = "public, max-age=31536000, immutable";
+
 const nextConfig: NextConfig = {
+  headers: () => [
+    {
+      headers: [{ key: "Cache-Control", value: GRAPHICS_CACHE }],
+      source: "/graphics/:path*",
+    },
+  ],
   redirects: () => [
     {
       destination: `${SITE_URL}/:path*`,

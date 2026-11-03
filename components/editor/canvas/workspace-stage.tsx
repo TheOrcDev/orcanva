@@ -36,7 +36,10 @@ import { useElementDrag } from "@/hooks/use-element-drag";
 import { useSelectionBox } from "@/hooks/use-selection-box";
 import { useUpload } from "@/hooks/use-upload";
 import { refitFrameCrop } from "@/lib/document/crop";
-import { createImageElement } from "@/lib/document/factories";
+import {
+  createGraphicElement,
+  createImageElement,
+} from "@/lib/document/factories";
 import { fitZoom } from "@/lib/document/geometry";
 import type { DesignElement } from "@/lib/document/schema";
 import {
@@ -50,7 +53,7 @@ import {
   insertElement,
   replaceElement,
 } from "@/lib/editor/document-ops";
-import { ASSET_DRAG_TYPE } from "@/lib/editor/drag-data";
+import { ASSET_DRAG_TYPE, GRAPHIC_DRAG_TYPE } from "@/lib/editor/drag-data";
 import { fillFrame } from "@/lib/editor/frames";
 import { unitOf } from "@/lib/editor/groups";
 import {
@@ -62,12 +65,28 @@ import {
 import { ratioValue } from "@/lib/editor/page-crop";
 import { toggleUnit } from "@/lib/editor/selection";
 import { MAX_ZOOM, MIN_ZOOM, selectDocument } from "@/lib/editor/store";
+import { graphicEntrySchema } from "@/lib/graphics/entry";
+import type { GraphicEntry } from "@/lib/graphics/entry";
 
 const PINCH_ZOOM_SPEED = 0.01;
 
 const isAcceptedDrag = (event: DragEvent<HTMLDivElement>) =>
   event.dataTransfer.types.includes("Files") ||
-  event.dataTransfer.types.includes(ASSET_DRAG_TYPE);
+  event.dataTransfer.types.includes(ASSET_DRAG_TYPE) ||
+  event.dataTransfer.types.includes(GRAPHIC_DRAG_TYPE);
+
+// The graphic a drag carries, if it's one this tab can read
+const draggedGraphic = (data: string): GraphicEntry | null => {
+  if (!data) {
+    return null;
+  }
+  try {
+    const parsed = graphicEntrySchema.safeParse(JSON.parse(data));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+};
 
 const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
   if (!isAcceptedDrag(event)) {
@@ -440,8 +459,9 @@ export const WorkspaceStage = () => {
     return element?.type === "frame" && !element.locked ? element.id : null;
   };
 
-  // Files from the desktop upload; library assets place directly. Both land
-  // where the pointer is, converted from screen to page coordinates.
+  // Files from the desktop upload; library assets and graphics place
+  // directly. All land where the pointer is, converted from screen to page
+  // coordinates.
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     if (!isAcceptedDrag(event)) {
       return;
@@ -454,6 +474,21 @@ export const WorkspaceStage = () => {
       x: (event.clientX - bounds.left - origin.x) / zoom,
       y: (event.clientY - bounds.top - origin.y) / zoom,
     };
+
+    const graphic = draggedGraphic(
+      event.dataTransfer.getData(GRAPHIC_DRAG_TYPE)
+    );
+    if (graphic) {
+      const element = createGraphicElement(
+        graphic,
+        { height: pageHeight, width: pageWidth },
+        at
+      );
+      const state = store.getState();
+      state.change((doc) => insertElement(doc, element));
+      state.select([element.id]);
+      return;
+    }
 
     const frameId = frameAt(event.clientX, event.clientY);
     const assetId = event.dataTransfer.getData(ASSET_DRAG_TYPE);

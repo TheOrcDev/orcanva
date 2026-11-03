@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  RiEmotionLine,
   RiImageLine,
   RiShapesLine,
   RiStackLine,
@@ -9,6 +10,7 @@ import {
 import type { RemixiconComponentType } from "@remixicon/react";
 import type { ReactNode } from "react";
 
+import { GraphicsPanel } from "@/components/editor/panels/graphics-panel";
 import { LayersPanel } from "@/components/editor/panels/layers-panel";
 import { ShapesPanel } from "@/components/editor/panels/shapes-panel";
 import { TextPanel } from "@/components/editor/panels/text-panel";
@@ -41,6 +43,12 @@ const TABS: SidebarTab[] = [
     label: "Shapes",
     panel: <ShapesPanel />,
     value: "shapes",
+  },
+  {
+    icon: RiEmotionLine,
+    label: "Graphics",
+    panel: <GraphicsPanel />,
+    value: "graphics",
   },
   {
     icon: RiStackLine,

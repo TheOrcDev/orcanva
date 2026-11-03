@@ -50,9 +50,9 @@ export const proxy = async (request: NextRequest) => {
 
 export const config = {
   // Pages only: API routes check sessions themselves, and the proxy would
-  // cap request bodies (uploads) at 10 MB. Static files, icons and share
-  // images skip it without a call.
+  // cap request bodies (uploads) at 10 MB. Static files, icons, share images
+  // and the graphics catalog skip it without a call.
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|icon|apple-icon|opengraph-image).*)",
+    "/((?!api|_next/static|_next/image|graphics/|favicon.ico|icon|apple-icon|opengraph-image).*)",
   ],
 };
