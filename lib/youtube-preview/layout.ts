@@ -2,9 +2,12 @@ import type { Size } from "@/lib/document/geometry";
 
 // The mock layouts the YouTube preview draws a thumbnail into. Widths are in
 // CSS pixels, at the size YouTube shows thumbnails on a laptop (a window
-// about 1440px wide) and on a 390px-wide phone. They're approximate and
-// drift whenever YouTube changes its layout, so they all live here.
-// Last checked: 2026-11-03.
+// about 1440px wide) and on a 390px-wide phone. They drift whenever YouTube
+// changes its layout, so they all live here.
+// Search, Up next and the phone feed were measured on the site, signed out,
+// on 2026-11-03. Signed out, the home page shows no videos, so the home
+// grid's 360 is the width of a three- or four-column grid at that window
+// size, not a measurement.
 export const LAYOUTS = [
   {
     // Two columns of the home grid, with its gaps and side padding
@@ -15,20 +18,20 @@ export const LAYOUTS = [
     thumbnailWidth: 360,
   },
   {
-    // A results row: the thumbnail and the text beside it
-    frameWidth: 824,
+    // A results row: the thumbnail and the start of the text beside it
+    frameWidth: 864,
     id: "search",
     label: "Search",
     slots: 4,
-    thumbnailWidth: 360,
+    thumbnailWidth: 500,
   },
   {
     // The column beside the player on a video's page
-    frameWidth: 450,
+    frameWidth: 500,
     id: "up-next",
     label: "Up next",
     slots: 5,
-    thumbnailWidth: 168,
+    thumbnailWidth: 288,
   },
   {
     // A phone's feed, edge to edge

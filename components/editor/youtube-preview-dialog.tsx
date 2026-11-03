@@ -59,7 +59,8 @@ const WhileEditingFields = () => {
           <FieldContent>
             <FieldLabel htmlFor={`${id}-corner`}>Corner preview</FieldLabel>
             <FieldDescription>
-              Your thumbnail in Up next, kept live in a corner of the canvas.
+              Your thumbnail at its Up next size, kept live in a corner of the
+              canvas.
             </FieldDescription>
           </FieldContent>
           <Switch

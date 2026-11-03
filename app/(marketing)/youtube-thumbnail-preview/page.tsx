@@ -99,7 +99,7 @@ const FAQ: FaqEntry[] = [
   },
   {
     answer:
-      "That's the size people see it at. On a laptop a home page thumbnail is about 360 pixels wide, and one in the Up next column about 168. When the window is too narrow, the page shrinks the whole mock and says by how much.",
+      "That's the size people see it at. On a laptop a thumbnail in the Up next column beside a video is about 288 pixels wide, and one on the home page about 360. When the window is too narrow, the page shrinks the whole mock and says by how much.",
     question: "Why does it look so small?",
   },
 ];

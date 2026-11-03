@@ -51,8 +51,9 @@ const CornerButton = ({
   </Tooltip>
 );
 
-// The design as a video in the Up next column, live while you edit, in a
-// corner of the canvas. Turned on and off in the Preview dialog.
+// The design as a video card at the Up next column's thumbnail size, live
+// while you edit, in a corner of the canvas. Stacked like a home page card,
+// so it stays narrow. Turned on and off in the Preview dialog.
 export const CornerPreview = () => {
   const store = useEditorStoreApi();
   const { details, own, preview, setDetails, setDialogOpen, shownTitle } =
@@ -65,11 +66,11 @@ export const CornerPreview = () => {
   return (
     <section
       aria-label="Corner preview"
-      className="bg-background ring-foreground/10 absolute right-4 bottom-4 z-10 flex w-100 flex-col gap-1 rounded-2xl p-2 shadow-lg ring-1 max-md:hidden"
+      className="bg-background ring-foreground/10 absolute right-4 bottom-4 z-10 flex flex-col gap-1 rounded-2xl p-2 shadow-lg ring-1 max-md:hidden"
     >
       <div className="flex items-center gap-1 pl-2">
         <span className="text-muted-foreground flex-1 text-xs font-medium">
-          Up next, at real size
+          Real size, as in Up next
         </span>
         <CornerButton
           icon={RiExpandDiagonalLine}
@@ -88,7 +89,7 @@ export const CornerPreview = () => {
       <MockSurface
         theme={details.theme}
         thumbnailWidth={UP_NEXT.thumbnailWidth}
-        className="rounded-xl p-2"
+        className="rounded-xl p-2 pb-0"
       >
         {preview ? (
           <div aria-hidden>
@@ -99,7 +100,7 @@ export const CornerPreview = () => {
                 title: shownTitle,
               })}
               sizes={`${UP_NEXT.thumbnailWidth}px`}
-              variant="compact"
+              variant="grid"
             />
           </div>
         ) : (
