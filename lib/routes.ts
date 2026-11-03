@@ -24,10 +24,14 @@ export const SETTINGS_PATH = "/settings";
 export const INVITE_PATH = "/invite";
 
 // /new/<size preset id> makes a private design at that size and opens it,
-// after signing in. The landing's pages link to it from each size.
+// after signing in; ?template=<id> makes it from that template. The
+// landing's pages link to it from each size and template.
 export const NEW_DESIGN_PATH = "/new";
-export const newDesignPath = (presetId: string): string =>
-  `${NEW_DESIGN_PATH}/${presetId}`;
+export const TEMPLATE_PARAM = "template";
+export const newDesignPath = (presetId: string, templateId?: string): string =>
+  templateId
+    ? `${NEW_DESIGN_PATH}/${presetId}?${TEMPLATE_PARAM}=${encodeURIComponent(templateId)}`
+    : `${NEW_DESIGN_PATH}/${presetId}`;
 
 // The landing's pages for what people search for, beside `/`
 export const BACKGROUND_REMOVER_PATH = "/background-remover";
