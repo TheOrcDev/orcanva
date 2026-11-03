@@ -21,3 +21,21 @@ export interface VersionElement {
 export const MAX_NAMED_VERSIONS = 50;
 
 export const MAX_VERSION_NAME = 60;
+
+// A version as the history list shows it (GET /api/designs/[id]/versions)
+export interface VersionSummary {
+  id: string;
+  kind: VersionKind;
+  // Named versions only
+  name: string | null;
+  // ISO time it was taken
+  createdAt: string;
+  // Who caused it (see design_versions.created_by_name)
+  createdByName: string;
+  elementCount: number;
+  // A picture of it, once there is one
+  thumbnailUrl: string | null;
+}
+
+// Versions per page of the history list
+export const VERSION_PAGE_SIZE = 30;

@@ -35,3 +35,9 @@ export const roleFor = (
 // isn't the owner loses it
 export const keepsPrivateAccess = (role: DesignRole): boolean =>
   role !== "editor";
+
+// Version history: the owner and people it's shared with. Public editors
+// and guests don't see it, since old versions can hold what the owner
+// removed on purpose (and their asset URLs work as capabilities).
+export const canManageHistory = (role: DesignRole): boolean =>
+  role !== "editor";

@@ -121,6 +121,9 @@ export interface EditorState {
   skippedElementIds: readonly string[];
   // Re-subscribes the live queries after they stopped (set by the live sync)
   reconnectLive: (() => void) | null;
+  // Sends this window's edits now and resolves once they reached the server
+  // (set by the outbox), so a version saved next holds them
+  flushWrites: (() => Promise<void>) | null;
   // How this session shows up to others, and what it tells them
   profile: Profile;
   pointer: { x: number; y: number } | null;
@@ -164,6 +167,8 @@ export interface EditorState {
   fileDragActive: boolean;
   // Image elements with a background removal in progress
   backgroundJobs: string[];
+  // The version history sheet is open
+  historyOpen: boolean;
 }
 
 export interface EditorActions {
@@ -187,6 +192,7 @@ export interface EditorActions {
   applyLivePage: (row: LivePageRow) => void;
   setLiveStatus: (status: LiveStatus) => void;
   setReconnectLive: (reconnect: (() => void) | null) => void;
+  setFlushWrites: (flush: (() => Promise<void>) | null) => void;
   // A gesture on these elements started / ended
   hold: (ids: string[]) => void;
   release: (ids: string[]) => void;
@@ -234,6 +240,7 @@ export interface EditorActions {
   setBackgroundJob: (elementId: string, running: boolean) => void;
   // The brand kit as it should show; ignored for guests
   setBrandKit: (kit: BrandKit) => void;
+  setHistoryOpen: (open: boolean) => void;
 }
 
 export type EditorStore = EditorState & EditorActions;
@@ -487,9 +494,11 @@ export const createEditorStore = (init: EditorInit) => {
         get().zoomToFit();
       }
     },
+    flushWrites: null,
     guides: [],
     held: new Set(),
     history: createHistory(),
+    historyOpen: false,
     hold: (ids) => set((state) => ({ held: new Set([...state.held, ...ids]) })),
     libraryIds: init.libraryIds,
     liveStatus: init.live ? "connecting" : "off",
@@ -611,9 +620,14 @@ export const createEditorStore = (init: EditorInit) => {
         state.fileDragActive === active ? state : { fileDragActive: active }
       ),
     setFitZoom: (zoom) => set({ zoom: clampZoom(zoom) }),
+    setFlushWrites: (flush) => set({ flushWrites: flush }),
     setGuides: (guides) =>
       set((state) =>
         guides.length === 0 && state.guides.length === 0 ? state : { guides }
+      ),
+    setHistoryOpen: (open) =>
+      set((state) =>
+        state.historyOpen === open ? state : { historyOpen: open }
       ),
     setLiveStatus: (status) =>
       set((state) =>

@@ -88,6 +88,12 @@ export const useOutbox = (
     () => outboxRef.current?.flush() ?? Promise.resolve(),
     []
   );
+
+  // Saving a version or restoring one sends this window's edits first
+  useEffect(() => {
+    store.getState().setFlushWrites(flush);
+    return () => store.getState().setFlushWrites(null);
+  }, [flush, store]);
   const setAwaitSync = useCallback((awaitSync: AwaitSync | null) => {
     awaitSyncRef.current = awaitSync;
     outboxRef.current?.setAwaitSync(awaitSync);

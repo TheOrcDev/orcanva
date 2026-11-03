@@ -47,6 +47,14 @@ export const visibleTo = (viewerId: string | null): SQL =>
     ? sql`(${designs.visibility} = 'public' OR ${designs.ownerId} = ${viewerId} OR ${sharedWith(viewerId)})`
     : sql`${designs.visibility} = 'public'`;
 
+// Designs whose version history the viewer may see and restore: their own
+// and the ones shared with them (canManageHistory). Unaliased `designs`, as
+// in visibleTo().
+export const managesHistory = (viewerId: string | null): SQL =>
+  viewerId
+    ? sql`(${designs.ownerId} = ${viewerId} OR ${sharedWith(viewerId)})`
+    : sql`false`;
+
 // The newest public designs shown in the gallery
 const PUBLIC_GALLERY_LIMIT = 60;
 

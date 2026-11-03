@@ -19,6 +19,7 @@ import {
   useEditor,
   useEditorStoreApi,
 } from "@/components/editor/editor-store-context";
+import { HistorySheet } from "@/components/editor/history/history-sheet";
 import { SaveStatus } from "@/components/editor/save-status";
 import { SharePopover } from "@/components/editor/share-popover";
 import { Button } from "@/components/ui/button";
@@ -165,6 +166,7 @@ export const EditorToolbar = ({
         disabled={!redoable}
         onClick={() => store.getState().redo()}
       />
+      <HistorySheet />
       <div className="flex-1" />
       <PresenceAvatars />
       <LiveStatus />

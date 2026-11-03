@@ -1,12 +1,15 @@
 import "server-only";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 
 import { authUsers } from "@/lib/db/auth-schema";
 import { getDb } from "@/lib/db/client";
+import { managesHistory } from "@/lib/db/queries/designs";
 import { designVersions } from "@/lib/db/schema";
+import { storageUrl } from "@/lib/storage/keys";
 import { versionsToPrune } from "@/lib/versions/retention";
-import type { VersionKind } from "@/lib/versions/schema";
+import { MAX_NAMED_VERSIONS, VERSION_PAGE_SIZE } from "@/lib/versions/schema";
+import type { VersionKind, VersionSummary } from "@/lib/versions/schema";
 
 // What a design without a stored background shows (see migrateDocument)
 const WHITE = JSON.stringify({ color: "#ffffff", type: "solid" });
@@ -122,6 +125,84 @@ export const writerName = (
       AND design_presence.client_id = ${clientId}::uuid),
   'Guest'
 )`;
+
+// One page of a design's history, newest first; `before` continues from
+// the oldest one shown so far. Callers check access first.
+export const listVersions = async (
+  designId: string,
+  before: Date | null
+): Promise<{ versions: VersionSummary[]; next: string | null }> => {
+  const rows = await getDb()
+    .select({
+      createdAt: designVersions.createdAt,
+      createdByName: designVersions.createdByName,
+      elementCount: designVersions.elementCount,
+      id: designVersions.id,
+      kind: designVersions.kind,
+      name: designVersions.name,
+      thumbnailKey: designVersions.thumbnailKey,
+    })
+    .from(designVersions)
+    .where(
+      and(
+        eq(designVersions.designId, designId),
+        before ? lt(designVersions.createdAt, before) : undefined
+      )
+    )
+    .orderBy(desc(designVersions.createdAt), desc(designVersions.id))
+    // One more than a page tells whether there's another
+    .limit(VERSION_PAGE_SIZE + 1);
+  const page = rows.slice(0, VERSION_PAGE_SIZE);
+  return {
+    next:
+      rows.length > VERSION_PAGE_SIZE
+        ? (page.at(-1)?.createdAt.toISOString() ?? null)
+        : null,
+    versions: page.map(({ createdAt, thumbnailKey, ...version }) => ({
+      ...version,
+      createdAt: createdAt.toISOString(),
+      thumbnailUrl: thumbnailKey ? storageUrl(thumbnailKey) : null,
+    })),
+  };
+};
+
+// Saves the design as it is now under a name, for the owner and people
+// it's shared with. null: no such design for them. `id` is null when the
+// design already has the most named versions it may keep.
+export const saveNamedVersion = async ({
+  designId,
+  name,
+  viewer,
+}: {
+  designId: string;
+  name: string;
+  viewer: { id: string; name: string };
+}): Promise<{ id: string | null } | null> => {
+  const result = await getDb().execute<{
+    found: number;
+    id: string | null;
+  }>(sql`
+    WITH design AS (
+      SELECT id FROM designs
+      WHERE id = ${designId}::uuid AND ${managesHistory(viewer.id)}
+    ),
+    saved AS (${insertVersion({
+      byName: sql`${viewer.name}::text`,
+      from: "design",
+      kind: "named",
+      name,
+      viewerId: viewer.id,
+      when: sql`(
+        SELECT count(*) FROM design_versions
+        WHERE design_versions.design_id = design.id AND kind = 'named'
+      ) < ${MAX_NAMED_VERSIONS}`,
+    })})
+    SELECT (SELECT count(*) FROM design)::int AS found,
+      (SELECT id FROM saved) AS id
+  `);
+  const [row] = result.rows;
+  return row?.found ? { id: row.id } : null;
+};
 
 // Thins out a design's history (see lib/versions/retention) and deletes
 // the dropped versions' thumbnails. Returns the storage keys to delete.

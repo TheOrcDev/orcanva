@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { keepsPrivateAccess, roleFor } from "@/lib/auth/access";
+import {
+  canManageHistory,
+  keepsPrivateAccess,
+  roleFor,
+} from "@/lib/auth/access";
 
 const OWNER = "8f1c0e1e-6c5d-4c71-9f7b-0b5a3a1d2e01";
 const SOMEONE = "2b7d4c3a-1e9f-4a8b-b6c5-d4e3f2a1b0c9";
@@ -72,5 +76,28 @@ describe("keepsPrivateAccess", () => {
     expect(keepsPrivateAccess("owner")).toBe(true);
     expect(keepsPrivateAccess("member")).toBe(true);
     expect(keepsPrivateAccess("editor")).toBe(false);
+  });
+});
+
+describe("canManageHistory", () => {
+  it("shows version history to the owner and people it's shared with", () => {
+    expect(canManageHistory("owner")).toBe(true);
+    expect(canManageHistory("member")).toBe(true);
+  });
+
+  it("hides it from public editors and guests, on any design", () => {
+    expect(canManageHistory("editor")).toBe(false);
+    const guest = roleFor(
+      { ownerId: OWNER, visibility: "public" },
+      null,
+      false
+    );
+    expect(guest && canManageHistory(guest)).toBe(false);
+    const ownerless = roleFor(
+      { ownerId: null, visibility: "public" },
+      SOMEONE,
+      false
+    );
+    expect(ownerless && canManageHistory(ownerless)).toBe(false);
   });
 });
