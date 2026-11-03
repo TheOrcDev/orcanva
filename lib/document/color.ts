@@ -32,6 +32,13 @@ export const formatHex = (color: Rgba): string => {
   return `#${hexPair(red)}${hexPair(green)}${hexPair(blue)}${opacity}`;
 };
 
+// One spelling per colour (#rrggbb, or #rrggbbaa when see-through), so
+// lists of colours can be compared and deduplicated. Null for non-hex.
+export const normalizeHex = (color: string): string | null => {
+  const rgba = parseHex(color.trim());
+  return rgba ? formatHex(rgba) : null;
+};
+
 // The colour `amount` (0–1) of the way from one to the other
 export const mixRgba = (from: Rgba, to: Rgba, amount: number): Rgba => [
   from[0] + (to[0] - from[0]) * amount,

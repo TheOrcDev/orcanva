@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { formatHex, mixRgba, parseHex } from "@/lib/document/color";
+import {
+  formatHex,
+  mixRgba,
+  normalizeHex,
+  parseHex,
+} from "@/lib/document/color";
 
 describe("hex colours", () => {
   it("reads every hex form the pickers write", () => {
@@ -16,6 +21,13 @@ describe("hex colours", () => {
   it("writes alpha only when it's see-through", () => {
     expect(formatHex([255, 128, 0, 255])).toBe("#ff8000");
     expect(formatHex([255, 127.6, -3, 128])).toBe("#ff800080");
+  });
+
+  it("spells each colour one way", () => {
+    expect(normalizeHex(" #F80 ")).toBe("#ff8800");
+    expect(normalizeHex("#FF8800FF")).toBe("#ff8800");
+    expect(normalizeHex("#ff880080")).toBe("#ff880080");
+    expect(normalizeHex("orange")).toBeNull();
   });
 
   it("mixes channel by channel", () => {

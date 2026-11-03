@@ -1,0 +1,98 @@
+import { normalizeHex, parseHex } from "@/lib/document/color";
+import type {
+  Background,
+  BoxShapeElement,
+  DesignDocument,
+  DesignElement,
+  LinearElement,
+  TextElement,
+} from "@/lib/document/schema";
+import { effectControls } from "@/lib/text/effects";
+
+// The colour picker's "In this design" row
+export const MAX_DESIGN_COLORS = 12;
+
+// Colours as stored; null or undefined where a field is off
+type Colors = readonly (string | null | undefined)[];
+
+const backgroundColors = (background: Background): Colors =>
+  background.type === "solid"
+    ? [background.color]
+    : background.stops.map((stop) => stop.color);
+
+// Only what shows: a gradient hides the fill, a zero-width outline and an
+// effect that takes no colour (Lift) show none
+const textColors = (text: TextElement): Colors => [
+  ...(text.fillGradient
+    ? text.fillGradient.stops.map((stop) => stop.color)
+    : [text.fill]),
+  ...text.marks.map((mark) => mark.fill),
+  text.stroke && text.stroke.widthEm > 0 ? text.stroke.color : null,
+  text.shadow?.color,
+  text.highlight?.color,
+  text.effect && effectControls(text.effect.kind).color
+    ? text.effect.color
+    : null,
+];
+
+const boxColors = (shape: BoxShapeElement): Colors => [
+  shape.fill,
+  shape.strokeWidth > 0 ? shape.stroke : null,
+];
+
+const lineColors = (line: LinearElement): Colors => [line.stroke];
+
+// Where each element type keeps its colours. A new type, or a new colour
+// field on one (photo effects, graphic palettes), adds its colours here.
+const elementColors = (element: DesignElement): Colors => {
+  switch (element.type) {
+    case "text": {
+      return textColors(element);
+    }
+    case "rect":
+    case "ellipse": {
+      return boxColors(element);
+    }
+    case "line":
+    case "arrow": {
+      return lineColors(element);
+    }
+    case "image":
+    case "frame": {
+      return [];
+    }
+    default: {
+      // Unreachable while every type is listed; a new one fails to compile
+      return element satisfies never;
+    }
+  }
+};
+
+// A colour worth offering: hex, and not fully see-through
+const visibleColor = (color: string | null | undefined): string | null => {
+  const normal = color ? normalizeHex(color) : null;
+  return normal && parseHex(normal)?.[3] !== 0 ? normal : null;
+};
+
+// The colours a design uses, page and elements, most-used first (ties in
+// the order they're met, bottom to top)
+export const documentColors = (
+  document: DesignDocument,
+  limit: number = MAX_DESIGN_COLORS
+): string[] => {
+  const counts = new Map<string, number>();
+  const colors = [
+    ...backgroundColors(document.background),
+    ...document.elements.flatMap(elementColors),
+  ];
+  for (const color of colors) {
+    const visible = visibleColor(color);
+    if (visible) {
+      counts.set(visible, (counts.get(visible) ?? 0) + 1);
+    }
+  }
+  return [...counts]
+    .toSorted(([, first], [, second]) => second - first)
+    .slice(0, limit)
+    .map(([color]) => color);
+};
