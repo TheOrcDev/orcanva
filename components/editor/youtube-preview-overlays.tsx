@@ -52,8 +52,9 @@ const CornerButton = ({
 );
 
 // The design as a video card at the Up next column's thumbnail size, live
-// while you edit, in a corner of the canvas. Stacked like a home page card,
-// so it stays narrow. Turned on and off in the Preview dialog.
+// while you edit, in the bottom-left corner of the canvas, away from the
+// corner the length badge covers. Stacked like a home page card, so it
+// stays narrow. Turned on and off in the Preview dialog.
 export const CornerPreview = () => {
   const store = useEditorStoreApi();
   const { details, own, preview, setDetails, setDialogOpen, shownTitle } =
@@ -66,7 +67,7 @@ export const CornerPreview = () => {
   return (
     <section
       aria-label="Corner preview"
-      className="bg-background ring-foreground/10 absolute right-4 bottom-4 z-10 flex flex-col gap-1 rounded-2xl p-2 shadow-lg ring-1 max-md:hidden"
+      className="bg-background ring-foreground/10 absolute bottom-4 left-4 z-10 flex flex-col gap-1 rounded-2xl p-2 shadow-lg ring-1 max-md:hidden"
     >
       <div className="flex items-center gap-1 pl-2">
         <span className="text-muted-foreground flex-1 text-xs font-medium">

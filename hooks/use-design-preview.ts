@@ -66,9 +66,15 @@ const startPreviews = (
       return;
     }
     const node = getPageNode();
+    // The canvas mounts once the workspace has a size: try again shortly
+    if (!node) {
+      clearTimeout(timer);
+      timer = setTimeout(render, RERENDER_DELAY_MS);
+      return;
+    }
     const state = store.getState();
     const document = selectDocument(state);
-    if (!node || state.editingTextId || document === rendered) {
+    if (state.editingTextId || document === rendered) {
       return;
     }
     running = true;
