@@ -4,7 +4,7 @@ import { and, count, eq, gt, sql } from "drizzle-orm";
 import { headers } from "next/headers";
 import { z } from "zod";
 
-import { getViewer } from "@/lib/auth/server";
+import { requireViewer } from "@/lib/auth/server";
 import type { Viewer } from "@/lib/auth/server";
 import { authUsers } from "@/lib/db/auth-schema";
 import { getDb } from "@/lib/db/client";
@@ -24,14 +24,6 @@ import { SITE_URL } from "@/lib/site";
 
 // Sharing is the owner's alone: each action checks the session and that
 // the design is theirs. Server Actions are public endpoints.
-
-const requireViewer = async (): Promise<Viewer> => {
-  const viewer = await getViewer();
-  if (!viewer) {
-    throw new Error("Sign in first");
-  }
-  return viewer;
-};
 
 // The design's name, when the viewer owns it
 const ownedDesignName = async (

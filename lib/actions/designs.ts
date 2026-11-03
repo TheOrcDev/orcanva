@@ -4,8 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { getViewer } from "@/lib/auth/server";
-import type { Viewer } from "@/lib/auth/server";
+import { requireViewer } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/client";
 import { visibleTo } from "@/lib/db/queries/designs";
 import { designElements, designVisibility, designs } from "@/lib/db/schema";
@@ -22,14 +21,6 @@ import { copyObject, deleteObject } from "@/lib/storage/s3";
 // Every page in the studio's sidebar layout (app/(studio)): a change to a
 // design can move it between the galleries
 const refreshStudio = () => revalidatePath("/(studio)", "layout");
-
-const requireViewer = async (): Promise<Viewer> => {
-  const viewer = await getViewer();
-  if (!viewer) {
-    throw new Error("Sign in first");
-  }
-  return viewer;
-};
 
 const canvasSize = z.number().int().min(MIN_CANVAS_SIZE).max(MAX_CANVAS_SIZE);
 const designName = z.string().trim().min(1).max(120);

@@ -75,6 +75,16 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
   };
 });
 
+// The signed-in viewer, for Server Actions that need an account: they're
+// public endpoints, so each one checks the session itself
+export const requireViewer = async (): Promise<Viewer> => {
+  const viewer = await getViewer();
+  if (!viewer) {
+    throw new Error("Sign in first");
+  }
+  return viewer;
+};
+
 // Neon Auth keeps a signed copy of the session, user included, in a cookie
 // for five minutes. After changing someone's name or picture, drop it so the
 // next request reads the account fresh instead of showing the old one.

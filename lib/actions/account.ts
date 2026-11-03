@@ -3,7 +3,7 @@
 import { refresh } from "next/cache";
 import { z } from "zod";
 
-import { forgetCachedSession, getAuth, getViewer } from "@/lib/auth/server";
+import { forgetCachedSession, getAuth, requireViewer } from "@/lib/auth/server";
 import type { Viewer } from "@/lib/auth/server";
 import { MAX_PROFILE_NAME } from "@/lib/collab/identity";
 import { avatarKey, ownAvatarKey, storageUrl } from "@/lib/storage/keys";
@@ -12,15 +12,6 @@ import { deleteObject, putObject } from "@/lib/storage/s3";
 // Avatars are 256px JPEGs from prepareAvatar; anything bigger isn't
 const MAX_AVATAR_BYTES = 256 * 1024;
 const JPEG_MAGIC = [0xff, 0xd8, 0xff];
-
-// Server Actions are public endpoints: each one checks the session itself
-const requireViewer = async (): Promise<Viewer> => {
-  const viewer = await getViewer();
-  if (!viewer) {
-    throw new Error("Sign in first");
-  }
-  return viewer;
-};
 
 const updateUser = async (changes: {
   name?: string;
