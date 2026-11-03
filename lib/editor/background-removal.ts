@@ -1,4 +1,5 @@
 import { cutOutBackground } from "@/lib/background-removal/cut-out";
+import { findVariant } from "@/lib/editor/asset-variants";
 import { findElement, updateElement } from "@/lib/editor/document-ops";
 import type { EditorAsset, EditorStoreApi } from "@/lib/editor/store";
 import { selectDocument } from "@/lib/editor/store";
@@ -54,7 +55,7 @@ export const removeImageBackground = async (
   store.getState().setBackgroundJob(elementId, true);
   try {
     const cutout =
-      assets.find((asset) => asset.sourceAssetId === sourceAssetId) ??
+      findVariant(assets, sourceAssetId, "no-background") ??
       (await createCutout(source, store.getState().designId, onProgress));
     const state = store.getState();
     state.addAsset(cutout);

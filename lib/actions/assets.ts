@@ -3,6 +3,7 @@
 import { and, eq, or } from "drizzle-orm";
 import { z } from "zod";
 
+import { isReusableVariant } from "@/lib/assets/variants";
 import { getDesignAccess } from "@/lib/auth/design-access";
 import { getViewer } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/client";
@@ -51,11 +52,14 @@ export type CreateUploadResult =
 // An identical file, or the same derived image of the same source, among
 // the account's own uploads. Hashes and cutouts come from the browser
 // unverified, so nobody else's upload ever stands in for yours; guests have
-// no library and never reuse anything.
+// no library and never reuse anything. Erases are only ever reused as
+// identical files, since each depends on its own mask.
 const findReusable = async (
   ownerId: string | null,
-  { sha256, source }: CreateUploadInput
+  { sha256, source: derived }: CreateUploadInput
 ): Promise<AssetRow | undefined> => {
+  const source =
+    derived && isReusableVariant(derived.variant) ? derived : undefined;
   if (!(ownerId && (sha256 || source))) {
     return;
   }

@@ -18,6 +18,7 @@ export const toEditorAsset = (row: AssetRow): EditorAsset => ({
   name: row.originalName,
   sourceAssetId: row.sourceAssetId,
   url: assetFileUrl(row),
+  variant: row.variant,
   width: row.width,
 });
 

@@ -1,5 +1,6 @@
 import { createStore } from "zustand/vanilla";
 
+import type { AssetVariant } from "@/lib/assets/variants";
 import { keepsPrivateAccess } from "@/lib/auth/access";
 import type { DesignRole, Visibility } from "@/lib/auth/access";
 import type { BrandKit } from "@/lib/brand-kit/schema";
@@ -85,8 +86,10 @@ export interface EditorAsset {
   width: number;
   height: number;
   name: string;
-  // Set for derived images (e.g. a background-removed cutout)
+  // Set for derived images (a cutout, an erase, an upscale): the asset it was
+  // made from, and how
   sourceAssetId: string | null;
+  variant: AssetVariant | null;
 }
 
 // The signed-in person using the editor

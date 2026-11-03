@@ -99,6 +99,13 @@
       "when": 1793737297901,
       "tag": "0013_comments",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793743125659,
+      "tag": "0014_asset_variants",
+      "breakpoints": true
     }
   ]
 }

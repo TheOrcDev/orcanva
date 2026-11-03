@@ -15,6 +15,7 @@ import {
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
+import { ASSET_VARIANTS } from "@/lib/assets/variants";
 import { BRAND_KIT_KINDS } from "@/lib/brand-kit/schema";
 import type {
   Background,
@@ -318,8 +319,8 @@ export const commentMentions = pgTable(
 
 export const assetStatus = pgEnum("asset_status", ["pending", "ready"]);
 
-// Derived images (e.g. a background-removed cutout) point at their source
-export const assetVariant = pgEnum("asset_variant", ["no-background"]);
+// Derived images (a cutout, an erase, an upscale) point at their source
+export const assetVariant = pgEnum("asset_variant", ASSET_VARIANTS);
 
 // Uploads are files in the bucket; template images ship with the app in
 // public/template-files and have rows so photos can point at them
@@ -357,12 +358,13 @@ export const assets = pgTable(
     index("assets_owner_created_idx").on(table.ownerId, table.createdAt),
     // One copy of a file per account. Guests (null owner) never collide.
     uniqueIndex("assets_owner_sha256_idx").on(table.ownerId, table.sha256),
-    // One cached result per account, source image and variant
-    uniqueIndex("assets_owner_source_variant_idx").on(
-      table.ownerId,
-      table.sourceAssetId,
-      table.variant
-    ),
+    // One cached result per account, source image and variant, except
+    // erases, which depend on their mask. The cast keeps the predicate off
+    // the enum's newer values: Postgres can't use a value in the transaction
+    // that adds it, and drizzle runs pending migrations in one.
+    uniqueIndex("assets_owner_source_variant_idx")
+      .on(table.ownerId, table.sourceAssetId, table.variant)
+      .where(sql`${table.variant}::text <> 'erased'`),
   ]
 );
 

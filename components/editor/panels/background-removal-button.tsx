@@ -1,6 +1,6 @@
 "use client";
 
-import { RiArrowGoBackLine, RiMagicLine } from "@remixicon/react";
+import { RiMagicLine } from "@remixicon/react";
 
 import {
   useEditor,
@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import type { ImageElement } from "@/lib/document/schema";
+import { hasVariant } from "@/lib/editor/asset-variants";
 import { removeImageBackground } from "@/lib/editor/background-removal";
-import { updateElement } from "@/lib/editor/document-ops";
 import { stopIfOutdated } from "@/lib/editor/outdated";
 
 export const BackgroundRemovalButton = ({
@@ -23,29 +23,16 @@ export const BackgroundRemovalButton = ({
   const asset = useEditor((state) =>
     state.assets.find((item) => item.id === element.assetId)
   );
+  // A cutout, or something made from one, has no background left to remove
+  const cutOut = useEditor((state) =>
+    hasVariant(state.assets, element.assetId, "no-background")
+  );
   const running = useEditor((state) =>
     state.backgroundJobs.includes(element.id)
   );
-  const sourceAssetId = asset?.sourceAssetId ?? null;
 
-  if (sourceAssetId) {
-    return (
-      <Button
-        variant="outline"
-        className="w-full"
-        disabled={element.locked}
-        onClick={() =>
-          store
-            .getState()
-            .change((doc) =>
-              updateElement(doc, element.id, { assetId: sourceAssetId })
-            )
-        }
-      >
-        <RiArrowGoBackLine data-icon="inline-start" />
-        Restore original
-      </Button>
-    );
+  if (cutOut && !running) {
+    return null;
   }
 
   // Like toast.promise, but the loading toast also shows download progress

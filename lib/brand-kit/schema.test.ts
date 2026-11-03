@@ -19,6 +19,7 @@ const asset = (id: string): EditorAsset => ({
   name: "logo.png",
   sourceAssetId: null,
   url: `/api/storage/assets/${id}.png`,
+  variant: null,
   width: 100,
 });
 

@@ -279,6 +279,7 @@ describe("editor store", () => {
       name: "logo.png",
       sourceAssetId: null,
       url: "/api/storage/assets/logo.png",
+      variant: null,
       width: 10,
     };
     const init: EditorInit = {

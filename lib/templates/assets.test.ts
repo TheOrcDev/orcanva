@@ -58,6 +58,7 @@ describe("template assets", () => {
       name: "Orc painter",
       sourceAssetId: null,
       url: "/template-files/images/5f351ff9d93f8791.webp",
+      variant: null,
       width: 1672,
     });
   });

@@ -51,5 +51,6 @@ export const templateEditorAsset = (asset: TemplateAsset): EditorAsset => ({
   name: asset.name,
   sourceAssetId: null,
   url: assetFileUrl({ key: templateImageKey(asset.file), origin: "template" }),
+  variant: null,
   width: asset.width,
 });

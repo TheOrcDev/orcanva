@@ -12,7 +12,7 @@ import {
   useEditor,
   useEditorStoreApi,
 } from "@/components/editor/editor-store-context";
-import { BackgroundRemovalButton } from "@/components/editor/panels/background-removal-button";
+import { AiImageTools } from "@/components/editor/panels/ai-image-tools";
 import { ImageAdjustments } from "@/components/editor/panels/image-adjustments";
 import { ImageFilters } from "@/components/editor/panels/image-filters";
 import { PanelSection } from "@/components/editor/panels/panel-section";
@@ -69,7 +69,6 @@ export const ImageProperties = ({ element }: { element: ImageElement }) => {
   return (
     <>
       <PanelSection title="Image">
-        <BackgroundRemovalButton element={element} />
         <Button
           variant="outline"
           disabled={element.locked}
@@ -115,6 +114,7 @@ export const ImageProperties = ({ element }: { element: ImageElement }) => {
       <ImageFilters element={element} />
       <ImageAdjustments element={element} />
       <PhotoEffectsProperties element={element} />
+      <AiImageTools element={element} />
       <PanelSection title="Corners">
         <TransactionSlider
           label="Radius"

@@ -17,6 +17,7 @@ const asset = (id: string, sourceAssetId: string | null = null) =>
     name: id,
     sourceAssetId,
     url: `/api/storage/assets/${id}.png`,
+    variant: sourceAssetId ? "no-background" : null,
     width: 100,
   }) satisfies EditorAsset;
 
@@ -38,6 +39,17 @@ describe("unknownAssetIds", () => {
     expect(
       unknownAssetIds(document, [asset("cutout", "original")], never)
     ).toEqual(["original"]);
+  });
+
+  it("walks a chain of copies one source at a time", () => {
+    // An upscale of a cutout: once the cutout is known, its upload is asked
+    // for too, so "Restore original" can go all the way back
+    const document = withImages("upscaled");
+    const upscaled = asset("upscaled", "cutout");
+    expect(unknownAssetIds(document, [upscaled], never)).toEqual(["cutout"]);
+    expect(
+      unknownAssetIds(document, [upscaled, asset("cutout", "upload")], never)
+    ).toEqual(["upload"]);
   });
 
   it("skips ids that are pending or known to be missing", () => {
