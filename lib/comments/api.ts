@@ -1,6 +1,7 @@
 import type {
   CommentPatch,
   DesignComment,
+  MentionPerson,
   NewComment,
 } from "@/lib/comments/schema";
 
@@ -91,4 +92,13 @@ export const deleteComment = async (
   commentId: string
 ): Promise<void> => {
   await send(commentUrl(designId, commentId), { method: "DELETE" });
+};
+
+// Who comments on the design can mention (the owner and members only)
+export const fetchMentionable = async (
+  designId: string
+): Promise<MentionPerson[]> => {
+  const response = await send(`/api/designs/${designId}/people`);
+  const { people }: { people: MentionPerson[] } = await response.json();
+  return people;
 };

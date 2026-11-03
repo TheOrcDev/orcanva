@@ -1,7 +1,6 @@
 "use server";
 
 import { and, count, eq, gt, sql } from "drizzle-orm";
-import { headers } from "next/headers";
 import { z } from "zod";
 
 import { requireViewer } from "@/lib/auth/server";
@@ -11,6 +10,7 @@ import { getDb } from "@/lib/db/client";
 import { listDesignShares } from "@/lib/db/queries/shares";
 import type { SharePerson } from "@/lib/db/queries/shares";
 import { designShares, designs } from "@/lib/db/schema";
+import { appOrigin } from "@/lib/email/origin";
 import { sendEmail } from "@/lib/email/send";
 import { shareInviteEmail } from "@/lib/email/share-invite";
 import {
@@ -20,7 +20,6 @@ import {
   invitePath,
   shareEmail,
 } from "@/lib/sharing/invite";
-import { SITE_URL } from "@/lib/site";
 
 // Sharing is the owner's alone: each action checks the session and that
 // the design is theirs. Server Actions are public endpoints.
@@ -36,17 +35,6 @@ const ownedDesignName = async (
     .where(and(eq(designs.id, id), eq(designs.ownerId, viewer.id)))
     .limit(1);
   return row?.name ?? null;
-};
-
-// Where invite links point. Production always links to its own address,
-// whatever host a request claims; dev links back to the local server.
-const appOrigin = async (): Promise<string> => {
-  if (process.env.NODE_ENV === "production") {
-    return SITE_URL;
-  }
-  const requestHeaders = await headers();
-  const host = requestHeaders.get("host") ?? "localhost:3000";
-  return `http://${host}`;
 };
 
 const designId = z.uuid();

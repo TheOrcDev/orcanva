@@ -1,3 +1,4 @@
+import { escapeHtml, oneLine } from "@/lib/email/escape";
 import { SITE_NAME } from "@/lib/site";
 
 export interface ShareInvite {
@@ -18,25 +19,6 @@ export interface EmailContent {
   html: string;
   text: string;
 }
-
-const HTML_ESCAPES: Record<string, string> = {
-  '"': "&quot;",
-  "&": "&amp;",
-  "'": "&#39;",
-  "<": "&lt;",
-  ">": "&gt;",
-};
-
-const HTML_SPECIAL = /["&'<>]/gu;
-
-export const escapeHtml = (value: string): string =>
-  value.replaceAll(HTML_SPECIAL, (char) => HTML_ESCAPES[char] ?? char);
-
-// Line breaks and other control characters, which have no place in a
-// subject line
-const CONTROL = /\p{Cc}+/gu;
-
-const oneLine = (value: string) => value.replaceAll(CONTROL, " ").trim();
 
 // Names come from people, so they're escaped for HTML and kept to one line
 export const shareInviteEmail = ({

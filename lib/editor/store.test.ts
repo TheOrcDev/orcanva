@@ -616,4 +616,24 @@ describe("comments in the editor store", () => {
     store.getState().focusThread("a");
     expect(store.getState().focusRequest).toEqual({ seq: 2, threadId: "a" });
   });
+
+  it("opens the thread a link asked for", () => {
+    const store = createEditorStore({
+      assets: [],
+      comments: [comment("a")],
+      designId: "d",
+      document: createDocument(PAGE),
+      hasThumbnail: false,
+      libraryIds: [],
+      name: "Test",
+      openThreadId: "a",
+      role: "owner",
+      viewer: null,
+      visibility: "public",
+    });
+    expect(store.getState()).toMatchObject({
+      focusRequest: { seq: 1, threadId: "a" },
+      openThreadId: "a",
+    });
+  });
 });

@@ -46,7 +46,11 @@ import type {
 } from "@/lib/collab/sync-state";
 import { commentsFromRows, withEchoes } from "@/lib/comments/live-rows";
 import type { CommentEcho, LiveCommentRow } from "@/lib/comments/live-rows";
-import type { CommentPin, DesignComment } from "@/lib/comments/schema";
+import type {
+  CommentPin,
+  DesignComment,
+  MentionPerson,
+} from "@/lib/comments/schema";
 import { createId } from "@/lib/document/factories";
 import type { Rect } from "@/lib/document/geometry";
 import type { DesignDocument } from "@/lib/document/schema";
@@ -204,6 +208,9 @@ export interface EditorState {
   // Asks the workspace to bring a thread's pin into view; `seq` counts the
   // asks, so asking again for the same thread pans again
   focusRequest: { threadId: string; seq: number } | null;
+  // Who comments can mention, loaded the first time a composer needs it;
+  // null until then
+  mentionable: readonly MentionPerson[] | null;
 }
 
 export interface EditorActions {
@@ -302,6 +309,7 @@ export interface EditorActions {
   removeComment: (id: string) => void;
   // Opens a thread and brings its pin into view (the Comments tab, a link)
   focusThread: (id: string) => void;
+  setMentionable: (people: readonly MentionPerson[]) => void;
 }
 
 export type EditorStore = EditorState & EditorActions;
@@ -326,6 +334,8 @@ export interface EditorInit {
   restoreSeq?: number;
   // The design's comments when the page was loaded
   comments?: DesignComment[];
+  // The thread a link asked for (?comment=), opened from the start
+  openThreadId?: string | null;
 }
 
 export const MIN_ZOOM = 0.05;
@@ -604,7 +614,9 @@ export const createEditorStore = (init: EditorInit) => {
     },
     flushThumbnail: null,
     flushWrites: null,
-    focusRequest: null,
+    focusRequest: init.openThreadId
+      ? { seq: 1, threadId: init.openThreadId }
+      : null,
     focusThread: (id) =>
       set((state) => ({
         draftPin: null,
@@ -646,6 +658,7 @@ export const createEditorStore = (init: EditorInit) => {
       }),
     markOutdated: () =>
       set((state) => (state.outdated ? state : { outdated: true })),
+    mentionable: null,
     missingAssetIds: [],
     name: init.name,
     openThread: (id) =>
@@ -654,7 +667,7 @@ export const createEditorStore = (init: EditorInit) => {
           ? state
           : { draftPin: null, openThreadId: id }
       ),
-    openThreadId: null,
+    openThreadId: init.openThreadId ?? null,
     outdated: false,
     pageCrop: null,
     pageCropRatio: "free",
@@ -817,6 +830,7 @@ export const createEditorStore = (init: EditorInit) => {
       set((state) =>
         state.liveStatus === status ? state : { liveStatus: status }
       ),
+    setMentionable: (people) => set({ mentionable: people }),
     setPageCrop: (box) => set({ pageCrop: box }),
     setPageCropRatio: (ratio) =>
       set((state) => {

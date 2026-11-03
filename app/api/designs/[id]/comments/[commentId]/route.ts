@@ -1,7 +1,9 @@
+import { after } from "next/server";
 import { z } from "zod";
 
 import { getViewer } from "@/lib/auth/server";
 import { checkBody } from "@/lib/comments/body";
+import { notifyMentions } from "@/lib/comments/notify";
 import { commentPatchSchema } from "@/lib/comments/schema";
 import {
   deleteComment,
@@ -9,6 +11,7 @@ import {
   resolveThread,
 } from "@/lib/db/queries/comments";
 import { isDesignId } from "@/lib/db/queries/designs";
+import { appOrigin } from "@/lib/email/origin";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 
@@ -37,7 +40,8 @@ const target = async (
     : null;
 };
 
-// New text ({ body }), or resolving or reopening a thread ({ resolved })
+// New text ({ body }), or resolving or reopening a thread ({ resolved }).
+// People an edit newly mentions are emailed after the response.
 export const PATCH = async (
   request: Request,
   context: RouteContext<"/api/designs/[id]/comments/[commentId]">
@@ -74,8 +78,26 @@ export const PATCH = async (
   if (!checked.ok) {
     return json({ error: checked.error }, 422);
   }
-  const comment = await editComment({ ...found, body: checked.body });
-  return comment ? json({ comment }) : json({ error: "Not found" }, 404);
+  const edited = await editComment({
+    ...found,
+    body: checked.body,
+    mentionIds: checked.mentions,
+  });
+  if (!edited) {
+    return json({ error: "Not found" }, 404);
+  }
+  // Only people it didn't mention before
+  if (edited.mentioned.length > 0) {
+    const origin = await appOrigin();
+    after(() =>
+      notifyMentions({
+        commentId: edited.comment.id,
+        origin,
+        userIds: edited.mentioned,
+      })
+    );
+  }
+  return json({ comment: edited.comment });
 };
 
 export const DELETE = async (

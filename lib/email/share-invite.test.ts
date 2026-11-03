@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { escapeHtml, shareInviteEmail } from "@/lib/email/share-invite";
+import { escapeHtml } from "@/lib/email/escape";
+import { shareInviteEmail } from "@/lib/email/share-invite";
 
 const INVITE = {
   designName: "Spring launch",

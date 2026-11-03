@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { z } from "zod";
 
 import { EditorLoader } from "@/components/editor/editor-loader";
 import { roleFor } from "@/lib/auth/access";
 import { getViewer } from "@/lib/auth/server";
+import { COMMENT_PARAM } from "@/lib/comments/link";
+import { threadIdOf } from "@/lib/comments/threads";
 import { listDesignAssets, listLibrary } from "@/lib/db/queries/assets";
 import { getBrandKit } from "@/lib/db/queries/brand-kit";
 import { listDesignComments } from "@/lib/db/queries/comments";
@@ -17,7 +20,19 @@ import {
 } from "@/lib/db/queries/designs";
 import { getLiveConfig } from "@/lib/realtime/server";
 
-const loadDesign = async (id: string) => {
+const commentId = z.uuid();
+
+// ?comment=<id> from a mention email: only ever a comment's id, which opens
+// its thread (a reply's opens the reply's thread)
+const linkedThread = (
+  comments: Parameters<typeof threadIdOf>[0],
+  param: string | string[] | undefined
+): string | null =>
+  commentId.safeParse(param).success && typeof param === "string"
+    ? threadIdOf(comments, param)
+    : null;
+
+const loadDesign = async (id: string, commentParam?: string | string[]) => {
   await connection();
   // Everything loads alongside the access check (sealing is local crypto),
   // but only leaves the server once the check has passed
@@ -62,6 +77,7 @@ const loadDesign = async (id: string) => {
     libraryIds: [...libraryIds],
     live,
     name: content.row.name,
+    openThreadId: linkedThread(comments, commentParam),
     positions: content.positions,
     restoreSeq: content.row.restoreSeq,
     role,
@@ -90,8 +106,11 @@ export const generateMetadata = async (
 };
 
 const DesignPage = async (props: PageProps<"/design/[id]">) => {
-  const { id } = await props.params;
-  const design = await loadDesign(id);
+  const [{ id }, searchParams] = await Promise.all([
+    props.params,
+    props.searchParams,
+  ]);
+  const design = await loadDesign(id, searchParams[COMMENT_PARAM]);
 
   return <EditorLoader {...design} />;
 };

@@ -1,6 +1,7 @@
 import "server-only";
 import { Resend } from "resend";
 
+import { isReservedAddress } from "@/lib/email/reserved";
 import { getEnv } from "@/lib/env";
 
 // The domain verified in Resend until orcanva.app is
@@ -18,10 +19,11 @@ export interface OutgoingEmail {
 }
 
 // Sends one email through Resend. False when it didn't go out: no API key
-// (local dev can do without), or Resend refused it.
+// (local dev can do without), an address that can't receive mail (test
+// accounts), or Resend refused it.
 export const sendEmail = async (email: OutgoingEmail): Promise<boolean> => {
   const { EMAIL_FROM, RESEND_API_KEY } = getEnv();
-  if (!RESEND_API_KEY) {
+  if (!RESEND_API_KEY || isReservedAddress(email.to)) {
     return false;
   }
   client ??= new Resend(RESEND_API_KEY);
