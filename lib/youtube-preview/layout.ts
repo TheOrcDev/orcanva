@@ -2,7 +2,7 @@ import type { Size } from "@/lib/document/geometry";
 
 // The mock layouts the YouTube preview draws a thumbnail into. Widths are in
 // CSS pixels, at the size YouTube shows thumbnails on a laptop (a window
-// about 1440px wide). They're approximate and
+// about 1440px wide) and on a 390px-wide phone. They're approximate and
 // drift whenever YouTube changes its layout, so they all live here.
 // Last checked: 2026-11-03.
 export const LAYOUTS = [
@@ -13,6 +13,30 @@ export const LAYOUTS = [
     label: "Home",
     slots: 4,
     thumbnailWidth: 360,
+  },
+  {
+    // A results row: the thumbnail and the text beside it
+    frameWidth: 860,
+    id: "search",
+    label: "Search",
+    slots: 4,
+    thumbnailWidth: 360,
+  },
+  {
+    // The column beside the player on a video's page
+    frameWidth: 450,
+    id: "up-next",
+    label: "Up next",
+    slots: 5,
+    thumbnailWidth: 168,
+  },
+  {
+    // A phone's feed, edge to edge
+    frameWidth: 390,
+    id: "mobile",
+    label: "Mobile",
+    slots: 3,
+    thumbnailWidth: 390,
   },
 ] as const;
 
@@ -50,4 +74,14 @@ export const thumbnailFit = ({ width, height }: Size): ThumbnailFit => {
   }
   const share = ratio / THUMBNAIL_RATIO;
   return { exact: false, height: 1, width: share, x: (1 - share) / 2, y: 0 };
+};
+
+// How far a frame `frame` pixels wide shrinks to fit `available` pixels:
+// never grown, and 1 until there's a width to fit (rounded down, so it
+// always fits)
+export const fitScale = (frame: number, available: number): number => {
+  if (!(frame > 0 && available > 0) || available >= frame) {
+    return 1;
+  }
+  return Math.floor((available / frame) * 100) / 100;
 };

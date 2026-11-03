@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { thumbnailFit } from "@/lib/youtube-preview/layout";
+import { fitScale, thumbnailFit } from "@/lib/youtube-preview/layout";
 
 describe("thumbnailFit", () => {
   it("fills the frame at 16:9", () => {
@@ -31,5 +31,24 @@ describe("thumbnailFit", () => {
     const story = thumbnailFit({ height: 1920, width: 1080 });
     expect(story.width).toBeCloseTo((9 / 16) ** 2);
     expect(story.x + story.width / 2).toBeCloseTo(0.5);
+  });
+});
+
+describe("fitScale", () => {
+  it("keeps the real size when there's room", () => {
+    expect(fitScale(784, 900)).toBe(1);
+    expect(fitScale(784, 784)).toBe(1);
+  });
+
+  it("shrinks to fit, rounded down", () => {
+    expect(fitScale(800, 640)).toBe(0.8);
+    expect(fitScale(784, 600)).toBe(0.76);
+    expect(784 * fitScale(784, 600)).toBeLessThanOrEqual(600);
+  });
+
+  it("waits for a width to fit", () => {
+    expect(fitScale(784, 0)).toBe(1);
+    expect(fitScale(0, 500)).toBe(1);
+    expect(fitScale(784, Number.NaN)).toBe(1);
   });
 });

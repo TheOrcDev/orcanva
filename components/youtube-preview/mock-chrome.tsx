@@ -1,4 +1,12 @@
-import { RiMenuLine, RiSearchLine } from "@remixicon/react";
+import {
+  RiAddLine,
+  RiCompass3Line,
+  RiHome5Fill,
+  RiMenuLine,
+  RiSearchLine,
+  RiStackLine,
+  RiUserLine,
+} from "@remixicon/react";
 
 import { ChannelAvatar } from "@/components/youtube-preview/video-card";
 import type { PictureSource } from "@/components/youtube-preview/video-card";
@@ -44,9 +52,51 @@ export const DesktopTopBar = ({ viewer }: { viewer: MockViewer }) => (
   </div>
 );
 
-// The topics above the home grid, the first one picked
-export const TopicChips = ({ topics }: { topics: readonly string[] }) => (
-  <div className="flex h-14 items-center gap-3 overflow-hidden px-6">
+// The top of a phone's feed: logo, search and account
+export const MobileTopBar = ({ viewer }: { viewer: MockViewer }) => (
+  <div className="flex h-12 items-center gap-5 px-3">
+    <LogoPlaceholder className="w-20" />
+    <span className="flex-1" />
+    <RiSearchLine className="size-6" />
+    <ChannelAvatar
+      avatar={viewer.avatar}
+      channel={viewer.channel}
+      className="size-7 text-xs"
+    />
+  </div>
+);
+
+const MOBILE_TABS = [
+  { icon: RiHome5Fill, id: "home" },
+  { icon: RiCompass3Line, id: "explore" },
+  { icon: RiAddLine, id: "create" },
+  { icon: RiStackLine, id: "library" },
+  { icon: RiUserLine, id: "you" },
+];
+
+// The tabs along the bottom of a phone's feed, as plain icons
+export const MobileBottomBar = () => (
+  <div className="flex h-12 items-center justify-around border-t border-(--yt-border)">
+    {MOBILE_TABS.map(({ icon: Icon, id }) => (
+      <Icon key={id} className="size-6" />
+    ))}
+  </div>
+);
+
+// The topics above a feed, the first one picked
+export const TopicChips = ({
+  className,
+  topics,
+}: {
+  className?: string;
+  topics: readonly string[];
+}) => (
+  <div
+    className={cn(
+      "flex h-14 items-center gap-3 overflow-hidden px-6",
+      className
+    )}
+  >
     {topics.map((topic, index) => (
       <span
         key={topic}

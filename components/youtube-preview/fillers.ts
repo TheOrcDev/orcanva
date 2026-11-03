@@ -17,6 +17,8 @@ export const FILLERS: readonly FeedCard[] = [
     avatar: lookSwamp,
     channel: "Swamp Studio",
     cover: true,
+    description:
+      "Five tricks for brushes, palettes and paper that changed how I paint.",
     duration: "14:07",
     id: "filler-hacks",
     image: thumbnailHacks,
@@ -29,6 +31,8 @@ export const FILLERS: readonly FeedCard[] = [
     avatar: lookEmber,
     channel: "Ember Arts",
     cover: true,
+    description:
+      "Warm skies, soft clouds and a glowing sun, one layer at a time.",
     duration: "10:21",
     id: "filler-sunset",
     image: thumbnailSunset,
@@ -41,6 +45,8 @@ export const FILLERS: readonly FeedCard[] = [
     avatar: lookMist,
     channel: "Mist and Brush",
     cover: true,
+    description:
+      "Too much water, muddy greens and a crooked shore. Here is how I fixed them.",
     duration: "8:45",
     id: "filler-lake",
     image: thumbnailLake,
@@ -53,6 +59,8 @@ export const FILLERS: readonly FeedCard[] = [
     avatar: lookBone,
     channel: "Bone Easel",
     cover: true,
+    description:
+      "Sketching, washes, details and the final glaze, all in one sitting.",
     duration: "1:02:18",
     id: "filler-painter",
     image: orcPainter,

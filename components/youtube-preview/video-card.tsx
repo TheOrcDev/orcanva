@@ -1,3 +1,4 @@
+import { RiMore2Fill } from "@remixicon/react";
 import Image from "next/image";
 import type { StaticImageData } from "next/image";
 
@@ -23,9 +24,11 @@ export interface FeedCard {
   age: string;
   // Says what the picture shows; empty for the made-up videos
   alt: string;
+  // The snippet under a search result
+  description?: string;
 }
 
-export type CardVariant = "grid";
+export type CardVariant = "grid" | "search" | "compact" | "mobile";
 
 const Picture = ({
   alt,
@@ -128,6 +131,78 @@ const GridCard = ({ card, sizes }: CardProps) => (
   </div>
 );
 
+// A search result: the thumbnail beside the title, the channel and the
+// description
+const SearchCard = ({ card, sizes }: CardProps) => (
+  <div className="flex gap-4">
+    <Thumbnail card={card} sizes={sizes} className="rounded-xl" />
+    <div className="flex min-w-0 flex-1 flex-col">
+      <p className="line-clamp-2 text-lg leading-6.5 break-words">
+        {card.title}
+      </p>
+      <p className="text-xs leading-4.5 text-(--yt-muted)">
+        {card.views} · {card.age}
+      </p>
+      <div className="flex items-center gap-2 py-3">
+        <ChannelAvatar
+          avatar={card.avatar}
+          channel={card.channel}
+          className="size-6 text-xs"
+        />
+        <span className="truncate text-xs leading-4.5 text-(--yt-muted)">
+          {card.channel}
+        </span>
+      </div>
+      {card.description ? (
+        <p className="line-clamp-2 text-xs leading-4.5 text-(--yt-muted)">
+          {card.description}
+        </p>
+      ) : null}
+    </div>
+  </div>
+);
+
+// A row in the column beside the player
+const CompactCard = ({ card, sizes }: CardProps) => (
+  <div className="flex gap-2">
+    <Thumbnail card={card} sizes={sizes} className="rounded-lg" />
+    <div className="flex min-w-0 flex-1 flex-col pr-6">
+      <p className="mb-1 line-clamp-2 text-sm leading-5 font-medium break-words">
+        {card.title}
+      </p>
+      <p className="truncate text-xs leading-4.5 text-(--yt-muted)">
+        {card.channel}
+      </p>
+      <p className="text-xs leading-4.5 text-(--yt-muted)">
+        {card.views} · {card.age}
+      </p>
+    </div>
+  </div>
+);
+
+// A phone's feed: the thumbnail edge to edge, the text under it
+const MobileCard = ({ card, sizes }: CardProps) => (
+  <div className="flex flex-col">
+    <Thumbnail card={card} sizes={sizes} />
+    <div className="flex gap-3 px-3 pt-3 pb-6">
+      <ChannelAvatar
+        avatar={card.avatar}
+        channel={card.channel}
+        className="size-9 text-sm"
+      />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <p className="line-clamp-2 text-sm leading-5 break-words">
+          {card.title}
+        </p>
+        <p className="truncate text-xs leading-4.5 text-(--yt-muted)">
+          {card.channel} · {card.views} · {card.age}
+        </p>
+      </div>
+      <RiMore2Fill className="size-5 shrink-0" />
+    </div>
+  </div>
+);
+
 export const VideoCard = ({
   variant,
   ...props
@@ -135,6 +210,15 @@ export const VideoCard = ({
   switch (variant) {
     case "grid": {
       return <GridCard {...props} />;
+    }
+    case "search": {
+      return <SearchCard {...props} />;
+    }
+    case "compact": {
+      return <CompactCard {...props} />;
+    }
+    case "mobile": {
+      return <MobileCard {...props} />;
     }
     default: {
       return variant satisfies never;

@@ -2,7 +2,11 @@ import { z } from "zod";
 
 // What the YouTube preview shows around a thumbnail: the video's title, the
 // channel and the length on its badge. None of it is part of the design or
-// reaches the server.
+// reaches the server: it's kept per browser, like the collaboration profile
+// (lib/collab/identity.ts), and anything unreadable falls back to defaults.
+export const PREVIEW_DETAILS_KEY = "orcanva:youtube-preview";
+// Titles are per design, by design id
+export const PREVIEW_TITLES_KEY = "orcanva:youtube-preview:titles";
 
 // YouTube's own limit for a video title
 export const MAX_TITLE = 100;
@@ -10,6 +14,8 @@ export const MAX_CHANNEL = 60;
 // An 88px JPEG as a data URL takes a few kilobytes
 export const MAX_AVATAR = 100_000;
 export const DEFAULT_DURATION = "12:34";
+// The newest titles kept; older ones are forgotten
+export const MAX_SAVED_TITLES = 50;
 // The badge stops at 99:59:59
 const MAX_SECONDS = 99 * 3600 + 59 * 60 + 59;
 const SECONDS_PER_MINUTE = 60;
@@ -87,4 +93,97 @@ export const clampTitle = (title: string): string => {
   return isHighSurrogate(cut.codePointAt(cut.length - 1) ?? 0)
     ? cut.slice(0, -1)
     : cut;
+};
+
+// Titles by design id, oldest first
+export type PreviewTitles = Record<string, string>;
+
+const storedTitles = z.record(z.string(), z.unknown());
+const designId = z.uuid();
+const savedTitle = z.string().max(MAX_TITLE);
+
+// localStorage, when the browser lets us at it
+export const browserStorage = (): Storage | undefined => {
+  try {
+    return typeof window === "undefined" ? undefined : window.localStorage;
+  } catch {
+    return undefined;
+  }
+};
+
+const readJson = (storage: Storage | undefined, key: string): unknown => {
+  try {
+    const raw = storage?.getItem(key);
+    return raw ? JSON.parse(raw) : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const writeJson = (
+  storage: Storage | undefined,
+  key: string,
+  value: unknown
+) => {
+  try {
+    storage?.setItem(key, JSON.stringify(value));
+  } catch {
+    // Storage can be full or disabled; the settings just won't persist
+  }
+};
+
+// Each field that doesn't read falls back to its default on its own
+export const parseDetails = (value: unknown): PreviewDetails => {
+  const parsed = previewDetailsSchema.safeParse(value);
+  return parsed.success ? parsed.data : DEFAULT_DETAILS;
+};
+
+export const loadDetails = (
+  storage: Storage | undefined = browserStorage()
+): PreviewDetails => parseDetails(readJson(storage, PREVIEW_DETAILS_KEY));
+
+export const saveDetails = (
+  details: PreviewDetails,
+  storage: Storage | undefined = browserStorage()
+): void => writeJson(storage, PREVIEW_DETAILS_KEY, details);
+
+// The readable entries, the newest few
+export const parseTitles = (value: unknown): PreviewTitles => {
+  const parsed = storedTitles.safeParse(value);
+  if (!parsed.success) {
+    return {};
+  }
+  const entries = Object.entries(parsed.data).flatMap(([id, title]) => {
+    const read = savedTitle.safeParse(title);
+    return designId.safeParse(id).success && read.success
+      ? [[id, read.data] as const]
+      : [];
+  });
+  return Object.fromEntries(entries.slice(-MAX_SAVED_TITLES));
+};
+
+// Moves the design's title to the newest end; an empty one is forgotten,
+// so the design's name shows again
+export const withTitle = (
+  titles: PreviewTitles,
+  id: string,
+  title: string
+): PreviewTitles => {
+  const others = Object.entries(titles).filter(([key]) => key !== id);
+  const entries = title ? [...others, [id, clampTitle(title)]] : others;
+  return Object.fromEntries(entries.slice(-MAX_SAVED_TITLES));
+};
+
+export const loadTitle = (
+  id: string,
+  storage: Storage | undefined = browserStorage()
+): string => parseTitles(readJson(storage, PREVIEW_TITLES_KEY))[id] ?? "";
+
+export const saveTitle = (
+  id: string,
+  title: string,
+  storage: Storage | undefined = browserStorage()
+): void => {
+  const titles = parseTitles(readJson(storage, PREVIEW_TITLES_KEY));
+  writeJson(storage, PREVIEW_TITLES_KEY, withTitle(titles, id, title));
 };
