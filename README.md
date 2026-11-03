@@ -122,6 +122,10 @@ The landing page is at `/`, the studio at `/studio`, and the editor at `/design/
 
 Uses [BEN2](https://huggingface.co/onnx-community/BEN2-ONNX), whose weights are MIT-licensed so commercial use is fine, through [Transformers.js](https://huggingface.co/docs/transformers.js) on the visitor's GPU via WebGPU (recent Chrome, Edge, or Safari on a GPU with half-precision support). It runs in a Web Worker, not on the server: at its fixed 1024px input it needs several GB of memory, more than serverless functions get. The first removal downloads the model (~220 MB) into the browser's cache. After that, each image takes a few seconds. The cutout is uploaded as a new transparent PNG in your library and linked to its source, so repeating the removal is instant and **Restore original** can switch back.
 
+### Graphics
+
+Icons are [Tabler Icons](https://tabler.io/icons) (MIT), emoji are [Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji) in their flat style (MIT), and the stickers are Orcanva's own, released as CC0. `pnpm graphics:build` (`scripts/build-graphics.ts`) turns them into a catalog in `public/graphics/<hash>/`: an `index.json` of every graphic's id, kind, name and keywords, its art in shards of about 70 KB, and `NOTICES.txt` with both MIT licences. `lib/graphics/normalize.ts` makes each SVG drawable from flat paths: shapes become paths, transforms are applied, inherited and `currentColor` paint becomes palette entries, and coordinates are rounded to two decimals; gradients, masks, clip paths, filters, `<use>`, text and images are left out (about 80 emoji are, mostly for having more than 16 colours). The output is committed, so builds need no network. Tabler comes from `node_modules/@tabler/icons`; for the emoji only their names, keywords and upstream commit are kept (`assets/graphics/fluent-flat/metadata.json`), and their art carries over from the last catalog, so after changing the normalizer redraw them with `pnpm graphics:build --fluent <checkout of fluentui-emoji at that commit>` (a sparse checkout of `/LICENSE`, `assets/*/metadata.json` and the flat SVGs is enough).
+
 ## Scripts
 
 | Script | What it does |
@@ -133,6 +137,7 @@ Uses [BEN2](https://huggingface.co/onnx-community/BEN2-ONNX), whose weights are 
 | `pnpm db:generate` / `db:migrate` | Drizzle migrations from `lib/db/schema.ts` |
 | `pnpm storage:setup [origins…]` | Bucket CORS + upload smoke test |
 | `pnpm claim-designs <email>` | Give ownerless (pre-accounts) designs and uploads to an account |
+| `pnpm graphics:build [--fluent <checkout>]` | Rebuild the icons, emoji and stickers catalog in `public/graphics/` |
 
 ## Keyboard shortcuts
 
@@ -151,7 +156,7 @@ Uses [BEN2](https://huggingface.co/onnx-community/BEN2-ONNX), whose weights are 
 | Double-click an image | Crop it (Enter keeps the crop, Esc cancels) |
 | Enter / Esc while cropping the page | Crop to the box / leave the page as it was |
 | ⌘B / ⌘I / ⌘U while typing | Bold, italic or underline the selected words |
-| Shift while resizing | Shapes: keep ratio (photos always keep theirs; their side handles crop) |
+| Shift while resizing | Shapes: keep ratio (photos and stickers keep theirs unless Shift is held; photos' side handles crop) |
 | ⌘ while dragging | Place freely, without snapping |
 | ⌘+ / ⌘− / ⌘0 | Zoom in / out / fit |
 | Scroll / pinch (⌘-scroll) | Pan / zoom at pointer |

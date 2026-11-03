@@ -10,5 +10,8 @@ export default defineConfig({
     "**/.claude/skills",
     // drizzle-kit regenerates migration metadata on every `db:generate`
     "drizzle/meta",
+    // pnpm graphics:build writes these, kept compact on purpose
+    "assets/graphics/fluent-flat",
+    "public/graphics",
   ],
 });

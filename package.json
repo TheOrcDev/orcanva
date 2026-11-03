@@ -18,6 +18,7 @@
     "db:studio": "drizzle-kit studio",
     "storage:setup": "tsx scripts/setup-storage.ts",
     "claim-designs": "tsx scripts/claim-designs.ts",
+    "graphics:build": "tsx scripts/build-graphics.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -56,6 +57,7 @@
   },
   "devDependencies": {
     "@shadcn/lint": "^0.2.3",
+    "@tabler/icons": "^3.50.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.19.2",
     "@types/react": "^19",
@@ -66,6 +68,8 @@
     "husky": "^9.1.7",
     "oxfmt": "^0.74.0",
     "oxlint": "^1.89.0",
+    "svgo": "^4.1.0",
+    "svgpath": "^2.6.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
