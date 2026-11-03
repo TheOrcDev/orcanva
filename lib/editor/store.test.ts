@@ -52,6 +52,30 @@ describe("editor store", () => {
     expect(x()).toBe(rect.x);
   });
 
+  it("tracks which AI tool is working on which image", () => {
+    const { rect, store } = setup();
+    const { history, seq } = store.getState();
+    const before = store.getState().imageJobs;
+    store.getState().setImageJob(rect.id, null);
+    expect(store.getState().imageJobs).toBe(before);
+
+    store.getState().setImageJob(rect.id, "upscale");
+    store.getState().setImageJob("other", "background");
+    expect(store.getState().imageJobs).toEqual({
+      other: "background",
+      [rect.id]: "upscale",
+    });
+    const running = store.getState().imageJobs;
+    store.getState().setImageJob(rect.id, "upscale");
+    expect(store.getState().imageJobs).toBe(running);
+
+    store.getState().setImageJob(rect.id, null);
+    expect(store.getState().imageJobs).toEqual({ other: "background" });
+    // Session state: nothing to undo or send
+    expect(store.getState().history).toBe(history);
+    expect(store.getState().seq).toBe(seq);
+  });
+
   it("crops the page in one undo step, or not at all when cancelled", () => {
     const { rect, store } = setup();
     const page = () => selectDocument(store.getState());

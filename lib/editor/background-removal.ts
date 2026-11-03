@@ -52,7 +52,7 @@ export const removeImageBackground = async (
     throw new Error("Image not found");
   }
 
-  store.getState().setBackgroundJob(elementId, true);
+  store.getState().setImageJob(elementId, "background");
   try {
     const cutout =
       findVariant(assets, sourceAssetId, "no-background") ??
@@ -68,6 +68,6 @@ export const removeImageBackground = async (
     }
     return cutout;
   } finally {
-    store.getState().setBackgroundJob(elementId, false);
+    store.getState().setImageJob(elementId, null);
   }
 };

@@ -27,8 +27,8 @@ export const BackgroundRemovalButton = ({
   const cutOut = useEditor((state) =>
     hasVariant(state.assets, element.assetId, "no-background")
   );
-  const running = useEditor((state) =>
-    state.backgroundJobs.includes(element.id)
+  const running = useEditor(
+    (state) => state.imageJobs[element.id] === "background"
   );
 
   if (cutOut && !running) {

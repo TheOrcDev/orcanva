@@ -92,6 +92,9 @@ export interface EditorAsset {
   variant: AssetVariant | null;
 }
 
+// What an AI tool is doing to an image (see imageJobs)
+export type ImageJob = "background" | "erase" | "upscale";
+
 // The signed-in person using the editor
 export interface EditorViewer {
   id: string;
@@ -189,8 +192,9 @@ export interface EditorState {
   uploadsInFlight: number;
   // Files are being dragged somewhere over the editor window
   fileDragActive: boolean;
-  // Image elements with a background removal in progress
-  backgroundJobs: string[];
+  // Image elements an AI tool is working on, and which one; session state,
+  // so other windows don't see it
+  imageJobs: Readonly<Record<string, ImageJob>>;
   // The version history sheet is open
   historyOpen: boolean;
   // The version shown read-only in place of the workspace; editing goes on
@@ -289,7 +293,8 @@ export interface EditorActions {
   markAssetsMissing: (ids: readonly string[]) => void;
   adjustUploads: (delta: number) => void;
   setFileDragActive: (active: boolean) => void;
-  setBackgroundJob: (elementId: string, running: boolean) => void;
+  // An AI tool starts on an image, or stops with null
+  setImageJob: (elementId: string, job: ImageJob | null) => void;
   // The brand kit as it should show; ignored for guests
   setBrandKit: (kit: BrandKit) => void;
   setHistoryOpen: (open: boolean) => void;
@@ -544,7 +549,6 @@ export const createEditorStore = (init: EditorInit) => {
       set((state) => ({ peers: nextPeers(state, rows), presenceRows: rows })),
     assets: init.assets,
     awaitEcho: null,
-    backgroundJobs: [],
     begin: () => set((state) => ({ history: beginTransaction(state.history) })),
     beginRestore: () => set({ restoring: true }),
     brandKit: init.viewer ? (init.brandKit ?? null) : null,
@@ -631,6 +635,7 @@ export const createEditorStore = (init: EditorInit) => {
     history: createHistory(),
     historyOpen: false,
     hold: (ids) => set((state) => ({ held: new Set([...state.held, ...ids]) })),
+    imageJobs: {},
     lastRestore: null,
     leaveComments: () => {
       const state = get();
@@ -774,18 +779,6 @@ export const createEditorStore = (init: EditorInit) => {
     seq: 0,
     serverOffset: 0,
     setAwaitEcho: (awaitEcho) => set({ awaitEcho }),
-    setBackgroundJob: (elementId, running) =>
-      set((state) => {
-        const has = state.backgroundJobs.includes(elementId);
-        if (running === has) {
-          return state;
-        }
-        return {
-          backgroundJobs: running
-            ? [...state.backgroundJobs, elementId]
-            : state.backgroundJobs.filter((id) => id !== elementId),
-        };
-      }),
     setBrandKit: (kit) =>
       set((state) => {
         if (state.viewer === null || isDeepEqual(kit, state.brandKit)) {
@@ -829,6 +822,14 @@ export const createEditorStore = (init: EditorInit) => {
       set((state) =>
         state.historyOpen === open ? state : { historyOpen: open }
       ),
+    setImageJob: (elementId, job) =>
+      set((state) => {
+        if ((state.imageJobs[elementId] ?? null) === job) {
+          return state;
+        }
+        const { [elementId]: _done, ...others } = state.imageJobs;
+        return { imageJobs: job ? { ...others, [elementId]: job } : others };
+      }),
     setLiveStatus: (status) =>
       set((state) =>
         state.liveStatus === status ? state : { liveStatus: status }

@@ -78,6 +78,7 @@ import {
 import { ratioValue } from "@/lib/editor/page-crop";
 import { toggleUnit } from "@/lib/editor/selection";
 import { MAX_ZOOM, MIN_ZOOM, selectDocument } from "@/lib/editor/store";
+import type { ImageJob } from "@/lib/editor/store";
 import { graphicEntrySchema } from "@/lib/graphics/entry";
 import type { GraphicEntry } from "@/lib/graphics/entry";
 
@@ -158,12 +159,18 @@ const bakeTransform = (
   }
 };
 
+const IMAGE_JOB_LABELS: Record<ImageJob, string> = {
+  background: "Removing background…",
+  erase: "Erasing…",
+  upscale: "Upscaling…",
+};
+
 // Drop hint while files are dragged over the editor, and upload progress
 const WorkspaceOverlays = () => {
   const fileDragActive = useEditor((state) => state.fileDragActive);
   const uploadsInFlight = useEditor((state) => state.uploadsInFlight);
-  const removingBackground = useEditor(
-    (state) => state.backgroundJobs.length > 0
+  const imageJob = useEditor(
+    (state) => Object.values(state.imageJobs)[0] ?? null
   );
   const noun = uploadsInFlight === 1 ? "image" : "images";
 
@@ -182,10 +189,10 @@ const WorkspaceOverlays = () => {
           Uploading {uploadsInFlight} {noun}…
         </output>
       ) : null}
-      {removingBackground && uploadsInFlight === 0 ? (
+      {imageJob && uploadsInFlight === 0 ? (
         <output className="bg-background absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2 text-sm shadow-md">
           <Spinner />
-          Removing background…
+          {IMAGE_JOB_LABELS[imageJob]}
         </output>
       ) : null}
     </>
