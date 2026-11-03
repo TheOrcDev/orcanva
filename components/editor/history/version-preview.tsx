@@ -186,10 +186,10 @@ const PreviewPanel = ({ versionId }: { versionId: string }) => {
   return (
     <section
       aria-label="Version preview"
-      className="bg-muted/60 absolute inset-0 z-20 flex flex-col"
+      className="bg-background absolute inset-0 z-20 flex flex-col"
     >
       <PreviewHeader loaded={loaded} onBack={close} />
-      <div className="relative min-h-0 flex-1">
+      <div className="bg-muted/60 relative min-h-0 flex-1">
         {loaded.status === "loading" ? (
           <output className="text-muted-foreground absolute inset-0 flex items-center justify-center gap-2 text-sm">
             <Spinner />
