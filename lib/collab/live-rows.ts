@@ -55,3 +55,23 @@ export const pageFromRow = (
 // version goes up with such a change), so the tab must stop writing to it
 export const isNewerDocument = (row: LivePageRow): boolean =>
   row.version > DOCUMENT_VERSION;
+
+export interface RestoreMark {
+  // designs.restore_seq
+  seq: number;
+  // Who restored last
+  byName: string | null;
+}
+
+// Which restore the design is at, from the live page row; null when the
+// row doesn't say (sealed before version history)
+export const restoreFromRow = (row: LivePageRow): RestoreMark | null =>
+  typeof row.restore_seq === "number" && Number.isInteger(row.restore_seq)
+    ? {
+        byName:
+          typeof row.restored_by_name === "string"
+            ? row.restored_by_name
+            : null,
+        seq: row.restore_seq,
+      }
+    : null;

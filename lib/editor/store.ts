@@ -21,8 +21,9 @@ import {
   entriesFromRows,
   isNewerDocument,
   pageFromRow,
+  restoreFromRow,
 } from "@/lib/collab/live-rows";
-import type { SaveStatus } from "@/lib/collab/outbox";
+import type { AwaitSync, SaveStatus } from "@/lib/collab/outbox";
 import { assignPositions } from "@/lib/collab/positions";
 import { peersFromRows } from "@/lib/collab/presence";
 import type { DragPreview, LivePresenceRow, Peer } from "@/lib/collab/presence";
@@ -124,6 +125,19 @@ export interface EditorState {
   // Sends this window's edits now and resolves once they reached the server
   // (set by the outbox), so a version saved next holds them
   flushWrites: (() => Promise<void>) | null;
+  // Resolves once the live queries show a transaction (set while they're
+  // live), so a restore can wait for its own echo
+  awaitEcho: AwaitSync | null;
+  // Draws and uploads the gallery preview now if the design changed (set by
+  // the thumbnailer)
+  flushThumbnail: (() => Promise<void>) | null;
+  // How many times a version was restored over the design (restore_seq).
+  // When it goes up, the undo history is for a design that's gone: cleared.
+  restoreSeq: number;
+  // The newest restore this window saw happen; `own` when this window made it
+  lastRestore: { seq: number; byName: string | null; own: boolean } | null;
+  // This window is restoring a version (see beginRestore)
+  restoring: boolean;
   // How this session shows up to others, and what it tells them
   profile: Profile;
   pointer: { x: number; y: number } | null;
@@ -196,6 +210,12 @@ export interface EditorActions {
   setLiveStatus: (status: LiveStatus) => void;
   setReconnectLive: (reconnect: (() => void) | null) => void;
   setFlushWrites: (flush: (() => Promise<void>) | null) => void;
+  setAwaitEcho: (awaitEcho: AwaitSync | null) => void;
+  setFlushThumbnail: (flush: (() => Promise<void>) | null) => void;
+  // A restore from this window starts / is done: restores seen meanwhile
+  // are its own
+  beginRestore: () => void;
+  endRestore: () => void;
   // A gesture on these elements started / ended
   hold: (ids: string[]) => void;
   release: (ids: string[]) => void;
@@ -267,6 +287,8 @@ export interface EditorInit {
   viewer: EditorViewer | null;
   // The signed-in viewer's brand kit; null or missing for guests
   brandKit?: BrandKit | null;
+  // designs.restore_seq when the page was loaded
+  restoreSeq?: number;
 }
 
 export const MIN_ZOOM = 0.05;
@@ -295,6 +317,24 @@ const visibilityFromRow = (row: LivePageRow, current: Visibility) =>
   row.visibility === "private" || row.visibility === "public"
     ? row.visibility
     : current;
+
+// A version was restored over the design since this window last looked:
+// its undo steps describe a design that's gone (and could be 500 elements
+// big), so they're dropped. Edits still on their way stay.
+const restoredFrom = (
+  state: EditorState,
+  row: LivePageRow
+): Partial<Pick<EditorState, "history" | "lastRestore" | "restoreSeq">> => {
+  const restore = restoreFromRow(row);
+  if (!restore || restore.seq <= state.restoreSeq) {
+    return {};
+  }
+  return {
+    history: createHistory(),
+    lastRestore: { ...restore, own: state.restoring },
+    restoreSeq: restore.seq,
+  };
+};
 
 // Keeps the previous array when nothing changed, so cursors don't re-render
 const nextPeers = (state: EditorState, rows: readonly LivePresenceRow[]) => {
@@ -421,12 +461,14 @@ export const createEditorStore = (init: EditorInit) => {
           state.accessLost ||
           (visibility === "private" && !keepsPrivateAccess(state.role));
         const outdated = state.outdated || isNewerDocument(row);
+        const restored = restoredFrom(state, row);
         const live = pageFromRow(row);
         if (!live) {
-          return { accessLost, outdated, visibility };
+          return { ...restored, accessLost, outdated, visibility };
         }
         return {
           ...reconcile(state, { ...state.synced, ...live }, state.pending),
+          ...restored,
           accessLost,
           outdated,
           visibility,
@@ -435,8 +477,10 @@ export const createEditorStore = (init: EditorInit) => {
     applyPresence: (rows) =>
       set((state) => ({ peers: nextPeers(state, rows), presenceRows: rows })),
     assets: init.assets,
+    awaitEcho: null,
     backgroundJobs: [],
     begin: () => set((state) => ({ history: beginTransaction(state.history) })),
+    beginRestore: () => set({ restoring: true }),
     brandKit: init.viewer ? (init.brandKit ?? null) : null,
     change: (recipe) =>
       set((state) => {
@@ -475,6 +519,7 @@ export const createEditorStore = (init: EditorInit) => {
       ),
     editingTextId: null,
     end: () => set((state) => ({ history: endTransaction(state.history) })),
+    endRestore: () => set({ restoring: false }),
     fileDragActive: false,
     finishCrop: (keep) => {
       const id = get().cropTargetId;
@@ -500,12 +545,14 @@ export const createEditorStore = (init: EditorInit) => {
         get().zoomToFit();
       }
     },
+    flushThumbnail: null,
     flushWrites: null,
     guides: [],
     held: new Set(),
     history: createHistory(),
     historyOpen: false,
     hold: (ids) => set((state) => ({ held: new Set([...state.held, ...ids]) })),
+    lastRestore: null,
     libraryIds: init.libraryIds,
     liveStatus: init.live ? "connecting" : "off",
     loseAccess: () =>
@@ -590,6 +637,8 @@ export const createEditorStore = (init: EditorInit) => {
               seq: state.seq + 1,
             }
       ),
+    restoreSeq: init.restoreSeq ?? 0,
+    restoring: false,
     role: init.role,
     rollback: () =>
       set((state) => {
@@ -607,6 +656,7 @@ export const createEditorStore = (init: EditorInit) => {
     selectedIds: [],
     seq: 0,
     serverOffset: 0,
+    setAwaitEcho: (awaitEcho) => set({ awaitEcho }),
     setBackgroundJob: (elementId, running) =>
       set((state) => {
         const has = state.backgroundJobs.includes(elementId);
@@ -643,6 +693,7 @@ export const createEditorStore = (init: EditorInit) => {
         state.fileDragActive === active ? state : { fileDragActive: active }
       ),
     setFitZoom: (zoom) => set({ zoom: clampZoom(zoom) }),
+    setFlushThumbnail: (flush) => set({ flushThumbnail: flush }),
     setFlushWrites: (flush) => set({ flushWrites: flush }),
     setGuides: (guides) =>
       set((state) =>

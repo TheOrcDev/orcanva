@@ -352,4 +352,85 @@ describe("editor store", () => {
     expect(store.getState().pageCrop).toBeNull();
     expect(selectDocument(store.getState())).toMatchObject(PAGE);
   });
+  it("clears undo history when a version is restored, but keeps pending writes", () => {
+    const { rect, store } = setup();
+    const row = {
+      background: { color: "#ffffff", type: "solid" },
+      height: PAGE.height,
+      name: "Test",
+      restore_seq: 0,
+      restored_by_name: null,
+      version: 1,
+      visibility: "public",
+      width: PAGE.width,
+    };
+    store.getState().applyLivePage(row);
+    store.getState().change((doc) => updateElement(doc, rect.id, { x: 5 }));
+    const { history, pending } = store.getState();
+    expect(history.past.length).toBeGreaterThan(0);
+    expect(pending.elements.has(rect.id)).toBe(true);
+
+    // The same restore count again changes nothing
+    store.getState().applyLivePage(row);
+    expect(store.getState().history).toBe(history);
+
+    store.getState().applyLivePage({
+      ...row,
+      restore_seq: 1,
+      restored_by_name: "Jay",
+    });
+    const state = store.getState();
+    expect(state.history.past).toEqual([]);
+    expect(state.history.future).toEqual([]);
+    expect(state.pending).toBe(pending);
+    expect(state.restoreSeq).toBe(1);
+    expect(state.lastRestore).toEqual({ byName: "Jay", own: false, seq: 1 });
+    // Undo has nothing left to take back
+    store.getState().undo();
+    expect(selectDocument(store.getState()).elements[0]?.x).toBe(5);
+
+    // A row lagging behind doesn't count as another restore
+    store.getState().applyLivePage({ ...row, restore_seq: 0 });
+    expect(store.getState().restoreSeq).toBe(1);
+  });
+
+  it("marks restores seen while restoring as this window's own", () => {
+    const store = createEditorStore({
+      assets: [],
+      designId: "d",
+      document: createDocument(PAGE),
+      hasThumbnail: false,
+      libraryIds: [],
+      name: "Test",
+      restoreSeq: 4,
+      role: "owner",
+      viewer: null,
+      visibility: "public",
+    });
+    const row = {
+      background: { color: "#ffffff", type: "solid" },
+      height: PAGE.height,
+      name: "Test",
+      version: 1,
+      visibility: "public",
+      width: PAGE.width,
+    };
+    // Rows from before version history say nothing about restores
+    store.getState().applyLivePage(row);
+    expect(store.getState().restoreSeq).toBe(4);
+
+    store.getState().beginRestore();
+    store.getState().applyLivePage({
+      ...row,
+      restore_seq: 5,
+      restored_by_name: "Me",
+    });
+    store.getState().endRestore();
+    expect(store.getState().lastRestore).toEqual({
+      byName: "Me",
+      own: true,
+      seq: 5,
+    });
+    expect(store.getState().restoring).toBe(false);
+  });
 });

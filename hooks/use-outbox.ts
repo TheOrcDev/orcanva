@@ -94,10 +94,15 @@ export const useOutbox = (
     store.getState().setFlushWrites(flush);
     return () => store.getState().setFlushWrites(null);
   }, [flush, store]);
-  const setAwaitSync = useCallback((awaitSync: AwaitSync | null) => {
-    awaitSyncRef.current = awaitSync;
-    outboxRef.current?.setAwaitSync(awaitSync);
-  }, []);
+  const setAwaitSync = useCallback(
+    (awaitSync: AwaitSync | null) => {
+      awaitSyncRef.current = awaitSync;
+      outboxRef.current?.setAwaitSync(awaitSync);
+      // A restore waits for its own transaction the same way
+      store.getState().setAwaitEcho(awaitSync);
+    },
+    [store]
+  );
 
   return { flush, setAwaitSync };
 };

@@ -12,6 +12,10 @@ export interface LivePageRow {
   version: number;
   // "private" or "public": open editors react when the owner changes it
   visibility: string;
+  // Goes up with every version restore; editors then clear their undo
+  // history. Missing from rows sealed before version history existed.
+  restore_seq?: number;
+  restored_by_name?: string | null;
 }
 
 export interface LiveElementRow {

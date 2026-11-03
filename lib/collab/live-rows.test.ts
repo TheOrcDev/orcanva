@@ -4,6 +4,7 @@ import {
   entriesFromRows,
   isNewerDocument,
   pageFromRow,
+  restoreFromRow,
 } from "@/lib/collab/live-rows";
 import { createBoxElement } from "@/lib/document/factories";
 import { DOCUMENT_VERSION } from "@/lib/document/schema";
@@ -117,6 +118,33 @@ describe("pageFromRow", () => {
         visibility: "public",
         width: 200,
       })
+    ).toBeNull();
+  });
+});
+
+describe("restoreFromRow", () => {
+  const row = {
+    background: { color: "#000000", type: "solid" },
+    height: 100,
+    name: "Thumb",
+    version: 1,
+    visibility: "public",
+    width: 200,
+  };
+
+  it("reads which restore the design is at, and who made it", () => {
+    expect(
+      restoreFromRow({ ...row, restore_seq: 3, restored_by_name: "Jay" })
+    ).toEqual({ byName: "Jay", seq: 3 });
+    expect(
+      restoreFromRow({ ...row, restore_seq: 0, restored_by_name: null })
+    ).toEqual({ byName: null, seq: 0 });
+  });
+
+  it("says nothing for a row sealed before version history", () => {
+    expect(restoreFromRow(row)).toBeNull();
+    expect(
+      restoreFromRow({ ...row, restore_seq: Number.NaN, restored_by_name: "x" })
     ).toBeNull();
   });
 });

@@ -26,6 +26,7 @@ import { useFileDrop } from "@/hooks/use-file-drop";
 import { useNewerElementsNotice } from "@/hooks/use-newer-elements-notice";
 import { useOutbox } from "@/hooks/use-outbox";
 import { usePresence } from "@/hooks/use-presence";
+import { useRestoreNotice } from "@/hooks/use-restore-version";
 import { useThumbnail } from "@/hooks/use-thumbnail";
 import { createEditorStore } from "@/lib/editor/store";
 import type { EditorInit } from "@/lib/editor/store";
@@ -54,6 +55,7 @@ const EditorShell = ({
   useAssetUrlSync();
   useAssetResolver();
   useNewerElementsNotice();
+  useRestoreNotice();
 
   const flush = useCallback(async () => {
     await Promise.all([flushSave(), flushThumbnail()]);

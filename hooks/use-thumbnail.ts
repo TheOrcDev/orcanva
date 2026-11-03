@@ -44,7 +44,15 @@ export const useThumbnail = (hasThumbnail: boolean): (() => Promise<void>) => {
     };
   }, [store, hasThumbnail, getPageNode]);
 
-  return useCallback(async () => {
+  const flush = useCallback(async () => {
     await thumbnailerRef.current?.flush();
   }, []);
+
+  // A restore redraws the gallery preview from the restored design
+  useEffect(() => {
+    store.getState().setFlushThumbnail(flush);
+    return () => store.getState().setFlushThumbnail(null);
+  }, [flush, store]);
+
+  return flush;
 };

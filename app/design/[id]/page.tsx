@@ -51,6 +51,7 @@ const loadDesign = async (id: string) => {
     live,
     name: content.row.name,
     positions: content.positions,
+    restoreSeq: content.row.restoreSeq,
     role,
     viewer: viewer
       ? { id: viewer.id, image: viewer.image, name: viewer.name }

@@ -277,6 +277,121 @@ export const saveNamedVersion = async ({
   return row?.found ? { id: row.id } : null;
 };
 
+export type RestoreOutcome =
+  | { status: "restored"; txid: string; restoreVersionId: string }
+  // No such version, or the viewer may not manage the design's history
+  | { status: "not-found" }
+  // The version was written with another document version
+  | { status: "outdated" };
+
+// Puts a design back to one of its versions, in one statement, for the
+// owner and people it's shared with:
+// - the page settings come back, restore_seq goes up (every open editor
+//   clears its undo history when it sees that on the live page query) and
+//   the auto version timer restarts;
+// - a `restore` version keeps the state being replaced, so it can be undone
+//   (which restores that version in turn);
+// - the version's element rows are upserted with their stored z-order keys
+//   and data, unknown fields and element types included, and every other
+//   row is deleted. The two touch different rows, and afterwards the rows
+//   are exactly the version's, so z-order comes back exactly. Anyone's
+//   update in flight to a deleted element finds nothing (a delete wins), and
+//   their new elements arriving after it stay.
+// Only a version with the design's own document version is restored.
+//
+// Multi-page (plan 10) will restore each row onto its stored page
+// (`pageId`, null meaning the first page, whose id is the design's) and the
+// version's pages; versions taken before then come back as one page.
+export const restoreVersion = async ({
+  clientId,
+  designId,
+  versionId,
+  viewer,
+}: {
+  clientId: string;
+  designId: string;
+  versionId: string;
+  viewer: { id: string; name: string };
+}): Promise<RestoreOutcome> => {
+  const result = await getDb().execute<{
+    allowed: number;
+    found: number;
+    restore_id: string | null;
+    restored: number;
+    txid: string;
+  }>(sql`
+    WITH version AS (
+      SELECT id, width, height, background, doc_version, elements
+      FROM design_versions
+      WHERE id = ${versionId}::uuid AND design_id = ${designId}::uuid
+    ),
+    design AS (
+      UPDATE designs SET
+        width = version.width,
+        height = version.height,
+        background = version.background,
+        updated_at = now(),
+        last_version_at = now(),
+        last_writer = ${`u:${viewer.id}`},
+        restore_seq = restore_seq + 1,
+        restored_by_name = ${viewer.name}
+      FROM version
+      WHERE designs.id = ${designId}::uuid
+        AND ${managesHistory(viewer.id)}
+        AND version.doc_version = designs.version
+      RETURNING designs.id
+    ),
+    saved AS (${insertVersion({
+      byName: sql`${viewer.name}::text`,
+      from: "design",
+      kind: "restore",
+      restoredFromId: sql`(SELECT id FROM version)`,
+      viewerId: viewer.id,
+    })}),
+    input AS (
+      SELECT entry.id, entry.position, entry.data
+      FROM version,
+        jsonb_to_recordset(version.elements) AS entry(id text, position text, data jsonb)
+    ),
+    upserted AS (
+      INSERT INTO design_elements (design_id, id, position, data, updated_by)
+      SELECT design.id, input.id, input.position, input.data, ${clientId}::uuid
+      FROM design, input
+      ON CONFLICT (design_id, id) DO UPDATE SET
+        position = excluded.position,
+        data = excluded.data,
+        updated_by = excluded.updated_by,
+        updated_at = now()
+      RETURNING 1
+    ),
+    removed AS (
+      DELETE FROM design_elements AS element
+      USING design
+      WHERE element.design_id = design.id
+        AND element.id NOT IN (SELECT id FROM input)
+      RETURNING 1
+    )
+    SELECT pg_current_xact_id()::text AS txid,
+      (SELECT count(*) FROM version)::int AS found,
+      (SELECT count(*) FROM designs
+        WHERE designs.id = ${designId}::uuid AND ${managesHistory(viewer.id)})::int AS allowed,
+      (SELECT count(*) FROM design)::int AS restored,
+      (SELECT id FROM saved) AS restore_id
+  `);
+  const [row] = result.rows;
+  if (!(row?.found && row.allowed)) {
+    return { status: "not-found" };
+  }
+  if (!(row.restored && row.restore_id)) {
+    return { status: "outdated" };
+  }
+  return {
+    restoreVersionId: row.restore_id,
+    status: "restored",
+    txid: row.txid,
+  };
+};
+
 // Thins out a design's history (see lib/versions/retention) and deletes
 // the dropped versions' thumbnails. Returns the storage keys to delete.
 export const pruneVersions = async (designId: string): Promise<string[]> => {

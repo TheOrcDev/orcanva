@@ -1,6 +1,10 @@
 "use client";
 
-import { RiArrowLeftLine, RiHistoryLine } from "@remixicon/react";
+import {
+  RiArrowGoBackLine,
+  RiArrowLeftLine,
+  RiHistoryLine,
+} from "@remixicon/react";
 import { useCallback, useEffect, useState } from "react";
 
 import { createStaticStore } from "@/components/editor/canvas/static-page";
@@ -18,6 +22,7 @@ import {
 } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 import { isInsidePopup } from "@/hooks/use-editor-shortcuts";
+import { useRestoreVersion } from "@/hooks/use-restore-version";
 import type { EditorStoreApi } from "@/lib/editor/store";
 import { fetchVersion, uploadVersionThumbnail } from "@/lib/versions/api";
 import { versionDocument } from "@/lib/versions/content";
@@ -80,11 +85,17 @@ const loadVersion = async (
 const PreviewHeader = ({
   loaded,
   onBack,
+  onRestore,
+  restoring,
 }: {
   loaded: Loaded;
   onBack: () => void;
+  onRestore: () => void;
+  restoring: boolean;
 }) => {
   const store = useEditorStoreApi();
+  // A tab too old to write can't restore either
+  const outdated = useEditor((state) => state.outdated);
 
   return (
     <header className="bg-background flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-2">
@@ -120,12 +131,23 @@ const PreviewHeader = ({
         <RiHistoryLine data-icon="inline-start" />
         All versions
       </Button>
+      {loaded.status === "ready" && !outdated ? (
+        <Button disabled={restoring} onClick={onRestore}>
+          {restoring ? (
+            <Spinner data-icon="inline-start" />
+          ) : (
+            <RiArrowGoBackLine data-icon="inline-start" />
+          )}
+          Restore this version
+        </Button>
+      ) : null}
     </header>
   );
 };
 
 const PreviewPanel = ({ versionId }: { versionId: string }) => {
   const store = useEditorStoreApi();
+  const { restore, restoring } = useRestoreVersion();
   const [loaded, setLoaded] = useState<Loaded>({ status: "loading" });
   const close = useCallback(
     () => store.getState().previewVersion(null),
@@ -188,7 +210,12 @@ const PreviewPanel = ({ versionId }: { versionId: string }) => {
       aria-label="Version preview"
       className="bg-background absolute inset-0 z-20 flex flex-col"
     >
-      <PreviewHeader loaded={loaded} onBack={close} />
+      <PreviewHeader
+        loaded={loaded}
+        onBack={close}
+        onRestore={() => restore(versionId)}
+        restoring={restoring}
+      />
       <div className="bg-muted/60 relative min-h-0 flex-1">
         {loaded.status === "loading" ? (
           <output className="text-muted-foreground absolute inset-0 flex items-center justify-center gap-2 text-sm">

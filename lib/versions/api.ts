@@ -112,3 +112,18 @@ export const deleteVersion = async (
 ): Promise<void> => {
   await send(`${versionsUrl(designId)}/${versionId}`, { method: "DELETE" });
 };
+
+// Puts the design back to the version for everyone; `restoreVersionId` is
+// the version holding what it replaced (Undo restore restores that one)
+export const requestRestore = async (
+  designId: string,
+  versionId: string,
+  clientId: string
+): Promise<{ txid: string; restoreVersionId: string }> => {
+  const response = await send(`${versionsUrl(designId)}/${versionId}/restore`, {
+    body: JSON.stringify({ clientId }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return response.json();
+};
