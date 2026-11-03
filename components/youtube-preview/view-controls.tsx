@@ -1,6 +1,7 @@
 "use client";
 
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import type { Arrangement } from "@/components/youtube-preview/feed";
 import { PREVIEW_THEMES } from "@/lib/youtube-preview/details";
 import type { PreviewTheme } from "@/lib/youtube-preview/details";
 import { LAYOUTS } from "@/lib/youtube-preview/layout";
@@ -8,14 +9,25 @@ import type { LayoutId } from "@/lib/youtube-preview/layout";
 
 const THEME_LABELS = { dark: "Dark", light: "Light" } as const;
 
-// Which page the mock draws, and in which look, above the mock
+const ARRANGEMENTS: { label: string; value: Arrangement }[] = [
+  { label: "Mixed in", value: "mixed" },
+  { label: "Side by side", value: "side" },
+];
+
+// Which page the mock draws, in which look, and, once there's something to
+// compare with, whether the compares mix with other videos
 export const ViewControls = ({
+  arrangement,
   layout,
+  onArrangementChange,
   onLayoutChange,
   onThemeChange,
   theme,
 }: {
+  // Left out while there's nothing to compare with
+  arrangement?: Arrangement;
   layout: LayoutId;
+  onArrangementChange?: (arrangement: Arrangement) => void;
   onLayoutChange: (layout: LayoutId) => void;
   onThemeChange: (theme: PreviewTheme) => void;
   theme: PreviewTheme;
@@ -39,6 +51,26 @@ export const ViewControls = ({
         </ToggleGroupItem>
       ))}
     </ToggleGroup>
+    {arrangement && onArrangementChange ? (
+      <ToggleGroup
+        aria-label="Compare"
+        variant="outline"
+        size="sm"
+        value={[arrangement]}
+        onValueChange={(value) => {
+          const next = ARRANGEMENTS.find((item) => item.value === value[0]);
+          if (next) {
+            onArrangementChange(next.value);
+          }
+        }}
+      >
+        {ARRANGEMENTS.map((item) => (
+          <ToggleGroupItem key={item.value} value={item.value}>
+            {item.label}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+    ) : null}
     <ToggleGroup
       aria-label="Look"
       variant="outline"

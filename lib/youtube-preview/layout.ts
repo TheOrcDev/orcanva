@@ -85,3 +85,46 @@ export const fitScale = (frame: number, available: number): number => {
   }
   return Math.floor((available / frame) * 100) / 100;
 };
+
+// A feed of `slots` videos: the design first, the thumbnails it's compared
+// with spread through the rest in the order they were added, and made-up
+// videos filling the gaps. Anything already in the feed isn't repeated, and
+// when the fillers run out the feed is shorter. With no fillers, it's just
+// the design and its compares side by side.
+export const arrangeFeed = <Item extends { id: string }>(
+  current: Item,
+  compares: readonly Item[],
+  fillers: readonly Item[],
+  slots: number
+): Item[] => {
+  const seen = new Set([current.id]);
+  const fresh = (item: Item) => {
+    if (seen.has(item.id)) {
+      return false;
+    }
+    seen.add(item.id);
+    return true;
+  };
+  const yours = compares.filter(fresh);
+  const others = fillers.filter(fresh);
+  // Every compare gets a slot, however few the layout has
+  const rest = Math.max(slots, yours.length + 1) - 1;
+  const comparesAt = new Set(
+    yours.map((_, index) =>
+      Math.ceil(((index + 1) * (rest + 1)) / (yours.length + 1))
+    )
+  );
+  const feed = [current];
+  let compareIndex = 0;
+  let fillerIndex = 0;
+  for (let slot = 1; slot <= rest; slot += 1) {
+    if (comparesAt.has(slot)) {
+      feed.push(...yours.slice(compareIndex, compareIndex + 1));
+      compareIndex += 1;
+    } else {
+      feed.push(...others.slice(fillerIndex, fillerIndex + 1));
+      fillerIndex += 1;
+    }
+  }
+  return feed;
+};

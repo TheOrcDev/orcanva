@@ -9,9 +9,14 @@ import {
 } from "@/components/landing/image-drop-zone";
 import type { ImageDropZoneHandle } from "@/components/landing/image-drop-zone";
 import { Button } from "@/components/ui/button";
+import {
+  ComparePicker,
+  readImageSize,
+  useCompares,
+} from "@/components/youtube-preview/compare-picker";
 import { DetailsForm } from "@/components/youtube-preview/details-form";
-import { FILLERS } from "@/components/youtube-preview/fillers";
-import type { FeedCard } from "@/components/youtube-preview/video-card";
+import { ownCard, previewFeed } from "@/components/youtube-preview/feed";
+import type { Arrangement } from "@/components/youtube-preview/feed";
 import { ViewControls } from "@/components/youtube-preview/view-controls";
 import { YouTubeMock } from "@/components/youtube-preview/youtube-mock";
 import { usePreviewDetails } from "@/hooks/use-preview-details";
@@ -28,8 +33,6 @@ const ACCEPT = Object.keys(UPLOAD_MIME_TYPES).join(",");
 
 const TITLE_PLACEHOLDER = "Your video title goes here";
 const CHANNEL_PLACEHOLDER = "Your channel";
-const OWN_VIEWS = "12K views";
-const OWN_AGE = "2 hours ago";
 const PHONE_QUERY = "(max-width: 639px)";
 
 interface Thumbnail {
@@ -37,13 +40,6 @@ interface Thumbnail {
   url: string;
   size: Size;
 }
-
-const readSize = async (file: File): Promise<Size> => {
-  const bitmap = await createImageBitmap(file);
-  const size = { height: bitmap.height, width: bitmap.width };
-  bitmap.close();
-  return size;
-};
 
 // The preview around a chosen image: the details on one side, the mock on
 // the other. It reads saved details from localStorage, so it only renders
@@ -61,25 +57,21 @@ const PreviewStudio = ({
     window.matchMedia(PHONE_QUERY).matches ? "mobile" : DEFAULT_LAYOUT
   );
   const [title, setTitle] = useState("");
+  const [arrangement, setArrangement] = useState<Arrangement>("mixed");
+  const { addFiles, compares, remove } = useCompares();
 
   const channel = details.channel.trim() || CHANNEL_PLACEHOLDER;
+  const own = { avatar: details.avatar, channel, duration: details.duration };
   const layout = findLayout(layoutId);
-  const current: FeedCard = {
-    age: OWN_AGE,
-    alt: "Your thumbnail",
-    avatar: details.avatar,
-    channel,
+  const current = ownCard(own, {
     cover: thumbnailFit(thumbnail.size).exact,
-    duration: details.duration,
-    id: "current",
     image: thumbnail.url,
     title: title.trim() || TITLE_PLACEHOLDER,
-    views: OWN_VIEWS,
-  };
+  });
 
   return (
     <div className="flex w-full flex-col gap-6 self-start p-4 text-left sm:p-6 lg:flex-row">
-      <div className="flex w-full shrink-0 flex-col gap-6 lg:w-64">
+      <div className="flex w-full shrink-0 flex-col gap-7 lg:w-64">
         <DetailsForm
           avatar={details.avatar}
           channel={channel}
@@ -90,6 +82,11 @@ const PreviewStudio = ({
           onTitleChange={setTitle}
           titlePlaceholder={TITLE_PLACEHOLDER}
         />
+        <ComparePicker
+          compares={compares}
+          onAddFiles={addFiles}
+          onRemove={remove}
+        />
         <Button variant="outline" onClick={onAnother}>
           <RiRefreshLine data-icon="inline-start" />
           Another image
@@ -97,13 +94,21 @@ const PreviewStudio = ({
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <ViewControls
+          arrangement={compares.length > 0 ? arrangement : undefined}
+          onArrangementChange={setArrangement}
           layout={layout.id}
           onLayoutChange={setLayoutId}
           theme={details.theme}
           onThemeChange={(theme) => setDetails({ ...details, theme })}
         />
         <YouTubeMock
-          feed={[current, ...FILLERS].slice(0, layout.slots)}
+          feed={previewFeed({
+            arrangement,
+            compares,
+            current,
+            own,
+            slots: layout.slots,
+          })}
           layout={layout.id}
           letterboxed={!current.cover}
           theme={details.theme}
@@ -124,7 +129,7 @@ export const YouTubePreviewTool = () => {
 
   const take = async (image: File) => {
     try {
-      const size = await readSize(image);
+      const size = await readImageSize(image);
       setThumbnail({ size, url: show(image) });
       setError(undefined);
     } catch {

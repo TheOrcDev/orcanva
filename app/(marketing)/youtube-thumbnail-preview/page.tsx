@@ -46,8 +46,8 @@ const CHECKS = [
     title: "Your title and channel",
   },
   {
-    body: "A picture that isn't 16:9 shows between black bars. Make it 1280×720 to fill the frame.",
-    title: "Black bars",
+    body: "Add up to three more thumbnails, other versions of yours or another channel's, and see which one stands out.",
+    title: "Next to other thumbnails",
   },
 ];
 
@@ -84,6 +84,11 @@ const FAQ: FaqEntry[] = [
   },
   {
     answer:
+      "Yes. Add up to three more images and see them mixed in with other videos or side by side. They're shown from your device too, never uploaded.",
+    question: "Can I compare it with other thumbnails?",
+  },
+  {
+    answer:
       "1280×720 pixels, a 16:9 ratio, which is what YouTube recommends. Pictures in other shapes show between black bars.",
     question: "What size should a YouTube thumbnail be?",
   },
@@ -105,6 +110,7 @@ const STRUCTURED_DATA = pageStructuredData({
     features: [
       "Mock home page, search, Up next and phone layouts at real size",
       "Light and dark looks, with your title, channel, picture and video length",
+      "Side by side with up to three other thumbnails",
       "Runs in the browser: no upload, no sign-up, no watermark",
     ],
     name: "Orcanva YouTube thumbnail preview",
@@ -125,8 +131,8 @@ const YouTubeThumbnailPreviewPage = () => (
         >
           Drop in a thumbnail and see it at the size people scroll past it: on
           the home page, in search, beside a video and on a phone, in light and
-          dark. Add your title, channel and video length. The image never leaves
-          your device.
+          dark, next to up to three others. Add your title, channel and video
+          length. Nothing leaves your device.
         </PageIntro>
         <div className="mx-auto w-full max-w-6xl">
           <YouTubePreviewTool />

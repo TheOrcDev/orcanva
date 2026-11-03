@@ -3,6 +3,7 @@
 import { RiEyeLine } from "@remixicon/react";
 import { useState } from "react";
 
+import { CompareDesignsPicker } from "@/components/editor/compare-designs-picker";
 import {
   useEditor,
   useEditorStoreApi,
@@ -17,16 +18,19 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  ComparePicker,
+  MAX_COMPARES,
+  useCompares,
+} from "@/components/youtube-preview/compare-picker";
 import { DetailsForm } from "@/components/youtube-preview/details-form";
-import { FILLERS } from "@/components/youtube-preview/fillers";
-import type { FeedCard } from "@/components/youtube-preview/video-card";
+import { ownCard, previewFeed } from "@/components/youtube-preview/feed";
+import type { Arrangement } from "@/components/youtube-preview/feed";
 import { ViewControls } from "@/components/youtube-preview/view-controls";
 import { YouTubeMock } from "@/components/youtube-preview/youtube-mock";
 import { useDesignPreview } from "@/hooks/use-design-preview";
-import type { DesignPreview } from "@/hooks/use-design-preview";
 import { usePreviewDetails } from "@/hooks/use-preview-details";
 import { loadTitle, saveTitle } from "@/lib/youtube-preview/details";
-import type { PreviewDetails } from "@/lib/youtube-preview/details";
 import {
   DEFAULT_LAYOUT,
   findLayout,
@@ -34,34 +38,13 @@ import {
 } from "@/lib/youtube-preview/layout";
 import type { LayoutId } from "@/lib/youtube-preview/layout";
 
-// What the person's own video says under its thumbnail
-const OWN_VIEWS = "12K views";
-const OWN_AGE = "2 hours ago";
 const FALLBACK_CHANNEL = "Your channel";
 
-const currentCard = (
-  preview: DesignPreview,
-  details: PreviewDetails,
-  title: string,
-  channel: string,
-  avatar: string | null
-): FeedCard => ({
-  age: OWN_AGE,
-  alt: "Your design",
-  avatar,
-  channel,
-  cover: thumbnailFit(preview.size).exact,
-  duration: details.duration,
-  id: "current",
-  image: preview.url,
-  title,
-  views: OWN_VIEWS,
-});
-
 // The design in mock video feeds, at the size viewers see it, with the
-// title, channel and length it'll go out with. Modal: the design can't be
-// edited while it's open, but collaborators' edits still show. The details
-// stay in this browser, and the title is kept per design.
+// title, channel and length it'll go out with, and beside up to three other
+// thumbnails. Modal: the design can't be edited while it's open, but
+// collaborators' edits still show. The details stay in this browser, and
+// the title is kept per design.
 export const YouTubePreviewDialog = () => {
   const store = useEditorStoreApi();
   const designId = useEditor((state) => state.designId);
@@ -71,15 +54,22 @@ export const YouTubePreviewDialog = () => {
   const preview = useDesignPreview(open);
   const [details, setDetails] = usePreviewDetails();
   const [layoutId, setLayoutId] = useState<LayoutId>(DEFAULT_LAYOUT);
+  const [arrangement, setArrangement] = useState<Arrangement>("mixed");
   // Empty until typed: the design's name stands in
   const [title, setTitle] = useState(() => loadTitle(designId));
+  const { add, addFiles, compares, remove } = useCompares();
 
   const channelPlaceholder = viewer?.name ?? FALLBACK_CHANNEL;
   const channel = details.channel.trim() || channelPlaceholder;
   const avatar = details.avatar ?? viewer?.image ?? null;
+  const own = { avatar, channel, duration: details.duration };
   const layout = findLayout(layoutId);
   const current = preview
-    ? currentCard(preview, details, title.trim() || name, channel, avatar)
+    ? ownCard(own, {
+        cover: thumbnailFit(preview.size).exact,
+        image: preview.url,
+        title: title.trim() || name,
+      })
     : null;
 
   return (
@@ -106,7 +96,7 @@ export const YouTubePreviewDialog = () => {
           </DialogDescription>
         </DialogHeader>
         <div className="-mx-6 flex min-h-0 flex-col gap-6 overflow-y-auto px-6 md:flex-row">
-          <div className="w-full shrink-0 md:w-64">
+          <div className="flex w-full shrink-0 flex-col gap-7 md:w-64">
             <DetailsForm
               avatar={avatar}
               channel={channel}
@@ -120,9 +110,35 @@ export const YouTubePreviewDialog = () => {
               }}
               titlePlaceholder={name}
             />
+            <ComparePicker
+              compares={compares}
+              onAddFiles={addFiles}
+              onRemove={remove}
+            >
+              <CompareDesignsPicker
+                chosenIds={compares.map((compare) => compare.id)}
+                full={compares.length >= MAX_COMPARES}
+                onToggle={(design) => {
+                  if (compares.some((compare) => compare.id === design.id)) {
+                    remove(design.id);
+                    return;
+                  }
+                  add([
+                    {
+                      cover: thumbnailFit(design).exact,
+                      id: design.id,
+                      name: design.name,
+                      url: design.thumbnailUrl,
+                    },
+                  ]);
+                }}
+              />
+            </ComparePicker>
           </div>
           <div className="flex min-w-0 flex-1 flex-col gap-4">
             <ViewControls
+              arrangement={compares.length > 0 ? arrangement : undefined}
+              onArrangementChange={setArrangement}
               layout={layout.id}
               onLayoutChange={setLayoutId}
               theme={details.theme}
@@ -130,7 +146,13 @@ export const YouTubePreviewDialog = () => {
             />
             {current ? (
               <YouTubeMock
-                feed={[current, ...FILLERS].slice(0, layout.slots)}
+                feed={previewFeed({
+                  arrangement,
+                  compares,
+                  current,
+                  own,
+                  slots: layout.slots,
+                })}
                 layout={layout.id}
                 letterboxed={!current.cover}
                 theme={details.theme}

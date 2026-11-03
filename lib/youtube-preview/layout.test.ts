@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { fitScale, thumbnailFit } from "@/lib/youtube-preview/layout";
+import {
+  arrangeFeed,
+  fitScale,
+  thumbnailFit,
+} from "@/lib/youtube-preview/layout";
 
 describe("thumbnailFit", () => {
   it("fills the frame at 16:9", () => {
@@ -50,5 +54,63 @@ describe("fitScale", () => {
     expect(fitScale(784, 0)).toBe(1);
     expect(fitScale(0, 500)).toBe(1);
     expect(fitScale(784, Number.NaN)).toBe(1);
+  });
+});
+
+const item = (id: string) => ({ id });
+const ids = (feed: { id: string }[]) => feed.map((entry) => entry.id);
+
+describe("arrangeFeed", () => {
+  const fillers = ["f1", "f2", "f3", "f4", "f5"].map(item);
+
+  it("puts the design first and fills the rest", () => {
+    expect(ids(arrangeFeed(item("you"), [], fillers, 4))).toEqual([
+      "you",
+      "f1",
+      "f2",
+      "f3",
+    ]);
+  });
+
+  it("spreads compares through the feed, in order", () => {
+    expect(ids(arrangeFeed(item("you"), [item("a")], fillers, 4))).toEqual([
+      "you",
+      "f1",
+      "a",
+      "f2",
+    ]);
+    expect(
+      ids(arrangeFeed(item("you"), [item("a"), item("b")], fillers, 5))
+    ).toEqual(["you", "f1", "a", "f2", "b"]);
+    expect(
+      ids(arrangeFeed(item("you"), ["a", "b", "c"].map(item), fillers, 4))
+    ).toEqual(["you", "a", "b", "c"]);
+  });
+
+  it("never repeats a video", () => {
+    const feed = arrangeFeed(
+      item("you"),
+      [item("a"), item("you"), item("a"), item("f1")],
+      fillers,
+      6
+    );
+    expect(ids(feed)).toEqual(["you", "f2", "a", "f3", "f1", "f4"]);
+    expect(new Set(ids(feed)).size).toBe(feed.length);
+  });
+
+  it("keeps every compare, even past the layout's slots", () => {
+    expect(
+      ids(arrangeFeed(item("you"), ["a", "b", "c"].map(item), fillers, 3))
+    ).toEqual(["you", "a", "b", "c"]);
+  });
+
+  it("is shorter when the fillers run out, and side by side without them", () => {
+    expect(ids(arrangeFeed(item("you"), [], [item("f1")], 4))).toEqual([
+      "you",
+      "f1",
+    ]);
+    expect(
+      ids(arrangeFeed(item("you"), [item("a"), item("b")], [], 4))
+    ).toEqual(["you", "a", "b"]);
   });
 });
