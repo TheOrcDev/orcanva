@@ -85,6 +85,13 @@
       "when": 1793730087108,
       "tag": "0011_asset_origin",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793733974151,
+      "tag": "0012_version_history",
+      "breakpoints": true
     }
   ]
 }

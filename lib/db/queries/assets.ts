@@ -3,7 +3,7 @@ import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { getDb } from "@/lib/db/client";
-import { assets, designElements } from "@/lib/db/schema";
+import { assets, designElements, designVersions } from "@/lib/db/schema";
 import type { AssetRow } from "@/lib/db/schema";
 import type { EditorAsset } from "@/lib/editor/store";
 import { assetFileUrl, templateAssetRow } from "@/lib/templates/assets";
@@ -80,6 +80,29 @@ export const listDesignAssets = async (
       )
     );
   return rows.map(toEditorAsset);
+};
+
+// Whether anything still shows the asset: an element of any design, or a
+// stored version (which a restore can bring back). Its cutouts count too,
+// since deleting an asset's row deletes the cutouts made from it. Nothing
+// deletes uploaded files yet; any cleanup or library delete must check
+// this first.
+export const isAssetReferenced = async (id: string): Promise<boolean> => {
+  const result = await getDb().execute<{ referenced: boolean }>(sql`
+    WITH family AS (
+      SELECT ${id}::uuid AS id
+      UNION
+      SELECT ${assets.id} FROM ${assets} WHERE ${assets.sourceAssetId} = ${id}::uuid
+    )
+    SELECT EXISTS (
+      SELECT 1 FROM ${designElements}
+      WHERE ${designElements.data}->>'assetId' IN (SELECT id::text FROM family)
+    ) OR EXISTS (
+      SELECT 1 FROM ${designVersions}
+      WHERE ${designVersions.assetIds} && ARRAY(SELECT id FROM family)
+    ) AS referenced
+  `);
+  return result.rows[0]?.referenced === true;
 };
 
 // Ready assets by id, plus the originals behind any cutouts among them

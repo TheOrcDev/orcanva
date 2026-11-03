@@ -1,9 +1,11 @@
-import { sql } from "drizzle-orm";
+import { after } from "next/server";
 import { z } from "zod";
 
 import { getViewer } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/client";
-import { isDesignId, visibleTo } from "@/lib/db/queries/designs";
+import { changesStatement } from "@/lib/db/queries/changes";
+import { isDesignId } from "@/lib/db/queries/designs";
+import { finishSnapshot } from "@/lib/db/queries/versions";
 import {
   MAX_CANVAS_SIZE,
   MAX_ELEMENTS,
@@ -70,14 +72,9 @@ const json = (body: unknown, status = 200) => Response.json(body, { status });
 // live query. Creates upsert; updates only touch rows that still exist, so
 // an element someone deleted stays deleted. A Route Handler rather than a
 // Server Action because actions run one at a time per client, and it doubles
-// as the keepalive target when the tab closes.
-//
-// Access is checked inside the statement: the design row is only updated
-// (and locked) when the viewer may edit it, and every element write joins
-// that row. Postgres runs every data-modifying CTE whether or not anything
-// reads it, so a write that didn't join `design` would bypass the check.
-// Only the owner's name changes stick; others' are ignored rather than
-// refused, since a refusal would drop the element writes batched with it.
+// as the keepalive target when the tab closes. changesStatement says how
+// access and version history are handled inside the statement; pruning old
+// versions waits until after the response.
 export const POST = async (
   request: Request,
   context: RouteContext<"/api/designs/[id]/changes">
@@ -99,76 +96,29 @@ export const POST = async (
   }
 
   const viewer = await getViewer();
-  const viewerId = viewer?.id ?? null;
   const { clientId, deletes, elements, name, page } = parsed.data;
-  const writes = JSON.stringify(
-    elements.map(({ data, mode, position }) => ({
-      data,
-      id: data.id,
-      mode,
-      position,
-    }))
+  const result = await getDb().execute<{
+    found: number;
+    snapshot_id: string | null;
+    txid: string;
+  }>(
+    changesStatement({
+      clientId,
+      deletes,
+      designId: id,
+      name: name ?? null,
+      page: page ?? null,
+      viewer,
+      writes: elements,
+    })
   );
-
-  const result = await getDb().execute<{ found: number; txid: string }>(sql`
-    WITH design AS (
-      UPDATE designs SET
-        updated_at = now(),
-        name = CASE
-          WHEN owner_id = ${viewerId}::uuid THEN COALESCE(${name ?? null}::text, name)
-          ELSE name
-        END,
-        width = COALESCE(${page?.width ?? null}::int, width),
-        height = COALESCE(${page?.height ?? null}::int, height),
-        background = COALESCE(${page ? JSON.stringify(page.background) : null}::jsonb, background)
-      WHERE id = ${id}::uuid
-        AND ${visibleTo(viewerId)}
-      RETURNING id
-    ),
-    input AS (
-      SELECT * FROM jsonb_to_recordset(${writes}::jsonb)
-        AS t(id text, position text, data jsonb, mode text)
-    ),
-    created AS (
-      INSERT INTO design_elements (design_id, id, position, data, updated_by)
-      SELECT design.id, input.id, input.position, input.data, ${clientId}::uuid
-      FROM input, design
-      WHERE input.mode = 'create'
-        AND (SELECT count(*) FROM design_elements WHERE design_id = design.id)
-          + (SELECT count(*) FROM input WHERE mode = 'create') <= ${MAX_ELEMENTS}
-      ON CONFLICT (design_id, id) DO UPDATE SET
-        position = excluded.position,
-        data = excluded.data,
-        updated_by = excluded.updated_by,
-        updated_at = now()
-      RETURNING 1
-    ),
-    updated AS (
-      UPDATE design_elements AS element SET
-        position = input.position,
-        data = input.data,
-        updated_by = ${clientId}::uuid,
-        updated_at = now()
-      FROM input, design
-      WHERE input.mode = 'update'
-        AND element.design_id = design.id
-        AND element.id = input.id
-      RETURNING 1
-    ),
-    deleted AS (
-      DELETE FROM design_elements AS element
-      USING design
-      WHERE element.design_id = design.id
-        AND element.id IN (SELECT jsonb_array_elements_text(${JSON.stringify(deletes)}::jsonb))
-      RETURNING 1
-    )
-    SELECT pg_current_xact_id()::text AS txid,
-      (SELECT count(*) FROM design)::int AS found
-  `);
 
   const [row] = result.rows;
   if (!row?.found) {
     return json({ error: "Not found" }, 404);
+  }
+  if (row.snapshot_id) {
+    after(() => finishSnapshot(id));
   }
   return json({ txid: row.txid });
 };

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   index,
   integer,
@@ -19,6 +20,8 @@ import type {
   DesignDocument,
   DesignElement,
 } from "@/lib/document/schema";
+import { VERSION_KINDS } from "@/lib/versions/schema";
+import type { VersionElement } from "@/lib/versions/schema";
 
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -49,10 +52,22 @@ export const designs = pgTable(
     document: jsonb("document").$type<DesignDocument>(),
     height: integer("height").notNull(),
     id: uuid("id").primaryKey().defaultRandom(),
+    // When the newest version history snapshot was due; null before the
+    // first (see the changes route)
+    lastVersionAt: timestamp("last_version_at", { withTimezone: true }),
+    // Who wrote last: "u:<user id>" for accounts, "c:<client id>" for a
+    // guest's editor session
+    lastWriter: text("last_writer"),
     name: text("name").notNull(),
     // Who can rename, delete and change visibility; null only for designs
     // made before accounts existed
     ownerId: uuid("owner_id"),
+    // Goes up with every restore, so open editors know to drop their undo
+    // history
+    restoreSeq: integer("restore_seq").notNull().default(0),
+    // Who restored a version last (the live page query shows it to everyone
+    // on the design)
+    restoredByName: text("restored_by_name"),
     thumbnailKey: text("thumbnail_key"),
     // Document schema version the elements were written with
     version: integer("version").notNull().default(1),
@@ -148,6 +163,62 @@ export const designShares = pgTable(
   ]
 );
 
+export const designVersionKind = pgEnum("design_version_kind", VERSION_KINDS);
+
+// Version history: a design's page and element rows as they were at one
+// moment, kept whole in jsonb so taking one is a single INSERT … SELECT
+// inside the save statement and restoring one a single statement too.
+export const designVersions = pgTable(
+  "design_versions",
+  {
+    // Images and frames' photos in it, so assets still shown by an old
+    // version are never treated as unused
+    assetIds: uuid("asset_ids")
+      .array()
+      .notNull()
+      .default(sql`'{}'::uuid[]`),
+    background: jsonb("background").$type<Background>().notNull(),
+    // When it was taken. Auto versions show the design as it was before the
+    // edits of the person who caused them (see the changes route).
+    contentAt: timestamp("content_at", { withTimezone: true }).notNull(),
+    createdAt: timestamps.createdAt,
+    // The account behind it; null for guests and deleted accounts.
+    // References neon_auth."user"(id) in drizzle/0012_*, like owner_id.
+    createdBy: uuid("created_by"),
+    // Their name then, or the name a guest edits under
+    createdByName: text("created_by_name").notNull(),
+    designId: uuid("design_id")
+      .notNull()
+      .references(() => designs.id, { onDelete: "cascade" }),
+    // DOCUMENT_VERSION the elements were written with
+    docVersion: integer("doc_version").notNull(),
+    elementCount: integer("element_count").notNull(),
+    // Compressed with lz4 (drizzle/0012_*)
+    elements: jsonb("elements").$type<VersionElement[]>().notNull(),
+    height: integer("height").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: designVersionKind("kind").notNull(),
+    // Named versions only
+    name: text("name"),
+    // Restore versions: the version that was restored over this one
+    restoredFromId: uuid("restored_from_id").references(
+      (): AnyPgColumn => designVersions.id,
+      { onDelete: "set null" }
+    ),
+    // octet_length of the elements as text, for the per-design budget
+    sizeBytes: integer("size_bytes").notNull(),
+    thumbnailKey: text("thumbnail_key"),
+    width: integer("width").notNull(),
+  },
+  (table) => [
+    index("design_versions_design_created_idx").on(
+      table.designId,
+      table.createdAt
+    ),
+    index("design_versions_asset_ids_idx").using("gin", table.assetIds),
+  ]
+);
+
 export const assetStatus = pgEnum("asset_status", ["pending", "ready"]);
 
 // Derived images (e.g. a background-removed cutout) point at their source
@@ -237,3 +308,4 @@ export type DesignElementRow = typeof designElements.$inferSelect;
 export type AssetRow = typeof assets.$inferSelect;
 export type DesignShareRow = typeof designShares.$inferSelect;
 export type BrandKitItemRow = typeof brandKitItems.$inferSelect;
+export type DesignVersionRow = typeof designVersions.$inferSelect;
