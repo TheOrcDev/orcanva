@@ -37,6 +37,7 @@ import { changeBrandKit } from "@/lib/brand-kit/change";
 import { brandCountLabel, brandFonts, logoChoices } from "@/lib/brand-kit/kit";
 import { isBrandKitFull } from "@/lib/brand-kit/schema";
 import type { BrandKit, BrandKitItem } from "@/lib/brand-kit/schema";
+import { normalizeHex } from "@/lib/document/color";
 import { loadRecentColors } from "@/lib/editor/recent-colors";
 import type { EditorAsset } from "@/lib/editor/store";
 
@@ -101,6 +102,7 @@ const ColorsCard = ({ kit, change }: { kit: BrandKit; change: Change }) => {
   const [draft, setDraft] = useState(NEW_COLOR);
   const [recent, setRecent] = useState<string[]>([]);
   const full = isBrandKitFull(kit, "color");
+  const saved = kit.colors.includes(normalizeHex(draft) ?? draft);
 
   return (
     <KitCard
@@ -139,7 +141,7 @@ const ColorsCard = ({ kit, change }: { kit: BrandKit; change: Change }) => {
         />
         <Button
           variant="outline"
-          disabled={full}
+          disabled={full || saved}
           onClick={() => change({ kind: "color", value: draft }, true)}
         >
           <RiAddLine data-icon="inline-start" />
