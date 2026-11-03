@@ -3,11 +3,13 @@
 import { useMemo } from "react";
 import { Group, Path } from "react-konva";
 
+import { PhotoEffectsNode } from "@/components/editor/canvas/photo-effects-node";
 import { PhotoNode } from "@/components/editor/canvas/photo-node";
 import { frameShape } from "@/lib/document/frame-shapes";
 import type { FrameElement } from "@/lib/document/schema";
 
-// Waiting for a photo: the shape in a soft grey, also in downloads
+// Waiting for a photo: the shape in a soft grey, also in downloads. An
+// empty frame keeps its effects for the next photo but draws none.
 const EMPTY_FILL = "#d4d4d8";
 
 // The frame's shape at its size, for clipping its photo
@@ -31,18 +33,22 @@ export const FrameNode = ({ element }: { element: FrameElement }) => {
     );
   }
 
+  // The effects sit outside the clip, behind it, and follow the shape
   return (
-    <Group clipFunc={() => [clip]}>
-      <PhotoNode
-        assetId={assetId}
-        cornerRadius={0}
-        crop={element.crop}
-        filter={element.filter}
-        flipX={element.flipX}
-        flipY={element.flipY}
-        height={height}
-        width={width}
-      />
-    </Group>
+    <>
+      <PhotoEffectsNode element={element} />
+      <Group clipFunc={() => [clip]}>
+        <PhotoNode
+          assetId={assetId}
+          cornerRadius={0}
+          crop={element.crop}
+          filter={element.filter}
+          flipX={element.flipX}
+          flipY={element.flipY}
+          height={height}
+          width={width}
+        />
+      </Group>
+    </>
   );
 };

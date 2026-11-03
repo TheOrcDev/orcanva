@@ -12,6 +12,7 @@ import { useEditorStoreApi } from "@/components/editor/editor-store-context";
 import { ImageAdjustments } from "@/components/editor/panels/image-adjustments";
 import { ImageFilters } from "@/components/editor/panels/image-filters";
 import { PanelSection } from "@/components/editor/panels/panel-section";
+import { PhotoEffectsProperties } from "@/components/editor/panels/photo-effects-properties";
 import { Button } from "@/components/ui/button";
 import { useUpdateElement } from "@/hooks/use-selected-element";
 import { FRAME_SHAPES } from "@/lib/document/frame-shapes";
@@ -36,6 +37,7 @@ export const FrameProperties = ({ element }: { element: FrameElement }) => {
     }
   };
 
+  // The frame keeps its effects for the next photo
   const remove = () =>
     update({
       assetId: null,
@@ -126,6 +128,7 @@ export const FrameProperties = ({ element }: { element: FrameElement }) => {
         <>
           <ImageFilters element={element} />
           <ImageAdjustments element={element} />
+          <PhotoEffectsProperties element={element} />
         </>
       ) : null}
     </>

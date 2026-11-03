@@ -10,13 +10,13 @@ import type {
   EffectBitmap,
   PhotoEffectBitmaps,
 } from "@/hooks/use-photo-effects";
-import { frameShape } from "@/lib/document/frame-shapes";
 import type { PhotoElement } from "@/lib/document/schema";
 import {
   LIVE_CROP_ATTR,
   PHOTO_EFFECTS_NAME,
   photoNodeOf,
 } from "@/lib/editor/node-names";
+import { photoClip } from "@/lib/photo-effects/mask";
 import type { PhotoClip } from "@/lib/photo-effects/mask";
 
 // Where the shadow goes, in page px; a node attr, so dragging its sliders
@@ -84,15 +84,8 @@ const drawPhotoEffects = (context: Konva.Context, shape: Konva.Shape) => {
 export const PhotoEffectsNode = ({ element }: { element: PhotoElement }) => {
   const shapeRef = useRef<Konva.Shape>(null);
   const cropping = useEditor((state) => state.cropTargetId === element.id);
-  const radius = element.type === "image" ? element.cornerRadius : 0;
-  const shapeId = element.type === "frame" ? element.shape : null;
-  const clip = useMemo(
-    (): PhotoClip =>
-      shapeId === null
-        ? { kind: "box", radius }
-        : { kind: "shape", path: frameShape(shapeId).path },
-    [radius, shapeId]
-  );
+  const clipKey = JSON.stringify(photoClip(element));
+  const clip = useMemo(() => JSON.parse(clipKey) as PhotoClip, [clipKey]);
   usePhotoEffects(shapeRef, element, clip, !cropping);
   const offsetX = element.shadow?.offsetX ?? 0;
   const offsetY = element.shadow?.offsetY ?? 0;

@@ -1,6 +1,7 @@
 import { cropToPixels } from "@/lib/document/crop";
+import { frameShape } from "@/lib/document/frame-shapes";
 import type { Size } from "@/lib/document/geometry";
-import type { ImageCrop } from "@/lib/document/schema";
+import type { ImageCrop, PhotoElement } from "@/lib/document/schema";
 import type { EffectsLayout } from "@/lib/photo-effects/geometry";
 
 // What clips the photo: an image's (rounded) box, or a frame's shape as an
@@ -8,6 +9,14 @@ import type { EffectsLayout } from "@/lib/photo-effects/geometry";
 export type PhotoClip =
   | { kind: "box"; radius: number }
   | { kind: "shape"; path: string };
+
+// What the effects follow besides the photo's own transparency: the
+// (rounded) box of an image, the shape of a frame (a square for a shape
+// this version doesn't know, as the frame draws)
+export const photoClip = (element: PhotoElement): PhotoClip =>
+  element.type === "image"
+    ? { kind: "box", radius: element.cornerRadius }
+    : { kind: "shape", path: frameShape(element.shape).path };
 
 export type PhotoSource = HTMLImageElement | HTMLCanvasElement;
 

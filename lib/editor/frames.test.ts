@@ -5,8 +5,10 @@ import {
   createFrameElement,
   createImageElement,
 } from "@/lib/document/factories";
+import { FRAME_SHAPES } from "@/lib/document/frame-shapes";
 import type { PhotoEffects } from "@/lib/document/schema";
 import { detachPhoto, fillFrame, photoIntoFrame } from "@/lib/editor/frames";
+import { photoClip } from "@/lib/photo-effects/mask";
 
 const PAGE = { height: 720, width: 1280 };
 const PHOTO = {
@@ -85,6 +87,35 @@ describe("fillFrame", () => {
     const [emptied, photo] = document.elements;
     expect(photo).toMatchObject({ ...STICKER, type: "image" });
     expect(emptied).toMatchObject({ ...STICKER, assetId: null });
+  });
+
+  it("draws a frame's effects along its shape, and an image's on its box", () => {
+    const heart = { ...createFrameElement(PAGE, "heart"), ...STICKER };
+    expect(photoClip(heart)).toEqual({
+      kind: "shape",
+      path: FRAME_SHAPES.find((shape) => shape.id === "heart")?.path,
+    });
+    // A shape this version doesn't know draws (and outlines) a square
+    expect(photoClip({ ...heart, shape: "newer-shape" })).toEqual({
+      kind: "shape",
+      path: "M0 0H1V1H0Z",
+    });
+    const image = { ...createImageElement(PHOTO, PAGE), cornerRadius: 24 };
+    expect(photoClip(image)).toEqual({ kind: "box", radius: 24 });
+    // Detached, the photo is a plain box with the frame's effects
+    const { document } = detachPhoto(
+      fillFrame(
+        { ...createDocument(PAGE), elements: [heart] },
+        heart.id,
+        PHOTO
+      ),
+      heart.id
+    );
+    const [, detached] = document.elements;
+    expect(detached?.type === "image" && photoClip(detached)).toEqual({
+      kind: "box",
+      radius: 0,
+    });
   });
 
   it("gives a frame without effects the dropped image's", () => {
