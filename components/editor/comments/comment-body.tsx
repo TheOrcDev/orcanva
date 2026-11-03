@@ -6,7 +6,8 @@ import { bodyParts } from "@/lib/comments/body";
 import type { DesignComment } from "@/lib/comments/schema";
 import { cn } from "@/lib/utils";
 
-// The author's picture, or their initials
+// The author's picture, or their initials. Decorative: their name is
+// always written beside it (or in the pin's label).
 export const CommentAvatar = ({
   comment,
   className,
@@ -14,7 +15,7 @@ export const CommentAvatar = ({
   comment: Pick<DesignComment, "authorImage" | "authorName">;
   className?: string;
 }) => (
-  <Avatar size="sm" className={className}>
+  <Avatar size="sm" className={className} aria-hidden>
     {comment.authorImage ? (
       <AvatarImage
         src={comment.authorImage}
