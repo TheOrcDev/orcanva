@@ -39,13 +39,18 @@ export interface PhotoEffectBitmaps {
   // The box they were drawn for; a resized box stretches them until the
   // recompute lands
   box: Size;
+  // Outline and glow
   halo: EffectBitmap | null;
+  // Drawn at the shadow's offset, which the node applies (see
+  // PhotoEffectsNode), so moving it costs no recompute
+  shadow: EffectBitmap | null;
 }
 
 // Canvases a photo's bitmaps are drawn into, reused from one recompute to
 // the next. The object also stands for the photo in the renderer's cache.
 interface Canvases {
   halo: HTMLCanvasElement | null;
+  shadow: HTMLCanvasElement | null;
 }
 
 let warnedUnsupported = false;
@@ -76,6 +81,7 @@ const clearBitmaps = (shape: Konva.Shape | null, canvases: Canvases) => {
   }
   forgetPhotoEffects(canvases);
   releaseCanvas(canvases.halo);
+  releaseCanvas(canvases.shadow);
 };
 
 const showsEffects = ({ glow, outline, shadow }: PhotoEffects): boolean =>
@@ -101,14 +107,23 @@ export const usePhotoEffects = (
     (state) => assetId !== null && state.missingAssetIds.includes(assetId)
   );
   const { image, status } = useAssetImage(url ?? undefined);
-  const canvasesRef = useRef<Canvases>({ halo: null });
+  const canvasesRef = useRef<Canvases>({ halo: null, shadow: null });
 
   const effects: PhotoEffects = {
     glow: element.glow,
     outline: element.outline,
     shadow: element.shadow,
   };
-  const effectsKey = JSON.stringify(effects);
+  // What the bitmaps are coloured from. The shadow's offset isn't: the node
+  // places the shadow.
+  const { shadow } = element;
+  const paintKey = JSON.stringify({
+    effects: {
+      ...effects,
+      shadow: shadow && { ...shadow, offsetX: 0, offsetY: 0 },
+    },
+    opacity: element.opacity,
+  });
   // What the field follows: the photo's pixels (a filter's blur softens
   // their edge), how they're cropped, flipped and clipped, and the box
   const blur = resolveFilter(filter);
@@ -125,7 +140,7 @@ export const usePhotoEffects = (
   const visible = active && showsEffects(effects) && url !== null;
 
   const draw = useEffectEvent(
-    (shape: Konva.Shape, effectsJson: string, fieldShape: string): boolean => {
+    (shape: Konva.Shape, paintJson: string, fieldShape: string): boolean => {
       const canvases = canvasesRef.current;
       const group = shape.getParent();
       const source = group ? photoNodeOf(group)?.image() : undefined;
@@ -138,16 +153,25 @@ export const usePhotoEffects = (
         return false;
       }
       const box = { height, width };
-      const settings = JSON.parse(effectsJson) as PhotoEffects;
-      const layout = effectsLayout(box, settings, maxFilterSide());
+      const settings = JSON.parse(paintJson) as {
+        effects: PhotoEffects;
+        opacity: number;
+      };
+      const layout = effectsLayout(box, settings.effects, maxFilterSide());
       if (!layout) {
         clearBitmaps(shape, canvases);
         return true;
       }
-      if (!canvases.halo) {
-        canvases.halo = document.createElement("canvas");
-      }
-      const paint = effectsPaint(settings, layout.scale, effectRgba);
+      const halo = canvases.halo ?? document.createElement("canvas");
+      const shadowCanvas = canvases.shadow ?? document.createElement("canvas");
+      canvases.halo = halo;
+      canvases.shadow = shadowCanvas;
+      const paint = effectsPaint(
+        settings.effects,
+        settings.opacity,
+        layout.scale,
+        effectRgba
+      );
       const output = renderPhotoEffects({
         fieldKey: JSON.stringify([
           fieldShape,
@@ -155,26 +179,33 @@ export const usePhotoEffects = (
           layout.pad,
           layout.scale,
         ]),
-        halo: canvases.halo,
+        halo,
         layout,
         mask: { box, clip, crop, flipX, flipY, source },
         owner: canvases,
         paint,
+        shadow: shadowCanvas,
       });
       if (!output) {
         warnUnsupported();
         clearBitmaps(shape, canvases);
         return true;
       }
-      if (!output.halo) {
-        releaseCanvas(canvases.halo);
-      }
+      const bitmap = (
+        drawn: boolean,
+        canvas: HTMLCanvasElement,
+        region: Rect | null
+      ): EffectBitmap | null => {
+        if (drawn && region) {
+          return { canvas, rect: regionOnPage(layout, region) };
+        }
+        releaseCanvas(canvas);
+        return null;
+      };
       const bitmaps: PhotoEffectBitmaps = {
         box,
-        halo:
-          output.halo && layout.halo
-            ? { canvas: canvases.halo, rect: regionOnPage(layout, layout.halo) }
-            : null,
+        halo: bitmap(output.halo, halo, layout.halo),
+        shadow: bitmap(output.shadow, shadowCanvas, layout.shadow),
       };
       shape.setAttr(PHOTO_EFFECTS_ATTR, bitmaps);
       shape.getLayer()?.batchDraw();
@@ -196,9 +227,9 @@ export const usePhotoEffects = (
       return;
     }
     photoEffectsScheduler.request(canvases, () =>
-      draw(shape, effectsKey, shapeKey)
+      draw(shape, paintKey, shapeKey)
     );
-  }, [effectsKey, image, missing, shapeKey, shapeRef, status, visible]);
+  }, [image, missing, paintKey, shapeKey, shapeRef, status, visible]);
 
   useEffect(() => {
     const canvases = canvasesRef.current;

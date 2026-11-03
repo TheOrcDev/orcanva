@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 
+import { parseHex } from "@/lib/document/color";
+import type { Rgba } from "@/lib/document/color";
 import type { PhotoEffects } from "@/lib/document/schema";
 import {
   DEFAULT_EFFECTS,
   EFFECTS_SUPERSAMPLE,
+  GLOW_GAIN,
   PAD_STEP,
   effectsAtSize,
   effectsLayout,
+  effectsPaint,
   effectsReach,
   floodSteps,
   regionOnPage,
@@ -100,8 +104,89 @@ describe("effectsAtSize", () => {
   });
 });
 
+const FULL: PhotoEffects = {
+  glow: { color: "#ff2e93", size: 20 },
+  outline: { color: "#ffffff", width: 10 },
+  shadow: { blur: 40, color: "#00000080", offsetX: 30, offsetY: -50 },
+};
+
 describe("effectsReach", () => {
   it("counts the outline in every bitmap", () => {
     expect(effectsReach(OUTLINE)).toEqual({ halo: 10, shadow: null });
+  });
+
+  it("reaches three sigmas past the outline for glows and shadows", () => {
+    // sigma = half the size or blur, as canvas shadows have it
+    expect(effectsReach(FULL)).toEqual({ halo: 40, shadow: 70 });
+    const glowOnly = { ...NONE, glow: { color: "#fff", size: 20 } };
+    expect(effectsReach(glowOnly)).toEqual({ halo: 30, shadow: null });
+  });
+
+  it("leaves the shadow's offset to whoever draws it", () => {
+    const moved = {
+      ...FULL,
+      shadow: { blur: 40, color: "#000", offsetX: -400, offsetY: 900 },
+    };
+    expect(effectsReach(moved)).toEqual(effectsReach(FULL));
+    expect(effectsLayout(BOX, moved, 4096)).toEqual(
+      effectsLayout(BOX, FULL, 4096)
+    );
+  });
+
+  it("pads the field for the furthest bitmap, each region for its own", () => {
+    const layout = effectsLayout(BOX, FULL, 4096);
+    // 70 page px = 140 bitmap px + 2, up to a step of 16
+    expect(layout?.pad).toBe(144);
+    // Each region: its own reach in bitmap px plus the 2 px edge
+    expect(layout?.shadow).toEqual({ height: 1084, width: 884, x: 2, y: 2 });
+    expect(layout?.halo).toEqual({ height: 964, width: 764, x: 62, y: 62 });
+  });
+});
+
+const rgba = (color: string): Rgba => parseHex(color) ?? [0, 0, 0, 0];
+
+describe("effectsPaint", () => {
+  it("premultiplies the halo's colours and keeps the shadow's straight", () => {
+    const paint = effectsPaint(FULL, 1, 2, rgba);
+    expect(paint.outline).toEqual({ color: [1, 1, 1, 1], width: 20 });
+    expect(paint.glow?.color[3]).toBe(1);
+    expect(paint.glow?.color[0]).toBe(1);
+    expect(paint.glow?.color[1]).toBeCloseTo(46 / 255);
+    // Sigmas in bitmap px: half the size, twice over at 2×
+    expect(paint.glow?.sigma).toBe(20);
+    expect(paint.glow?.gain).toBe(GLOW_GAIN);
+    expect(paint.shadow?.sigma).toBe(40);
+    expect(paint.shadow?.color).toEqual([0, 0, 0, 128 / 255]);
+    expect(paint.opacity).toBe(1);
+  });
+
+  it("thins a see-through outline's colour by its alpha", () => {
+    const paint = effectsPaint(
+      { ...NONE, outline: { color: "#ff000080", width: 4 } },
+      0.5,
+      1,
+      rgba
+    );
+    const alpha = 128 / 255;
+    expect(paint.outline?.color).toEqual([alpha, 0, 0, alpha]);
+    expect(paint.opacity).toBe(0.5);
+  });
+
+  it("paints nothing for effects that are off or zero-sized", () => {
+    const paint = effectsPaint(
+      {
+        glow: { color: "#fff", size: 0 },
+        outline: { color: "#fff", width: 0 },
+        shadow: null,
+      },
+      1,
+      2,
+      rgba
+    );
+    expect([paint.outline, paint.glow, paint.shadow]).toEqual([
+      null,
+      null,
+      null,
+    ]);
   });
 });

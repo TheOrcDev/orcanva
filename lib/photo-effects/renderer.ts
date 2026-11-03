@@ -1,5 +1,6 @@
 import type { Rect, Size } from "@/lib/document/geometry";
 import {
+  blurred,
   linkProgram,
   sharedGl,
   uniformLocation,
@@ -15,6 +16,7 @@ import {
   HALO_SHADER,
   PLAIN_FIELD_SHADER,
   SEED_SHADER,
+  SHADOW_SHADER,
 } from "@/lib/photo-effects/shader";
 
 // A texture with a framebuffer to draw into it
@@ -33,6 +35,7 @@ interface Programs {
   field: Program;
   plainField: Program;
   halo: Program;
+  shadow: Program;
 }
 
 // Per context: a lost context comes back as a new one, and everything here
@@ -55,11 +58,14 @@ export interface EffectsJob {
   paint: EffectsPaint;
   // Caller-owned canvases the bitmaps land in (Konva and exports share them)
   halo: HTMLCanvasElement;
+  shadow: HTMLCanvasElement;
 }
 
-// Which bitmaps were drawn
+// Which bitmaps were drawn. A blurred shadow is kept at a reduced size,
+// since its blur hides the detail.
 export interface EffectsOutput {
   halo: boolean;
+  shadow: boolean;
 }
 
 // Fields kept for recolouring without a new flood: about 5 bytes per
@@ -164,6 +170,7 @@ const stateFor = (gl: WebGL2RenderingContext): State => {
       halo: linkProgram(gl, HALO_SHADER),
       plainField: linkProgram(gl, PLAIN_FIELD_SHADER),
       seed: linkProgram(gl, SEED_SHADER),
+      shadow: linkProgram(gl, SHADOW_SHADER),
     },
     seeds: [createTarget(gl, "seeds"), createTarget(gl, "seeds")],
   };
@@ -350,6 +357,70 @@ const regionUv = (
   region.height / size.height,
 ];
 
+// Outline and glow, from the field and the field blurred by the glow
+const drawHalo = (
+  gl: WebGL2RenderingContext,
+  { canvas, programs }: State & { canvas: HTMLCanvasElement },
+  field: Target,
+  job: EffectsJob,
+  region: Rect
+) => {
+  const { layout, paint } = job;
+  gl.activeTexture(gl.TEXTURE0);
+  const glow = paint.glow
+    ? blurred(field.texture, paint.glow.sigma, layout.size)
+    : null;
+  const size = { height: region.height, width: region.width };
+  fitCanvas(canvas, size);
+  const at = activate(gl, programs.halo, 1);
+  gl.uniform1i(at("u_field"), 0);
+  gl.uniform1i(at("u_glow"), 1);
+  gl.uniform4fv(at("u_region"), regionUv(region, layout.size));
+  gl.uniform4fv(at("u_outlineColor"), paint.outline?.color ?? [0, 0, 0, 0]);
+  gl.uniform4fv(at("u_glowColor"), paint.glow?.color ?? [0, 0, 0, 0]);
+  // A glow too small to blur is drawn as the silhouette itself
+  gl.uniform1f(at("u_glowGain"), paint.glow?.gain ?? 0);
+  gl.uniform1f(at("u_opacity"), paint.opacity);
+  bind(gl, 0, field.texture);
+  bind(gl, 1, glow?.texture ?? field.texture);
+  drawInto(gl, null, size);
+  copyOut(canvas, size, job.halo);
+};
+
+// The silhouette in the shadow's colour, at the blur's reduced size
+const drawShadow = (
+  gl: WebGL2RenderingContext,
+  { canvas, programs }: State & { canvas: HTMLCanvasElement },
+  field: Target,
+  job: EffectsJob,
+  region: Rect,
+  sigma: number,
+  color: [number, number, number, number]
+) => {
+  const { layout } = job;
+  gl.activeTexture(gl.TEXTURE0);
+  const blur = blurred(field.texture, sigma, layout.size);
+  const source = blur ?? { size: layout.size, texture: field.texture };
+  const size = {
+    height: Math.max(
+      1,
+      Math.round((region.height * source.size.height) / layout.size.height)
+    ),
+    width: Math.max(
+      1,
+      Math.round((region.width * source.size.width) / layout.size.width)
+    ),
+  };
+  fitCanvas(canvas, size);
+  const at = activate(gl, programs.shadow, 1);
+  gl.uniform1i(at("u_source"), 0);
+  gl.uniform4fv(at("u_region"), regionUv(region, layout.size));
+  gl.uniform4fv(at("u_color"), color);
+  bind(gl, 0, source.texture);
+  drawInto(gl, null, size);
+  copyOut(canvas, size, job.shadow);
+};
+
 // Draws a photo's effects into the job's canvases. Null when this browser
 // has no WebGL2.
 export const renderPhotoEffects = (job: EffectsJob): EffectsOutput | null => {
@@ -358,25 +429,27 @@ export const renderPhotoEffects = (job: EffectsJob): EffectsOutput | null => {
     return null;
   }
   const { canvas, gl } = shared;
-  const state = stateFor(gl);
+  const state = { ...stateFor(gl), canvas };
   const { layout, paint } = job;
   const field = fieldFor(gl, state, job);
-
-  let halo = false;
-  if (layout.halo && paint.outline) {
-    const size = { height: layout.halo.height, width: layout.halo.width };
-    fitCanvas(canvas, size);
-    const at = activate(gl, state.programs.halo, 1);
-    gl.uniform1i(at("u_field"), 0);
-    gl.uniform4fv(at("u_region"), regionUv(layout.halo, layout.size));
-    gl.uniform4fv(at("u_outlineColor"), paint.outline.color);
-    bind(gl, 0, field.texture);
-    drawInto(gl, null, size);
-    copyOut(canvas, size, job.halo);
-    halo = true;
+  const halo = layout.halo !== null && (paint.outline ?? paint.glow) !== null;
+  if (layout.halo && halo) {
+    drawHalo(gl, state, field, job, layout.halo);
+  }
+  const shadow = layout.shadow !== null && paint.shadow !== null;
+  if (layout.shadow && paint.shadow) {
+    drawShadow(
+      gl,
+      state,
+      field,
+      job,
+      layout.shadow,
+      paint.shadow.sigma,
+      paint.shadow.color
+    );
   }
   gl.activeTexture(gl.TEXTURE0);
-  return { halo };
+  return { halo, shadow };
 };
 
 // Frees the field kept for an owner (its effects were removed, or it's gone)

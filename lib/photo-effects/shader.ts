@@ -95,8 +95,10 @@ void main() {
 }
 `;
 
-// The outline, drawn behind the photo, in straight colour. u_region maps
-// the output onto the part of the field it covers (offset, size in uv).
+// The outline over the glow, drawn behind the photo, in straight colour.
+// u_region maps the output onto the part of the field it covers (offset,
+// size in uv). u_glow is the field blurred (its g: the silhouette), at a
+// reduced size; without a glow it's the field and u_glowGain is 0.
 export const HALO_SHADER = `#version 300 es
 precision highp float;
 
@@ -104,13 +106,44 @@ in vec2 v_uv;
 out vec4 outColor;
 
 uniform sampler2D u_field;
+uniform sampler2D u_glow;
 uniform vec4 u_region;
 // Premultiplied
 uniform vec4 u_outlineColor;
+uniform vec4 u_glowColor;
+uniform float u_glowGain;
+uniform float u_opacity;
 
 void main() {
-  vec3 field = texture(u_field, u_region.xy + v_uv * u_region.zw).rgb;
+  vec2 uv = u_region.xy + v_uv * u_region.zw;
+  vec3 field = texture(u_field, uv).rgb;
   vec4 color = u_outlineColor * field.b;
+  float glow = clamp(texture(u_glow, uv).g * u_glowGain, 0.0, 1.0);
+  color += u_glowColor * glow * (1.0 - color.a);
+  // The element's opacity reaches the photo and this separately, so under
+  // a see-through photo this would show through more than it should.
+  // (1 - a) / (1 - opacity * a), with a the photo's own alpha, gives what
+  // flattening the two first and then fading them would.
+  float photo = field.r;
+  color *= u_opacity < 1.0 ? (1.0 - photo) / (1.0 - u_opacity * photo) : 1.0;
   outColor = color.a > 0.0 ? vec4(color.rgb / color.a, color.a) : vec4(0.0);
+}
+`;
+
+// The silhouette (photo and outline) in the shadow's colour, blurred or not
+export const SHADOW_SHADER = `#version 300 es
+precision highp float;
+
+in vec2 v_uv;
+out vec4 outColor;
+
+uniform sampler2D u_source;
+uniform vec4 u_region;
+// Straight colour
+uniform vec4 u_color;
+
+void main() {
+  float silhouette = texture(u_source, u_region.xy + v_uv * u_region.zw).g;
+  outColor = vec4(u_color.rgb, u_color.a * silhouette);
 }
 `;

@@ -156,29 +156,54 @@ export const floodSteps = (distance: number): number[] => {
   return steps;
 };
 
-// A colour in 0–1 with its alpha multiplied in, as the shaders blend it
-export type Premultiplied = [number, number, number, number];
+// A colour in 0–1, as the shaders take it
+export type Color4 = [number, number, number, number];
 
-const premultiply = ([red, green, blue, alpha]: Rgba): Premultiplied => {
-  const opacity = alpha / 255;
-  return [
-    (red / 255) * opacity,
-    (green / 255) * opacity,
-    (blue / 255) * opacity,
-    opacity,
-  ];
+const unit = ([red, green, blue, alpha]: Rgba): Color4 => [
+  red / 255,
+  green / 255,
+  blue / 255,
+  alpha / 255,
+];
+
+// With its alpha multiplied in, as the shaders blend it
+const premultiply = (color: Rgba): Color4 => {
+  const [red, green, blue, alpha] = unit(color);
+  return [red * alpha, green * alpha, blue * alpha, alpha];
 };
 
-// What the colouring passes draw with, in bitmap px of the layout
+// A blurred silhouette is half covered at the edge; doubling it keeps the
+// glow solid against the outline and lets it fade out over its size
+export const GLOW_GAIN = 2;
+
+// What the colouring passes draw with, in bitmap px of the layout. Changing
+// only these (colours, opacity, a glow's size or a shadow's blur) keeps the
+// photo's distance field.
 export interface EffectsPaint {
-  outline: { color: Premultiplied; width: number } | null;
+  outline: { color: Color4; width: number } | null;
+  glow: { color: Color4; sigma: number; gain: number } | null;
+  // Straight colour: the shadow is drawn on its own
+  shadow: { color: Color4; sigma: number } | null;
+  // The element's opacity. Konva applies it to the photo and its effects
+  // separately, so the halo is thinned where a see-through photo covers it.
+  opacity: number;
 }
 
 export const effectsPaint = (
-  { outline }: PhotoEffects,
+  { glow, outline, shadow }: PhotoEffects,
+  opacity: number,
   scale: number,
   rgba: (color: string) => Rgba
 ): EffectsPaint => ({
+  glow:
+    glow && glow.size > 0
+      ? {
+          color: premultiply(rgba(glow.color)),
+          gain: GLOW_GAIN,
+          sigma: glow.size * SIGMA_PER_PX * scale,
+        }
+      : null,
+  opacity,
   outline:
     outline && outline.width > 0
       ? {
@@ -186,6 +211,12 @@ export const effectsPaint = (
           width: outline.width * scale,
         }
       : null,
+  shadow: shadow
+    ? {
+        color: unit(rgba(shadow.color)),
+        sigma: shadow.blur * SIGMA_PER_PX * scale,
+      }
+    : null,
 });
 
 // Effects with sizes as fractions of the photo's shorter side, so a default
