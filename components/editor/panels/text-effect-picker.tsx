@@ -58,6 +58,7 @@ const EffectPreview = ({
     const top = (PREVIEW_HEIGHT - layout.height) / 2;
     paintWithEffect({
       context,
+      deviceScale: { x: ratio, y: ratio },
       draw: (paint, dx, dy) => {
         context.save();
         context.translate(dx, top + dy);

@@ -48,6 +48,41 @@ const GLITCH_MAGENTA = "#ff2bd6";
 // Draws the text once with a paint, shifted by dx, dy
 export type DrawText = (paint: TextPaint, dx: number, dy: number) => void;
 
+// Device pixels per page unit on each axis: the text's absolute scale (zoom
+// included) times the canvas's pixel ratio
+export interface DeviceScale {
+  x: number;
+  y: number;
+}
+
+export interface Shadow {
+  blur: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+// Canvas shadows ignore the context's transform: their blur and offsets are
+// in device pixels. Converts one given in page units the way Konva converts
+// its own shadows, so it looks the same at any zoom and in a 2× export.
+export const deviceShadow = (shadow: Shadow, scale: DeviceScale): Shadow => ({
+  blur: shadow.blur * Math.min(Math.abs(scale.x), Math.abs(scale.y)),
+  offsetX: shadow.offsetX * scale.x,
+  offsetY: shadow.offsetY * scale.y,
+});
+
+const applyShadow = (
+  context: CanvasRenderingContext2D,
+  color: string,
+  shadow: Shadow,
+  scale: DeviceScale
+) => {
+  const device = deviceShadow(shadow, scale);
+  context.shadowColor = color;
+  context.shadowBlur = device.blur;
+  context.shadowOffsetX = device.offsetX;
+  context.shadowOffsetY = device.offsetY;
+};
+
 const withContext = (
   context: CanvasRenderingContext2D,
   apply: () => void,
@@ -63,12 +98,14 @@ const withContext = (
 // and splice, its outline)
 export const paintWithEffect = ({
   context,
+  deviceScale,
   draw,
   effect,
   fontSize,
   paint,
 }: {
   context: CanvasRenderingContext2D;
+  deviceScale: DeviceScale;
   draw: DrawText;
   effect: TextEffect | null;
   fontSize: number;
@@ -130,12 +167,13 @@ export const paintWithEffect = ({
     case "neon": {
       withContext(
         context,
-        () => {
-          context.shadowColor = effect.color;
-          context.shadowBlur = fontSize * (0.1 + 0.5 * strength);
-          context.shadowOffsetX = 0;
-          context.shadowOffsetY = 0;
-        },
+        () =>
+          applyShadow(
+            context,
+            effect.color,
+            { blur: fontSize * (0.1 + 0.5 * strength), offsetX: 0, offsetY: 0 },
+            deviceScale
+          ),
         () => {
           draw(plain, 0, 0);
           draw(plain, 0, 0);
@@ -147,12 +185,13 @@ export const paintWithEffect = ({
     case "lift": {
       withContext(
         context,
-        () => {
-          context.shadowColor = `rgba(0, 0, 0, ${0.2 + 0.4 * strength})`;
-          context.shadowBlur = fontSize * 0.25;
-          context.shadowOffsetX = 0;
-          context.shadowOffsetY = fontSize * 0.08;
-        },
+        () =>
+          applyShadow(
+            context,
+            `rgba(0, 0, 0, ${0.2 + 0.4 * strength})`,
+            { blur: fontSize * 0.25, offsetX: 0, offsetY: fontSize * 0.08 },
+            deviceScale
+          ),
         () => draw(paint, 0, 0)
       );
       return;

@@ -30,6 +30,7 @@ import type { TextPaint } from "@/lib/text/canvas";
 import { curveText } from "@/lib/text/curve";
 import type { CurvedLayout } from "@/lib/text/curve";
 import { paintWithEffect } from "@/lib/text/effects";
+import type { DeviceScale } from "@/lib/text/effects";
 import { layoutText } from "@/lib/text/layout";
 import type { StyledRun, TextLayout, TextStyle } from "@/lib/text/layout";
 import { styledSegments } from "@/lib/text/marks";
@@ -75,12 +76,14 @@ export interface TextShapeInput {
 // Paints the text through its effect: `paintOnce` draws it with a paint
 const paintThroughEffect = (
   context: CanvasRenderingContext2D,
+  deviceScale: DeviceScale,
   input: TextShapeInput,
   paint: TextPaint,
   paintOnce: (paint: TextPaint) => void
 ) =>
   paintWithEffect({
     context,
+    deviceScale,
     draw: (pass, dx, dy) => {
       context.save();
       context.translate(dx, dy);
@@ -185,9 +188,21 @@ export const curvedLayoutOf = (node: Konva.Node): CurvedLayout<RunStyle> => {
   return layout;
 };
 
+// Device pixels per page unit where this shape is drawn, worked out as Konva
+// does for its own shadows (zoom, the export's pixel ratio)
+const deviceScaleOf = (
+  context: Konva.Context,
+  shape: Konva.Shape
+): DeviceScale => {
+  const scale = shape.getAbsoluteScale();
+  const ratio = context.canvas.getPixelRatio();
+  return { x: scale.x * ratio, y: scale.y * ratio };
+};
+
 const drawText = (context: Konva.Context, shape: Konva.Shape) => {
   const input = shape.getAttr("textInput") as TextShapeInput;
   const native = context._context;
+  const deviceScale = deviceScaleOf(context, shape);
   if (input.curve !== 0) {
     const curved = curvedLayoutOf(shape);
     const paint = input.gradient
@@ -200,7 +215,7 @@ const drawText = (context: Konva.Context, shape: Konva.Shape) => {
           }),
         }
       : input.paint;
-    paintThroughEffect(native, input, paint, (pass) =>
+    paintThroughEffect(native, deviceScale, input, paint, (pass) =>
       paintCurvedText(native, curved, (style) => runPaint(style, pass, paint))
     );
     return;
@@ -212,7 +227,7 @@ const drawText = (context: Konva.Context, shape: Konva.Shape) => {
         fill: gradientFill(native, input.gradient, inkOfLines(layout)),
       }
     : input.paint;
-  paintThroughEffect(native, input, paint, (pass) =>
+  paintThroughEffect(native, deviceScale, input, paint, (pass) =>
     paintTextLayout(native, layout, (style) => runPaint(style, pass, paint))
   );
 };
