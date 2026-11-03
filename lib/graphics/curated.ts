@@ -1,15 +1,25 @@
-// The Graphics tab's "For thumbnails" set, shown before any search: arrows
-// and circles to point at things, ❌ and ✅, badges, shocked faces and fire.
-// Ids that a newer catalog dropped are skipped.
+// The Graphics tab's "For thumbnails" set, shown before any search, four to
+// a row: arrows and circles to point at things, ❌ and ✅, badges, shocked
+// faces, fire. The build lists these first within their kind, so they share
+// a few shards and the Stickers and Emoji chips open on them too. Ids that a
+// newer catalog dropped are skipped.
 export const FOR_THUMBNAILS: readonly string[] = [
   "sticker:arrow-bold",
   "sticker:arrow-curved",
+  "sticker:arrow-hand-drawn",
+  "sticker:arrow-down",
   "sticker:circle-scribble",
+  "sticker:circle-double",
   "sticker:cross",
   "sticker:check",
+  "fluent:cross-mark",
+  "fluent:check-mark-button",
+  "sticker:cross-circle",
+  "sticker:check-circle",
   "sticker:badge-new",
-  "sticker:burst",
-  "sticker:speech-bubble",
+  "sticker:badge-wow",
+  "sticker:badge-vs",
+  "sticker:badge-new-banner",
   "fluent:face-screaming-in-fear",
   "fluent:exploding-head",
   "fluent:astonished-face",
@@ -17,13 +27,17 @@ export const FOR_THUMBNAILS: readonly string[] = [
   "fluent:fire",
   "fluent:hundred-points",
   "fluent:eyes",
-  "fluent:cross-mark",
-  "fluent:check-mark-button",
-  "fluent:red-exclamation-mark",
-  "fluent:red-question-mark",
   "fluent:collision",
+  "sticker:arrow-trend-up",
+  "sticker:arrow-trend-down",
+  "sticker:burst",
+  "sticker:speech-bubble",
   "fluent:money-bag",
   "fluent:crown",
   "fluent:rocket",
-  "fluent:warning",
+  "fluent:skull",
+  "sticker:question-mark",
+  "sticker:exclamation-mark",
+  "sticker:sparkles",
+  "sticker:lightning",
 ];

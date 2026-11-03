@@ -5,7 +5,9 @@ import type { GraphicEntry } from "@/lib/graphics/entry";
 
 // Stickers that ship in code, so the Shapes tab can add them without
 // fetching the catalog. Our own artwork, released as CC0: lettering is
-// drawn as paths, and nothing copies a platform logo.
+// drawn as paths, and nothing copies a platform logo. The catalog lists
+// them as stickers too, with the rest in assets/graphics/stickers/
+// (scripts/build-graphics.ts).
 export interface BuiltinGraphic extends GraphicEntry {
   keywords: string[];
 }

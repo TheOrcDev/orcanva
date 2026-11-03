@@ -45,6 +45,7 @@ import type {
   IndexRow,
   Shard,
 } from "@/lib/graphics/catalog-data";
+import { FOR_THUMBNAILS } from "@/lib/graphics/curated";
 import { MAX_GRAPHIC_JSON_LENGTH } from "@/lib/graphics/entry";
 import type { GraphicArt, GraphicKind } from "@/lib/graphics/entry";
 import { UnsupportedSvgError, normalizeSvg } from "@/lib/graphics/normalize";
@@ -590,6 +591,24 @@ const write = (built: Built[]) => {
   );
 };
 
+// The "For thumbnails" set leads its kind, in its own order: it then fills
+// a few shards rather than one in each, and the kind's chip opens on it
+const featuredFirst = (candidates: Candidate[]): Candidate[] => {
+  const rank = new Map(FOR_THUMBNAILS.map((id, index) => [id, index]));
+  const kindOrder = ["sticker", "emoji", "icon"];
+  return candidates
+    .map((candidate, index) => ({ candidate, index }))
+    .toSorted(
+      (first, second) =>
+        kindOrder.indexOf(first.candidate.kind) -
+          kindOrder.indexOf(second.candidate.kind) ||
+        (rank.get(first.candidate.id) ?? Infinity) -
+          (rank.get(second.candidate.id) ?? Infinity) ||
+        first.index - second.index
+    )
+    .map(({ candidate }) => candidate);
+};
+
 const main = () => {
   const fluentFlag = process.argv.indexOf("--fluent");
   const checkoutArgument =
@@ -601,11 +620,11 @@ const main = () => {
   if (checkout) {
     importFluent(checkout);
   }
-  const candidates = [
+  const candidates = featuredFirst([
     ...stickerCandidates(),
     ...fluentCandidates(checkout),
     ...tablerCandidates(),
-  ];
+  ]);
   const { built, refused } = build(candidates);
   for (const kind of ["sticker", "emoji", "icon"] as const) {
     const count = built.filter((entry) => entry.kind === kind).length;

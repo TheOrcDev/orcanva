@@ -11,6 +11,7 @@ import {
   shardSchema,
 } from "@/lib/graphics/catalog-data";
 import { CATALOG_VERSION } from "@/lib/graphics/catalog-version";
+import { FOR_THUMBNAILS } from "@/lib/graphics/curated";
 import { MAX_GRAPHIC_JSON_LENGTH } from "@/lib/graphics/entry";
 
 // The catalog pnpm graphics:build committed, as the Graphics tab fetches it
@@ -52,6 +53,30 @@ describe("the committed graphics catalog", () => {
       path.join(DIR, CATALOG_VERSION, "shards")
     ).length;
     expect(shardFiles).toBe(shards.size);
+  });
+
+  it("has about 40 stickers, each with keywords to find it by", () => {
+    const stickers = index.rows.filter(([, kind]) => kind === "sticker");
+    expect(stickers.length).toBeGreaterThanOrEqual(40);
+    for (const [id, , name, keywords] of stickers) {
+      expect(name.length, id).toBeGreaterThan(0);
+      expect(keywords.split(" ").length, id).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it("holds every graphic of the For thumbnails set, listed first", () => {
+    const ids = new Set(index.rows.map(([id]) => id));
+    for (const id of FOR_THUMBNAILS) {
+      expect(ids.has(id), id).toBe(true);
+    }
+    expect(new Set(FOR_THUMBNAILS).size).toBe(FOR_THUMBNAILS.length);
+    const firstStickers = index.rows
+      .filter(([, kind]) => kind === "sticker")
+      .slice(0, 3)
+      .map(([id]) => id);
+    expect(firstStickers).toEqual(
+      FOR_THUMBNAILS.filter((id) => id.startsWith("sticker:")).slice(0, 3)
+    );
   });
 
   it("ships the licence texts", () => {

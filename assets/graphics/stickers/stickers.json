@@ -1,0 +1,393 @@
+[
+  {
+    "file": "arrow-hand-drawn.svg",
+    "keywords": [
+      "arrow",
+      "hand drawn",
+      "sketch",
+      "doodle",
+      "point",
+      "red",
+      "squiggle"
+    ],
+    "name": "Hand-drawn arrow"
+  },
+  {
+    "file": "arrow-double.svg",
+    "keywords": [
+      "arrow",
+      "double",
+      "both ways",
+      "left right",
+      "versus",
+      "compare",
+      "swap"
+    ],
+    "name": "Double arrow"
+  },
+  {
+    "file": "arrow-yellow.svg",
+    "keywords": ["arrow", "yellow", "bold", "3d", "point", "right", "look"],
+    "name": "Yellow arrow"
+  },
+  {
+    "file": "arrow-loop.svg",
+    "keywords": [
+      "arrow",
+      "loop",
+      "curly",
+      "hand drawn",
+      "doodle",
+      "fun",
+      "point"
+    ],
+    "name": "Loop arrow"
+  },
+  {
+    "file": "arrow-trend-up.svg",
+    "keywords": [
+      "arrow",
+      "trend",
+      "up",
+      "growth",
+      "stonks",
+      "profit",
+      "chart",
+      "green",
+      "rise"
+    ],
+    "name": "Trend up arrow"
+  },
+  {
+    "file": "arrow-trend-down.svg",
+    "keywords": [
+      "arrow",
+      "trend",
+      "down",
+      "loss",
+      "crash",
+      "fall",
+      "chart",
+      "red",
+      "drop"
+    ],
+    "name": "Trend down arrow"
+  },
+  {
+    "file": "chevrons.svg",
+    "keywords": [
+      "chevrons",
+      "arrows",
+      "next",
+      "fast",
+      "forward",
+      "speed",
+      "go",
+      "right"
+    ],
+    "name": "Chevrons"
+  },
+  {
+    "file": "arrow-down.svg",
+    "keywords": ["arrow", "down", "below", "point", "red", "look", "bold"],
+    "name": "Down arrow"
+  },
+  {
+    "file": "circle-double.svg",
+    "keywords": [
+      "circle",
+      "ring",
+      "double",
+      "hand drawn",
+      "highlight",
+      "scribble",
+      "red"
+    ],
+    "name": "Double circle"
+  },
+  {
+    "file": "circle-scribble-yellow.svg",
+    "keywords": [
+      "circle",
+      "scribble",
+      "hand drawn",
+      "highlight",
+      "yellow",
+      "oval",
+      "messy"
+    ],
+    "name": "Yellow scribble circle"
+  },
+  {
+    "file": "highlighter.svg",
+    "keywords": [
+      "highlight",
+      "highlighter",
+      "marker",
+      "yellow",
+      "emphasis",
+      "underline"
+    ],
+    "name": "Highlighter"
+  },
+  {
+    "file": "underline-swoosh.svg",
+    "keywords": ["underline", "swoosh", "brush", "stroke", "emphasis", "red"],
+    "name": "Underline swoosh"
+  },
+  {
+    "file": "underline-double.svg",
+    "keywords": [
+      "underline",
+      "double",
+      "hand drawn",
+      "emphasis",
+      "scribble",
+      "red"
+    ],
+    "name": "Double underline"
+  },
+  {
+    "file": "box-scribble.svg",
+    "keywords": [
+      "box",
+      "square",
+      "rectangle",
+      "hand drawn",
+      "frame",
+      "highlight",
+      "red"
+    ],
+    "name": "Hand-drawn box"
+  },
+  {
+    "file": "cross-circle.svg",
+    "keywords": [
+      "cross",
+      "x",
+      "no",
+      "wrong",
+      "bad",
+      "fail",
+      "circle",
+      "red",
+      "mark"
+    ],
+    "name": "Cross in a circle"
+  },
+  {
+    "file": "check-circle.svg",
+    "keywords": [
+      "check",
+      "tick",
+      "yes",
+      "right",
+      "good",
+      "done",
+      "circle",
+      "green",
+      "mark"
+    ],
+    "name": "Check in a circle"
+  },
+  {
+    "file": "question-mark.svg",
+    "keywords": [
+      "question",
+      "question mark",
+      "why",
+      "how",
+      "what",
+      "mystery",
+      "red",
+      "ask"
+    ],
+    "name": "Question mark"
+  },
+  {
+    "file": "exclamation-mark.svg",
+    "keywords": [
+      "exclamation",
+      "exclamation mark",
+      "alert",
+      "warning",
+      "wow",
+      "important",
+      "red"
+    ],
+    "name": "Exclamation mark"
+  },
+  {
+    "file": "interrobang.svg",
+    "keywords": [
+      "question",
+      "exclamation",
+      "what",
+      "shock",
+      "surprise",
+      "huh",
+      "red"
+    ],
+    "name": "Question and exclamation"
+  },
+  {
+    "file": "badge-wow.svg",
+    "keywords": ["wow", "badge", "burst", "comic", "amazing", "shock", "text"],
+    "name": "WOW badge"
+  },
+  {
+    "file": "badge-vs.svg",
+    "keywords": [
+      "vs",
+      "versus",
+      "battle",
+      "compare",
+      "fight",
+      "challenge",
+      "badge"
+    ],
+    "name": "VS badge"
+  },
+  {
+    "file": "badge-new-banner.svg",
+    "keywords": ["new", "banner", "ribbon", "label", "badge", "red", "tag"],
+    "name": "NEW banner"
+  },
+  {
+    "file": "badge-number-one.svg",
+    "keywords": [
+      "number one",
+      "1",
+      "first",
+      "winner",
+      "best",
+      "award",
+      "medal",
+      "gold",
+      "rosette",
+      "top"
+    ],
+    "name": "#1 rosette"
+  },
+  {
+    "file": "badge-live.svg",
+    "keywords": [
+      "live",
+      "badge",
+      "stream",
+      "now",
+      "on air",
+      "red",
+      "broadcast"
+    ],
+    "name": "LIVE badge"
+  },
+  {
+    "file": "badge-omg.svg",
+    "keywords": [
+      "omg",
+      "speech bubble",
+      "shock",
+      "surprise",
+      "wow",
+      "badge",
+      "text"
+    ],
+    "name": "OMG bubble"
+  },
+  {
+    "file": "badge-hot.svg",
+    "keywords": [
+      "hot",
+      "badge",
+      "trending",
+      "fire",
+      "popular",
+      "orange",
+      "label"
+    ],
+    "name": "HOT badge"
+  },
+  {
+    "file": "sparkles.svg",
+    "keywords": [
+      "sparkles",
+      "shine",
+      "glitter",
+      "magic",
+      "new",
+      "clean",
+      "stars",
+      "yellow"
+    ],
+    "name": "Sparkles"
+  },
+  {
+    "file": "star-burst.svg",
+    "keywords": [
+      "star",
+      "burst",
+      "shine",
+      "sparkle",
+      "flash",
+      "yellow",
+      "spark"
+    ],
+    "name": "Star burst"
+  },
+  {
+    "file": "emphasis-lines.svg",
+    "keywords": [
+      "emphasis",
+      "lines",
+      "action",
+      "comic",
+      "shock",
+      "surprise",
+      "attention",
+      "pop"
+    ],
+    "name": "Emphasis lines"
+  },
+  {
+    "file": "lightning.svg",
+    "keywords": [
+      "lightning",
+      "bolt",
+      "flash",
+      "energy",
+      "power",
+      "fast",
+      "electric",
+      "yellow"
+    ],
+    "name": "Lightning bolt"
+  },
+  {
+    "file": "thought-bubble.svg",
+    "keywords": [
+      "thought",
+      "bubble",
+      "think",
+      "cloud",
+      "idea",
+      "dream",
+      "comic"
+    ],
+    "name": "Thought bubble"
+  },
+  {
+    "file": "shout-bubble.svg",
+    "keywords": [
+      "shout",
+      "bubble",
+      "yell",
+      "scream",
+      "loud",
+      "comic",
+      "speech",
+      "burst"
+    ],
+    "name": "Shout bubble"
+  }
+]
