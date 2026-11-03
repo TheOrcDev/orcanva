@@ -321,6 +321,10 @@ const fontsById = new Map<string, FontDefinition>(
   FONT_CATALOG.map((font) => [font.id, font])
 );
 
+// The catalog font with that id, if there is one
+export const findFont = (fontId: string): FontDefinition | undefined =>
+  fontsById.get(fontId);
+
 export const getFont = (fontId: string): FontDefinition =>
   fontsById.get(fontId) ?? fontsById.get(DEFAULT_FONT_ID) ?? FONT_CATALOG[0];
 

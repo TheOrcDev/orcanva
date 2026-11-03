@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import {
   Combobox,
   ComboboxCollection,
@@ -12,23 +14,15 @@ import {
   ComboboxList,
 } from "@/components/ui/combobox";
 import { useFontPreview } from "@/hooks/use-font-preview";
-import { FONT_CATALOG, FONT_CATEGORY_LABELS } from "@/lib/fonts/catalog";
-import type { FontCategory, FontDefinition } from "@/lib/fonts/catalog";
+import type { FontDefinition } from "@/lib/fonts/catalog";
+import { fontGroups } from "@/lib/fonts/groups";
+import type { FontGroup } from "@/lib/fonts/groups";
 
-const CATEGORY_ORDER: FontCategory[] = [
-  "display",
-  "sans",
-  "serif",
-  "mono",
-  "script",
-];
+// Stable, so the groups aren't rebuilt on every render
+const NO_BRAND_FONTS: readonly string[] = [];
 
-const FONT_GROUPS = CATEGORY_ORDER.map((category) => ({
-  items: FONT_CATALOG.filter((font) => font.category === category),
-  value: FONT_CATEGORY_LABELS[category],
-}));
-
-const FontName = ({ font }: { font: FontDefinition }) => {
+// A font's name in that font, once its preview subset loads
+export const FontName = ({ font }: { font: FontDefinition }) => {
   const family = useFontPreview(font);
   return (
     <span
@@ -40,40 +34,51 @@ const FontName = ({ font }: { font: FontDefinition }) => {
   );
 };
 
+// Searchable catalog fonts by category, with the brand kit's fonts on top.
+// No store, so Settings uses it too (with no value, to add a font).
 export const FontPicker = ({
   value,
   onChange,
+  brandFontIds = NO_BRAND_FONTS,
+  label = "Font",
+  placeholder = "Search fonts",
 }: {
-  value: FontDefinition;
+  value: FontDefinition | null;
   onChange: (font: FontDefinition) => void;
-}) => (
-  <Combobox
-    items={FONT_GROUPS}
-    value={value}
-    itemToStringLabel={(font: FontDefinition) => font.family}
-    onValueChange={(font: FontDefinition | null) => {
-      if (font) {
-        onChange(font);
-      }
-    }}
-  >
-    <ComboboxInput aria-label="Font" placeholder="Search fonts" />
-    <ComboboxContent>
-      <ComboboxEmpty>No fonts found.</ComboboxEmpty>
-      <ComboboxList>
-        {(group: (typeof FONT_GROUPS)[number]) => (
-          <ComboboxGroup key={group.value} items={group.items}>
-            <ComboboxLabel>{group.value}</ComboboxLabel>
-            <ComboboxCollection>
-              {(font: FontDefinition) => (
-                <ComboboxItem key={font.id} value={font}>
-                  <FontName font={font} />
-                </ComboboxItem>
-              )}
-            </ComboboxCollection>
-          </ComboboxGroup>
-        )}
-      </ComboboxList>
-    </ComboboxContent>
-  </Combobox>
-);
+  brandFontIds?: readonly string[];
+  label?: string;
+  placeholder?: string;
+}) => {
+  const groups = useMemo(() => fontGroups(brandFontIds), [brandFontIds]);
+  return (
+    <Combobox
+      items={groups}
+      value={value}
+      itemToStringLabel={(font: FontDefinition) => font.family}
+      onValueChange={(font: FontDefinition | null) => {
+        if (font) {
+          onChange(font);
+        }
+      }}
+    >
+      <ComboboxInput aria-label={label} placeholder={placeholder} />
+      <ComboboxContent>
+        <ComboboxEmpty>No fonts found.</ComboboxEmpty>
+        <ComboboxList>
+          {(group: FontGroup) => (
+            <ComboboxGroup key={group.value} items={group.items}>
+              <ComboboxLabel>{group.value}</ComboboxLabel>
+              <ComboboxCollection>
+                {(font: FontDefinition) => (
+                  <ComboboxItem key={font.id} value={font}>
+                    <FontName font={font} />
+                  </ComboboxItem>
+                )}
+              </ComboboxCollection>
+            </ComboboxGroup>
+          )}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
+  );
+};
