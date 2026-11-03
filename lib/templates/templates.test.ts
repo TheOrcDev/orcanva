@@ -7,6 +7,7 @@ import { migrateDocument } from "@/lib/document/migrate";
 import { findPresetById } from "@/lib/document/presets";
 import { MAX_ELEMENT_JSON_LENGTH } from "@/lib/document/schema";
 import { findFont } from "@/lib/fonts/catalog";
+import { SIZE_PAGES } from "@/lib/seo/size-pages";
 import { TEMPLATES } from "@/lib/templates/catalog";
 import {
   sha256Hex,
@@ -15,6 +16,7 @@ import {
   templateAssetId,
   templateImageFile,
 } from "@/lib/templates/export";
+import { findTemplate } from "@/lib/templates/lookup";
 import { templateSchema } from "@/lib/templates/schema";
 import type { Template } from "@/lib/templates/schema";
 
@@ -132,6 +134,16 @@ describe("templates", () => {
     expect(Object.keys(TEMPLATE_FILES).toSorted()).toEqual(
       templates.map((template) => template.id).toSorted()
     );
+  });
+
+  it("on the maker pages exist, made for the page's sizes", () => {
+    for (const page of SIZE_PAGES) {
+      for (const id of page.templates) {
+        const template = findTemplate(id);
+        expect(template, `${page.slug}: ${id}`).toBeDefined();
+        expect(page.presets as readonly string[]).toContain(template?.presetId);
+      }
+    }
   });
 
   it("leave no files behind", () => {

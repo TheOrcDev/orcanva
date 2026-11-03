@@ -1,5 +1,6 @@
 import { RiArrowRightLine } from "@remixicon/react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CardList } from "@/components/landing/card-list";
@@ -12,9 +13,10 @@ import { SiteFooter } from "@/components/landing/site-footer";
 import { SiteNav } from "@/components/landing/site-nav";
 import { SizeCards } from "@/components/landing/size-cards";
 import { JsonLd } from "@/components/seo/json-ld";
+import { TemplateGrid } from "@/components/templates/template-grid";
 import { buttonVariants } from "@/components/ui/button";
 import { FONT_CATALOG } from "@/lib/fonts/catalog";
-import { newDesignPath } from "@/lib/routes";
+import { TEMPLATES_PATH, newDesignPath } from "@/lib/routes";
 import {
   SHARED_FAQ,
   SIZE_PAGES,
@@ -24,6 +26,7 @@ import {
 } from "@/lib/seo/size-pages";
 import type { SizePage } from "@/lib/seo/size-pages";
 import { pageStructuredData } from "@/lib/seo/structured-data";
+import { findTemplate } from "@/lib/templates/lookup";
 
 // Only the pages in SIZE_PAGES exist; any other single-segment path is a 404
 export const dynamicParams = false;
@@ -76,6 +79,7 @@ const SizePageView = async (props: PageProps<"/[slug]">) => {
   const [main] = presets;
   const faq = [...page.faq, ...SHARED_FAQ];
   const path = sizePagePath(page);
+  const templates = page.templates.flatMap((id) => findTemplate(id) ?? []);
 
   return (
     <>
@@ -119,6 +123,31 @@ const SizePageView = async (props: PageProps<"/[slug]">) => {
             </p>
           </section>
         </Container>
+        {templates.length > 0 ? (
+          <Container>
+            <section
+              aria-labelledby="templates-heading"
+              className="flex flex-col gap-10"
+            >
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <h2
+                  id="templates-heading"
+                  className="font-heading text-heading md:text-heading-lg max-w-2xl font-normal text-balance"
+                >
+                  Start from a template
+                </h2>
+                <Link
+                  href={TEMPLATES_PATH}
+                  className={buttonVariants({ variant: "outline" })}
+                >
+                  All templates
+                  <RiArrowRightLine data-icon="inline-end" />
+                </Link>
+              </div>
+              <TemplateGrid templates={templates} />
+            </section>
+          </Container>
+        ) : null}
         <Container>
           <CardList
             heading="How to make one"

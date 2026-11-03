@@ -136,8 +136,8 @@ export const setDesignVisibility = async (
 
 const COPY_SUFFIX = " copy";
 
-// "Use as template": a full copy (elements + preview) of any design the
-// viewer can open, owned by them, to rework without touching the original.
+// "Make a copy": a full copy (elements + preview) of any design the viewer
+// can open, owned by them, to rework without touching the original.
 // Assets are shared, so no files are copied. Element ids only need to be
 // unique within a design, so rows copy as-is.
 export const duplicateDesign = async (id: string): Promise<{ id: string }> => {

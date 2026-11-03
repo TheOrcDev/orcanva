@@ -116,7 +116,7 @@ export const DesignCard = ({
     });
   };
 
-  const handleUseAsTemplate = () => {
+  const handleMakeCopy = () => {
     startTransition(async () => {
       try {
         const copy = await duplicateDesign(id);
@@ -222,17 +222,17 @@ export const DesignCard = ({
                 {signedIn ? (
                   <DropdownMenuItem
                     disabled={isPending}
-                    onClick={handleUseAsTemplate}
+                    onClick={handleMakeCopy}
                   >
                     <RiFileCopy2Line />
-                    Use as template
+                    Make a copy
                   </DropdownMenuItem>
                 ) : (
                   <DropdownMenuItem
                     render={<Link href={signInUrl(STUDIO_PATH)} />}
                   >
                     <RiFileCopy2Line />
-                    Sign in to use as template
+                    Sign in to make a copy
                   </DropdownMenuItem>
                 )}
                 {canManage ? (

@@ -22,6 +22,7 @@ import {
 } from "@/lib/routes";
 import { pageStructuredData } from "@/lib/seo/structured-data";
 import type { FaqEntry } from "@/lib/seo/structured-data";
+import { TEMPLATES } from "@/lib/templates/catalog";
 
 export const metadata: Metadata = {
   alternates: { canonical: CANVA_ALTERNATIVE_PATH },
@@ -69,7 +70,7 @@ const ROWS: ComparisonRow[] = [
   },
   {
     feature: "Templates",
-    ours: "Public designs you can copy",
+    ours: `${TEMPLATES.length} starter templates, and public designs to copy`,
     theirs: "Hundreds of thousands",
   },
   {
@@ -121,8 +122,7 @@ const FAQ: FaqEntry[] = [
     question: "Can I bring my Canva designs over?",
   },
   {
-    answer:
-      "Not a library like Canva's. Anyone can open the public designs in the studio, and Use as template makes a private copy of one for you to change.",
+    answer: `A small set: ${TEMPLATES.length} free starter templates for thumbnails and social posts, with frames to drop your photos into, not a library like Canva's. Anyone can also open the public designs in the studio, and Make a copy gives you a private one to change.`,
     question: "Does Orcanva have templates?",
   },
   {

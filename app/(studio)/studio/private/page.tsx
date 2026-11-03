@@ -63,7 +63,7 @@ const PrivateDesigns = ({ cards }: { cards: DesignCardData[] }) =>
         </EmptyMedia>
         <EmptyTitle>No private designs</EmptyTitle>
         <EmptyDescription>
-          Create one, or open a public design and use it as a template.
+          Create one, start from a template, or make a copy of a public design.
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>

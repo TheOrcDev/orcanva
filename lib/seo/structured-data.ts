@@ -61,16 +61,42 @@ export const homeStructuredData = (
   ],
 });
 
+// Something a page lists, like a template: its name and a picture of it
+export interface ListedItem {
+  description?: string;
+  image: string;
+  name: string;
+}
+
+// The things a page lists, in order, as creative works with a picture each
+const itemList = (name: string, items: readonly ListedItem[]) => ({
+  "@type": "ItemList",
+  itemListElement: items.map((item, index) => ({
+    "@type": "ListItem",
+    item: {
+      "@type": "CreativeWork",
+      ...(item.description ? { description: item.description } : {}),
+      image: absolute(item.image),
+      name: item.name,
+    },
+    position: index + 1,
+  })),
+  name,
+  numberOfItems: items.length,
+});
+
 // A page beside the landing: where it sits, its questions and answers (the
-// same ones the page shows), and the tool it is, if it's one
+// same ones the page shows), the tool it is, if it's one, and what it lists
 export const pageStructuredData = ({
   application,
   faq,
+  items,
   name,
   path,
 }: {
   application?: Omit<Application, "path">;
   faq: FaqEntry[];
+  items?: { name: string; list: readonly ListedItem[] };
   name: string;
   path: string;
 }) => ({
@@ -97,5 +123,6 @@ export const pageStructuredData = ({
       })),
     },
     ...(application ? [webApplication({ ...application, path })] : []),
+    ...(items ? [itemList(items.name, items.list)] : []),
   ],
 });

@@ -1,9 +1,7 @@
 import { SIZE_PRESETS } from "@/lib/document/presets";
-import type { SizePreset } from "@/lib/document/presets";
+import type { PresetId, SizePreset } from "@/lib/document/presets";
 import { MAX_CANVAS_SIZE } from "@/lib/document/schema";
 import type { FaqEntry } from "@/lib/seo/structured-data";
-
-type PresetId = (typeof SIZE_PRESETS)[number]["id"];
 
 // One landing page per kind of image people search a maker for, each built
 // on the editor's own size presets, so the sizes they quote stay true
@@ -22,6 +20,8 @@ export interface SizePage {
   // The main button, which opens a new design at the first preset
   cta: string;
   share: { subtitle: string; title: string };
+  // Templates the page shows, 3 to 6, made for its sizes
+  templates: readonly string[];
   tips: readonly { body: string; title: string }[];
   faq: readonly FaqEntry[];
 }
@@ -57,6 +57,7 @@ export const SIZE_PAGES = [
       title: "Free YouTube thumbnail maker.",
     },
     slug: "youtube-thumbnail-maker",
+    templates: ["shocked-reaction", "paint-with-me", "versus-split"],
     tips: [
       {
         body: "Three or four words, big enough to read on a phone. An outline or drop shadow keeps them legible over any photo.",
@@ -98,6 +99,7 @@ export const SIZE_PAGES = [
       title: "Free Instagram post maker.",
     },
     slug: "instagram-post-maker",
+    templates: [],
     tips: [
       {
         body: "A 4:5 portrait post fills more of a phone screen than a square one, so it holds attention longer.",
@@ -139,6 +141,7 @@ export const SIZE_PAGES = [
       title: "Free Instagram Story maker.",
     },
     slug: "instagram-story-maker",
+    templates: [],
     tips: [
       {
         body: "The app's own buttons cover the top and bottom of a Story, so keep what matters in the middle.",
@@ -180,6 +183,7 @@ export const SIZE_PAGES = [
       title: "Free LinkedIn banner maker.",
     },
     slug: "linkedin-banner-maker",
+    templates: [],
     tips: [
       {
         body: "Your profile photo covers the lower left of the banner, so keep text and logos to the right.",
@@ -221,6 +225,7 @@ export const SIZE_PAGES = [
       title: "Free Open Graph image maker.",
     },
     slug: "og-image-generator",
+    templates: [],
     tips: [
       {
         body: "Previews show small in a feed, so one large headline beats detail.",
@@ -262,6 +267,7 @@ export const SIZE_PAGES = [
       title: "Free X post image maker.",
     },
     slug: "x-post-maker",
+    templates: [],
     tips: [
       {
         body: "People scroll fast: a few large words over a strong photo stop them better than a busy layout.",
