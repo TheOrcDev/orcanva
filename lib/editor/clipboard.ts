@@ -18,6 +18,9 @@ const payloadSchema = z.object({
 export const serializeElements = (elements: DesignElement[]): string =>
   `${CLIPBOARD_PREFIX}${JSON.stringify({ elements, version: 1 })}`;
 
+// The elements this tab can read: one copied from a newer Orcanva (a type
+// this code doesn't know) is left behind rather than spoiling the paste.
+// Null when there's nothing to paste.
 export const parseClipboardElements = (
   text: string
 ): DesignElement[] | null => {
@@ -31,15 +34,10 @@ export const parseClipboardElements = (
     if (!parsed.success) {
       return null;
     }
-    const elements: DesignElement[] = [];
-    for (const raw of parsed.data.elements) {
-      const element = parseElement(raw);
-      if (!element) {
-        return null;
-      }
-      elements.push(element);
-    }
-    return elements;
+    const elements = parsed.data.elements.flatMap(
+      (raw) => parseElement(raw) ?? []
+    );
+    return elements.length > 0 ? elements : null;
   } catch {
     return null;
   }

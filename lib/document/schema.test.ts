@@ -79,7 +79,7 @@ describe("design document schema", () => {
     expect(() => elementSchema.parse(withFilter({ vignette: -1 }))).toThrow();
   });
 
-  it("rejects unknown element types", () => {
+  it("rejects unknown element types (migrateDocument leaves them out)", () => {
     const document = {
       ...createDocument(PAGE),
       elements: [{ id: "x", type: "video" }],
@@ -107,6 +107,23 @@ describe("migrateDocument", () => {
     const rect = { ...createBoxElement("rect", PAGE), futureField: "kept" };
     const document = { ...createDocument(PAGE), elements: [rect] };
     expect(migrateDocument(document).elements).toEqual([rect]);
+  });
+
+  it("leaves out elements it can't read and keeps the rest", () => {
+    const rect = createBoxElement("rect", PAGE);
+    const text = createTextElement("heading", PAGE);
+    const sticker = { ...createBoxElement("rect", PAGE), type: "graphic" };
+    const document = {
+      ...createDocument(PAGE),
+      elements: [rect, sticker, { ...rect, id: "bad", opacity: 2 }, text],
+    };
+    expect(migrateDocument(document).elements).toEqual([rect, text]);
+  });
+
+  it("still rejects a document without elements", () => {
+    expect(() =>
+      migrateDocument({ ...createDocument(PAGE), elements: "none" })
+    ).toThrow("list its elements");
   });
 
   it("returns a valid current-version document unchanged", () => {

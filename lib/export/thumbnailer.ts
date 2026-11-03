@@ -47,7 +47,9 @@ export const createThumbnailer = ({
     const node = getPageNode();
     const state = store.getState();
     const document = selectDocument(state);
-    if (!node || document === rendered) {
+    // Elements this tab can't draw would be missing from the preview: leave
+    // it to a tab that can
+    if (!node || document === rendered || state.skippedElementIds.length > 0) {
       return "done";
     }
     // An in-progress text edit is hidden on canvas; wait until it's done

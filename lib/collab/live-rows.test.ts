@@ -8,16 +8,17 @@ const rect = { ...createBoxElement("rect", PAGE), id: "r1" };
 
 describe("entriesFromRows", () => {
   it("validates rows into entries", () => {
-    const entries = entriesFromRows(
+    const { entries, skipped } = entriesFromRows(
       [{ data: rect, id: "r1", position: "a0" }],
       new Map()
     );
     expect(entries.get("r1")).toEqual({ element: rect, position: "a0" });
+    expect(skipped).toEqual([]);
   });
 
   it("keeps fields newer code added", () => {
     const newer = { ...rect, futureField: { kept: true } };
-    const entries = entriesFromRows(
+    const { entries } = entriesFromRows(
       [{ data: newer, id: "r1", position: "a0" }],
       new Map()
     );
@@ -26,7 +27,7 @@ describe("entriesFromRows", () => {
 
   it("keeps the previous entry when a row comes back unchanged", () => {
     const known = { element: rect, position: "a0" };
-    const entries = entriesFromRows(
+    const { entries } = entriesFromRows(
       // A decoded copy, as if echoed back from Postgres
       [{ data: structuredClone(rect), id: "r1", position: "a0" }],
       new Map([["r1", known]])
@@ -34,8 +35,8 @@ describe("entriesFromRows", () => {
     expect(entries.get("r1")).toBe(known);
   });
 
-  it("skips rows that don't validate or don't match their id", () => {
-    const entries = entriesFromRows(
+  it("skips rows that don't validate or don't match their id, and lists them", () => {
+    const { entries, skipped } = entriesFromRows(
       [
         { data: { id: "bad" }, id: "bad", position: "a0" },
         { data: rect, id: "other", position: "a1" },
@@ -43,6 +44,20 @@ describe("entriesFromRows", () => {
       new Map()
     );
     expect(entries.size).toBe(0);
+    expect(skipped).toEqual(["bad", "other"]);
+  });
+
+  it("keeps the elements it knows next to a type from a newer Orcanva", () => {
+    const sticker = { ...rect, id: "g1", type: "graphic" };
+    const { entries, skipped } = entriesFromRows(
+      [
+        { data: rect, id: "r1", position: "a0" },
+        { data: sticker, id: "g1", position: "a1" },
+      ],
+      new Map()
+    );
+    expect([...entries.keys()]).toEqual(["r1"]);
+    expect(skipped).toEqual(["g1"]);
   });
 });
 

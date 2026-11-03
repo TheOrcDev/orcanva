@@ -1,7 +1,7 @@
 import {
   DOCUMENT_VERSION,
   designDocumentSchema,
-  keepUnknownFields,
+  parseElement,
 } from "@/lib/document/schema";
 import type { DesignDocument } from "@/lib/document/schema";
 
@@ -37,12 +37,15 @@ export const migrateDocument = (raw: unknown): DesignDocument => {
     version += 1;
   }
 
-  const document = designDocumentSchema.parse(current);
-  const rawElements = Array.isArray(current.elements) ? current.elements : [];
-  return {
-    ...document,
-    elements: document.elements.map((element, index) =>
-      keepUnknownFields(rawElements[index], element)
-    ),
-  };
+  if (!Array.isArray(current.elements)) {
+    throw new TypeError("Design document must list its elements");
+  }
+  // Elements this code can't read (a newer element type, say) are left out
+  // rather than keeping the whole design from opening
+  const elements = current.elements.flatMap(
+    (element) => parseElement(element) ?? []
+  );
+  const document = designDocumentSchema.parse({ ...current, elements });
+  // parseElement kept the fields this version doesn't know; parse drops them
+  return { ...document, elements };
 };

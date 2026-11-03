@@ -175,6 +175,22 @@ describe("editor store", () => {
     );
   });
 
+  it("lists live elements it can't read, until they're gone", () => {
+    const { rect, store } = setup();
+    const sticker = { ...rect, id: "g1", type: "graphic" };
+    store.getState().applyLiveElements([
+      { data: rect, id: rect.id, position: "a0" },
+      { data: sticker, id: "g1", position: "a1" },
+    ]);
+    expect(store.getState().skippedElementIds).toEqual(["g1"]);
+    expect(selectDocument(store.getState()).elements).toEqual([rect]);
+
+    store
+      .getState()
+      .applyLiveElements([{ data: rect, id: rect.id, position: "a0" }]);
+    expect(store.getState().skippedElementIds).toEqual([]);
+  });
+
   it("clamps zoom and switches to manual mode", () => {
     const { store } = setup();
     store.getState().setZoom(100);

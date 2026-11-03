@@ -19,6 +19,7 @@ import { useAssetUrlSync } from "@/hooks/use-asset-url-sync";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { useEditorShortcuts } from "@/hooks/use-editor-shortcuts";
 import { useFileDrop } from "@/hooks/use-file-drop";
+import { useNewerElementsNotice } from "@/hooks/use-newer-elements-notice";
 import { useOutbox } from "@/hooks/use-outbox";
 import { usePresence } from "@/hooks/use-presence";
 import { useThumbnail } from "@/hooks/use-thumbnail";
@@ -44,6 +45,7 @@ const EditorShell = ({
   useFileDrop();
   useAssetUrlSync();
   useAssetResolver();
+  useNewerElementsNotice();
 
   const flush = useCallback(async () => {
     await Promise.all([flushSave(), flushThumbnail()]);

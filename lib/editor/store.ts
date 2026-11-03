@@ -104,6 +104,9 @@ export interface EditorState {
   // Elements under a local drag or transform: remote updates wait for them
   held: ReadonlySet<string>;
   liveStatus: LiveStatus;
+  // Element rows on the server this tab can't read, usually ones a newer
+  // Orcanva wrote: they're left off the canvas until a reload
+  skippedElementIds: readonly string[];
   // Re-subscribes the live queries after they stopped (set by the live sync)
   reconnectLive: (() => void) | null;
   // How this session shows up to others, and what it tells them
@@ -363,8 +366,20 @@ export const createEditorStore = (init: EditorInit) => {
       })),
     applyLiveElements: (rows) =>
       set((state) => {
-        const elements = entriesFromRows(rows, state.synced.elements);
-        return reconcile(state, { ...state.synced, elements }, state.pending);
+        const { entries, skipped } = entriesFromRows(
+          rows,
+          state.synced.elements
+        );
+        return {
+          ...reconcile(
+            state,
+            { ...state.synced, elements: entries },
+            state.pending
+          ),
+          skippedElementIds: isDeepEqual(skipped, state.skippedElementIds)
+            ? state.skippedElementIds
+            : skipped,
+        };
       }),
     applyLivePage: (row) =>
       set((state) => {
@@ -618,6 +633,7 @@ export const createEditorStore = (init: EditorInit) => {
         );
         return reconcile(state, settled.synced, settled.pending);
       }),
+    skippedElementIds: [],
     startCrop: (id) =>
       set((state) => ({
         cropTargetId: id,

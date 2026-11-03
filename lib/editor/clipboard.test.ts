@@ -25,6 +25,17 @@ describe("element clipboard", () => {
     expect(parseClipboardElements(serializeElements([rect]))).toEqual([rect]);
   });
 
+  it("pastes the elements it can read and leaves out the rest", () => {
+    const rect = createBoxElement("rect", PAGE);
+    const text = createTextElement("label", PAGE);
+    const sticker = { ...createBoxElement("rect", PAGE), type: "graphic" };
+    const clipboard = `orcanva/elements:${JSON.stringify({
+      elements: [rect, sticker, text],
+      version: 1,
+    })}`;
+    expect(parseClipboardElements(clipboard)).toEqual([rect, text]);
+  });
+
   it("ignores foreign or invalid clipboard text", () => {
     expect(parseClipboardElements("hello")).toBeNull();
     expect(parseClipboardElements("orcanva/elements:{nope")).toBeNull();
