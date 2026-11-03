@@ -3,17 +3,22 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { getDesignAccess } from "@/lib/auth/design-access";
 import { requireViewer } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/client";
+import { upsertTemplateAssets } from "@/lib/db/queries/assets";
 import {
   assets,
   designElements,
   designVisibility,
   designs,
 } from "@/lib/db/schema";
+import { migrateDocument } from "@/lib/document/migrate";
 import { findPresetById } from "@/lib/document/presets";
 import { DOCUMENT_VERSION } from "@/lib/document/schema";
-import { templateAssetRow } from "@/lib/templates/assets";
+import type { DesignDocument } from "@/lib/document/schema";
+import type { EditorAsset } from "@/lib/editor/store";
+import { templateAssetRow, templateEditorAsset } from "@/lib/templates/assets";
 import { TEMPLATE_FILES } from "@/lib/templates/documents";
 import {
   initialPositions,
@@ -89,4 +94,29 @@ export const createDesignFromTemplate = async (
   // Every page in the studio's sidebar layout, as for a blank design
   revalidatePath("/(studio)", "layout");
   return { id };
+};
+
+const loadInput = z.object({
+  designId: z.uuid(),
+  templateId: templateIdSchema,
+});
+
+// A template's document and images for the editor's Templates tab, which
+// puts it on the page itself. Its images' rows are written here, since the
+// page's photos will point at them, so only someone who may edit the design
+// (guests too, on a public one) gets that far.
+export const loadTemplate = async (
+  input: z.input<typeof loadInput>
+): Promise<{ assets: EditorAsset[]; document: DesignDocument }> => {
+  const { designId, templateId } = loadInput.parse(input);
+  const { role } = await getDesignAccess(designId);
+  if (!role) {
+    throw new Error("Design not found");
+  }
+  const template = await readTemplate(templateId);
+  await upsertTemplateAssets(template.assets);
+  return {
+    assets: template.assets.map(templateEditorAsset),
+    document: migrateDocument(template.document),
+  };
 };

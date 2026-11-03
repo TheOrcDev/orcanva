@@ -3,6 +3,7 @@
 import {
   RiEmotionLine,
   RiImageLine,
+  RiLayoutMasonryLine,
   RiShapesLine,
   RiStackLine,
   RiText,
@@ -13,6 +14,7 @@ import type { ReactNode } from "react";
 import { GraphicsPanel } from "@/components/editor/panels/graphics-panel";
 import { LayersPanel } from "@/components/editor/panels/layers-panel";
 import { ShapesPanel } from "@/components/editor/panels/shapes-panel";
+import { TemplatesPanel } from "@/components/editor/panels/templates-panel";
 import { TextPanel } from "@/components/editor/panels/text-panel";
 import { UploadsPanel } from "@/components/editor/panels/uploads-panel";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -26,6 +28,12 @@ interface SidebarTab {
 }
 
 const TABS: SidebarTab[] = [
+  {
+    icon: RiLayoutMasonryLine,
+    label: "Templates",
+    panel: <TemplatesPanel />,
+    value: "templates",
+  },
   {
     icon: RiImageLine,
     label: "Uploads",
@@ -60,7 +68,8 @@ const TABS: SidebarTab[] = [
 
 export const EditorSidebar = () => (
   <aside className="bg-background flex shrink-0 border-r" aria-label="Tools">
-    <Tabs defaultValue={TABS[0]?.value} orientation="vertical">
+    {/* Templates sit on top as a place to start, but Uploads open first */}
+    <Tabs defaultValue="uploads" orientation="vertical">
       <div className="border-r p-2">
         <TabsList variant="line">
           {TABS.map((tab) => (

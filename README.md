@@ -3,6 +3,7 @@
 A free and open-source, Canva-style editor for YouTube thumbnails and social images.
 
 - Pick a canvas size (YouTube thumbnail, Full HD, 4K, square, story, … or custom), and start blank or from one of the **starter templates** made for that size
+- A **Templates** tab in the editor: the templates made for the page's shape come first, then the other sizes. **Replace page** swaps the whole page for one (it asks first when the page has something on it, and a template of another shape resizes the page), **Add to page** puts one on top of what's there, and either is a single undo step. Templates use grey frames as photo slots: drop a photo onto one to fill it
 - **Crop the page**: press Crop next to Resize and drag the box (or its handles) over the part to keep, freely or locked to the original shape, 1:1, 4:5, 16:9 or 9:16, snapping to elements and the page centre; everything stays where it is on screen, and anything left outside stays in Layers, off the page
 - Upload images (button, drag from the desktop, or paste a screenshot) and move, scale, rotate, and flip them
 - **Crop** photos: drag a side handle to crop that side, or double-click one (or press Crop) to drag the frame's handles, slide the photo under it and zoom; Enter keeps it, Esc puts it back

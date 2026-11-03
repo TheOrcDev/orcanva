@@ -6,7 +6,8 @@ import { getDb } from "@/lib/db/client";
 import { assets, designElements } from "@/lib/db/schema";
 import type { AssetRow } from "@/lib/db/schema";
 import type { EditorAsset } from "@/lib/editor/store";
-import { assetFileUrl } from "@/lib/templates/assets";
+import { assetFileUrl, templateAssetRow } from "@/lib/templates/assets";
+import type { TemplateAsset } from "@/lib/templates/schema";
 
 // The same table again, for "the sources of these assets" subqueries
 const lookedUp = alias(assets, "looked_up");
@@ -19,6 +20,19 @@ export const toEditorAsset = (row: AssetRow): EditorAsset => ({
   url: assetFileUrl(row),
   width: row.width,
 });
+
+// Rows for a template's images, which its photos point at (see
+// templateAssetRow)
+export const upsertTemplateAssets = async (
+  list: readonly TemplateAsset[]
+): Promise<void> => {
+  if (list.length > 0) {
+    await getDb()
+      .insert(assets)
+      .values(list.map(templateAssetRow))
+      .onConflictDoNothing();
+  }
+};
 
 // An account's uploads library, newest first: only its own uploads, never
 // template images (which have no owner)
