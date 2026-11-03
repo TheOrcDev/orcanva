@@ -7,6 +7,7 @@ import {
 import type {
   BoxShapeElement,
   FrameElement,
+  GraphicElement,
   ImageCrop,
   ImageElement,
   LinearElement,
@@ -34,15 +35,21 @@ export const normalizeRotation = (degrees: number): number => {
   return Math.abs(signed) < 1e-6 ? 0 : signed;
 };
 
-const isPhoto = (
-  element: ImageElement | FrameElement | BoxShapeElement
-): element is ImageElement | FrameElement =>
+// Elements that are a box: Konva's scale goes into their width and height
+type BoxElement =
+  | ImageElement
+  | FrameElement
+  | BoxShapeElement
+  | GraphicElement;
+
+const isPhoto = (element: BoxElement): element is ImageElement | FrameElement =>
   element.type === "image" || element.type === "frame";
 
 // A photo's effects grow with it, by the area's scale so a stretch counts
-// evenly. A side-handle crop ends at scale 1 and leaves them alone.
+// evenly. A side-handle crop ends at scale 1 and leaves them alone. A
+// graphic's outline is a share of its size, so it grows by itself.
 const scaledEffects = (
-  element: ImageElement | FrameElement | BoxShapeElement,
+  element: BoxElement,
   transform: NodeTransform
 ): Partial<PhotoEffects> =>
   isPhoto(element)
@@ -52,9 +59,7 @@ const scaledEffects = (
       )
     : {};
 
-export const bakeBoxTransform = <
-  T extends ImageElement | FrameElement | BoxShapeElement,
->(
+export const bakeBoxTransform = <T extends BoxElement>(
   element: T,
   transform: NodeTransform
 ): T => ({

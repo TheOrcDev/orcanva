@@ -177,7 +177,7 @@ describe("editor store", () => {
 
   it("lists live elements it can't read, until they're gone", () => {
     const { rect, store } = setup();
-    const sticker = { ...rect, id: "g1", type: "graphic" };
+    const sticker = { ...rect, id: "g1", type: "hologram" };
     store.getState().applyLiveElements([
       { data: rect, id: rect.id, position: "a0" },
       { data: sticker, id: "g1", position: "a1" },

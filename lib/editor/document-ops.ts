@@ -290,6 +290,18 @@ const scaleElement = (
         strokeWidth: element.strokeWidth * uniform,
       };
     }
+    case "graphic": {
+      // Art keeps its shape: it scales evenly about its moved centre
+      const width = element.width * uniform;
+      const height = element.height * uniform;
+      return {
+        ...element,
+        height,
+        width,
+        x: (element.x + element.width / 2) * sx - width / 2,
+        y: (element.y + element.height / 2) * sy - height / 2,
+      };
+    }
     default: {
       return element;
     }

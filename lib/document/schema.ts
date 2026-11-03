@@ -282,6 +282,66 @@ export const arrowElementSchema = z.object({
   type: z.literal("arrow"),
 });
 
+// Icons, emoji and stickers carry their own vector art, so they draw (and
+// export) without loading anything, and copy across designs. Paint is an
+// index into the element's palette, so each colour changes in one place;
+// null, or an index past the palette's end, paints nothing.
+export const MAX_GRAPHIC_PATH_LENGTH = 16_000;
+const GRAPHIC_PATH_DATA = /^[MmLlHhVvCcSsQqTtAaZz0-9eE.,+\-\s]+$/u;
+const paletteIndex = z.number().int().min(0).max(15).nullable();
+
+// Loose, so nested fields from newer code survive an older tab's edit
+export const graphicLayerSchema = z.looseObject({
+  d: z
+    .string()
+    .min(1)
+    .max(MAX_GRAPHIC_PATH_LENGTH)
+    .regex(GRAPHIC_PATH_DATA, "Path data only"),
+  fill: paletteIndex,
+  fillRule: z.enum(["nonzero", "evenodd"]).default("nonzero"),
+  lineCap: z.enum(["butt", "round", "square"]).default("butt"),
+  lineJoin: z.enum(["miter", "round", "bevel"]).default("miter"),
+  opacity: z.number().min(0).max(1).default(1),
+  stroke: paletteIndex.default(null),
+  // In viewBox units, times the element's strokeScale
+  strokeWidth: z.number().min(0).max(1000).default(0),
+});
+
+// A die-cut border around the whole graphic; its width is a share of the
+// art's shorter side, so it grows with the graphic
+export const MAX_GRAPHIC_OUTLINE = 0.25;
+export const graphicOutlineSchema = z.looseObject({
+  color,
+  width: z.number().min(0).max(MAX_GRAPHIC_OUTLINE),
+});
+
+export const MIN_STROKE_SCALE = 0.25;
+export const MAX_STROKE_SCALE = 4;
+
+export const graphicElementSchema = z.object({
+  ...baseElement,
+  flipX: z.boolean(),
+  flipY: z.boolean(),
+  height: length,
+  // icon | emoji | sticker; a plain string, like frame shapes
+  kind: z.string().min(1).max(16),
+  layers: z.array(graphicLayerSchema).min(1).max(200),
+  outline: graphicOutlineSchema.nullable().default(null),
+  palette: z.array(color).min(1).max(16),
+  // Where the art came from ("tabler:flame"), so Reset colours can find its
+  // own palette; null for art with no catalog entry
+  source: z.string().max(96).nullable(),
+  // Line weight: multiplies every layer's strokeWidth
+  strokeScale: z
+    .number()
+    .min(MIN_STROKE_SCALE)
+    .max(MAX_STROKE_SCALE)
+    .default(1),
+  type: z.literal("graphic"),
+  viewBox: z.tuple([z.number(), z.number(), length, length]),
+  width: length,
+});
+
 export const elementSchema = z.discriminatedUnion("type", [
   imageElementSchema,
   frameElementSchema,
@@ -290,6 +350,7 @@ export const elementSchema = z.discriminatedUnion("type", [
   ellipseElementSchema,
   lineElementSchema,
   arrowElementSchema,
+  graphicElementSchema,
 ]);
 
 export const designDocumentSchema = z.object({
@@ -326,6 +387,9 @@ export type RectElement = z.infer<typeof rectElementSchema>;
 export type EllipseElement = z.infer<typeof ellipseElementSchema>;
 export type LineElement = z.infer<typeof lineElementSchema>;
 export type ArrowElement = z.infer<typeof arrowElementSchema>;
+export type GraphicElement = z.infer<typeof graphicElementSchema>;
+export type GraphicLayer = z.infer<typeof graphicLayerSchema>;
+export type GraphicOutline = z.infer<typeof graphicOutlineSchema>;
 export type BoxShapeElement = RectElement | EllipseElement;
 export type LinearElement = LineElement | ArrowElement;
 export type DesignElement = z.infer<typeof elementSchema>;

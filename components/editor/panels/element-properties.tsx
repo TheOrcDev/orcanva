@@ -15,6 +15,7 @@ import {
 import { BoxShapeProperties } from "@/components/editor/panels/box-shape-properties";
 import { EffectsProperties } from "@/components/editor/panels/effects-properties";
 import { FrameProperties } from "@/components/editor/panels/frame-properties";
+import { GraphicProperties } from "@/components/editor/panels/graphic-properties";
 import { IconAction } from "@/components/editor/panels/icon-action";
 import { ImageProperties } from "@/components/editor/panels/image-properties";
 import { LineProperties } from "@/components/editor/panels/line-properties";
@@ -37,11 +38,24 @@ const TYPE_LABELS: Record<DesignElement["type"], string> = {
   arrow: "Arrow",
   ellipse: "Ellipse",
   frame: "Frame",
+  graphic: "Graphic",
   image: "Image",
   line: "Line",
   rect: "Rectangle",
   text: "Text",
 };
+
+// Graphics say what they are: an icon, an emoji or a sticker
+const KIND_LABELS: Record<string, string> = {
+  emoji: "Emoji",
+  icon: "Icon",
+  sticker: "Sticker",
+};
+
+const typeLabel = (element: DesignElement): string =>
+  element.type === "graphic"
+    ? (KIND_LABELS[element.kind] ?? TYPE_LABELS.graphic)
+    : TYPE_LABELS[element.type];
 
 const hasBox = (
   element: DesignElement
@@ -49,7 +63,23 @@ const hasBox = (
   element.type === "image" ||
   element.type === "frame" ||
   element.type === "rect" ||
-  element.type === "ellipse";
+  element.type === "ellipse" ||
+  element.type === "graphic";
+
+// A graphic keeps its shape when one side is typed in, as its corners do
+const sizePatch = (
+  element: Extract<DesignElement, { width: number; height: number }>,
+  side: "width" | "height",
+  value: number
+): { width?: number; height?: number } => {
+  if (element.type !== "graphic") {
+    return { [side]: value };
+  }
+  const ratio = element.height / element.width;
+  return side === "width"
+    ? { height: value * ratio, width: value }
+    : { height: value, width: value / ratio };
+};
 
 const GeometryFields = ({ element }: { element: DesignElement }) => {
   const update = useUpdateElement(element.id);
@@ -73,13 +103,13 @@ const GeometryFields = ({ element }: { element: DesignElement }) => {
             label="W"
             min={1}
             value={element.width}
-            onCommit={(width) => update({ width })}
+            onCommit={(width) => update(sizePatch(element, "width", width))}
           />
           <NumberInput
             label="H"
             min={1}
             value={element.height}
-            onCommit={(height) => update({ height })}
+            onCommit={(height) => update(sizePatch(element, "height", height))}
           />
         </>
       ) : null}
@@ -120,6 +150,9 @@ const TypeProperties = ({ element }: { element: DesignElement }) => {
     case "line":
     case "arrow": {
       return <LineProperties element={element} />;
+    }
+    case "graphic": {
+      return <GraphicProperties element={element} />;
     }
     case "text": {
       return (
@@ -165,7 +198,7 @@ export const ElementProperties = ({ element }: { element: DesignElement }) => {
         <div className="flex min-w-0 flex-col">
           <span className="truncate text-sm font-medium">{element.name}</span>
           <span className="text-muted-foreground text-xs">
-            {TYPE_LABELS[element.type]}
+            {typeLabel(element)}
             {element.locked ? " · Locked" : ""}
           </span>
         </div>

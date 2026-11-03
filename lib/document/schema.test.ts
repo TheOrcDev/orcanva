@@ -4,6 +4,7 @@ import {
   createBoxElement,
   createDocument,
   createFrameElement,
+  createGraphicElement,
   createImageElement,
   createLinearElement,
   createTextElement,
@@ -14,6 +15,7 @@ import {
   elementSchema,
   parseElement,
 } from "@/lib/document/schema";
+import { BUILTIN_GRAPHICS } from "@/lib/graphics/builtin";
 
 const PAGE = { height: 720, width: 1280 };
 const ASSET = {
@@ -34,7 +36,8 @@ describe("design document schema", () => {
       createBoxElement("rect", PAGE),
       createBoxElement("ellipse", PAGE),
       createLinearElement("line", PAGE),
-      createLinearElement("arrow", PAGE)
+      createLinearElement("arrow", PAGE),
+      ...BUILTIN_GRAPHICS.map((graphic) => createGraphicElement(graphic, PAGE))
     );
 
     expect(designDocumentSchema.parse(document)).toEqual(document);
@@ -110,6 +113,31 @@ describe("design document schema", () => {
     ).toThrow();
   });
 
+  it("accepts graphics only with path data in their layers", () => {
+    const [sticker] = BUILTIN_GRAPHICS;
+    if (!sticker) {
+      throw new Error("No built-in graphics");
+    }
+    const graphic = createGraphicElement(sticker, PAGE);
+    const withPath = (d: string) => ({
+      ...graphic,
+      layers: [{ d, fill: 0 }],
+    });
+    expect(elementSchema.parse(withPath("M0 0L10 10.5e1z"))).toMatchObject({
+      layers: [{ d: "M0 0L10 10.5e1z", fill: 0, stroke: null }],
+    });
+    expect(() => elementSchema.parse(withPath("M0 0<script>"))).toThrow();
+    expect(() => elementSchema.parse(withPath("url(#x)"))).toThrow();
+    expect(() => elementSchema.parse(withPath(""))).toThrow();
+    expect(() =>
+      elementSchema.parse(withPath(`M0 0${"L1 1".repeat(5000)}`))
+    ).toThrow();
+    expect(() => elementSchema.parse({ ...graphic, palette: [] })).toThrow();
+    expect(() =>
+      elementSchema.parse({ ...graphic, outline: { color: "#fff", width: 1 } })
+    ).toThrow();
+  });
+
   it("rejects unknown element types (migrateDocument leaves them out)", () => {
     const document = {
       ...createDocument(PAGE),
@@ -134,6 +162,19 @@ describe("parseElement", () => {
     expect(parseElement(image)).toEqual(image);
   });
 
+  it("keeps fields newer code nested in a graphic's layers and outline", () => {
+    const [sticker] = BUILTIN_GRAPHICS;
+    if (!sticker) {
+      throw new Error("No built-in graphics");
+    }
+    const graphic = {
+      ...createGraphicElement(sticker, PAGE),
+      layers: [{ ...sticker.layers[0], gradient: { stops: 2 } }],
+      outline: { color: "#ffffff", style: "dashed", width: 0.05 },
+    };
+    expect(parseElement(graphic)).toEqual(graphic);
+  });
+
   it("still validates the fields it knows", () => {
     expect(
       parseElement({ ...createBoxElement("rect", PAGE), opacity: 2 })
@@ -152,7 +193,7 @@ describe("migrateDocument", () => {
   it("leaves out elements it can't read and keeps the rest", () => {
     const rect = createBoxElement("rect", PAGE);
     const text = createTextElement("heading", PAGE);
-    const sticker = { ...createBoxElement("rect", PAGE), type: "graphic" };
+    const sticker = { ...createBoxElement("rect", PAGE), type: "hologram" };
     const document = {
       ...createDocument(PAGE),
       elements: [rect, sticker, { ...rect, id: "bad", opacity: 2 }, text],

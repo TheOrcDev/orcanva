@@ -6,6 +6,7 @@ import { Group } from "react-konva";
 
 import { BoxShapeNode } from "@/components/editor/canvas/box-shape-node";
 import { FrameNode } from "@/components/editor/canvas/frame-node";
+import { GraphicNode } from "@/components/editor/canvas/graphic-node";
 import { ImageNode } from "@/components/editor/canvas/image-node";
 import { LineNode } from "@/components/editor/canvas/line-node";
 import { SELECTION_HANDLES_NAME } from "@/components/editor/canvas/selection-transformer";
@@ -74,6 +75,9 @@ const ElementContent = ({ element }: { element: DesignElement }) => {
     case "line":
     case "arrow": {
       return <LineNode element={element} />;
+    }
+    case "graphic": {
+      return <GraphicNode element={element} />;
     }
     default: {
       return null;

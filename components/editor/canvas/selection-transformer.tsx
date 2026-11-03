@@ -43,13 +43,19 @@ const anchorsFor = (element: DesignElement): string[] => {
     // Curved text has no wrap width to change, only a size
     return element.curve === 0 ? TEXT_ANCHORS : CORNER_ANCHORS;
   }
+  // Graphics scale from their corners; side handles would only squash them
+  if (element.type === "graphic") {
+    return CORNER_ANCHORS;
+  }
   return ALL_ANCHORS;
 };
 
-// Images and text keep their ratio (Shift frees it); shapes are free
-// (Shift locks it). Konva's default shiftBehavior toggles keepRatio.
+// Images, text and graphics keep their ratio (Shift frees it); shapes are
+// free (Shift locks it). Konva's default shiftBehavior toggles keepRatio.
 const keepsRatio = (element: DesignElement): boolean =>
-  element.type === "image" || element.type === "text";
+  element.type === "image" ||
+  element.type === "text" ||
+  element.type === "graphic";
 
 // Mirrors how Konva decides whether a corner keeps the box's ratio
 const keepsProportion = (transformer: Konva.Transformer, event: unknown) => {

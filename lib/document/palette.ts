@@ -4,10 +4,12 @@ import type {
   BoxShapeElement,
   DesignDocument,
   DesignElement,
+  GraphicElement,
   LinearElement,
   PhotoElement,
   TextElement,
 } from "@/lib/document/schema";
+import { paintedIndexes } from "@/lib/graphics/paint";
 import { effectControls } from "@/lib/text/effects";
 
 // The colour picker's "In this design" row
@@ -60,8 +62,16 @@ const photoColors = (photo: PhotoElement): Colors => {
   ];
 };
 
+// The palette entries some layer paints with, each once however many
+// layers use it (an unused entry doesn't show), and the outline when it has
+// a width
+const graphicColors = (graphic: GraphicElement): Colors => [
+  ...paintedIndexes(graphic).map((index) => graphic.palette[index]),
+  graphic.outline && graphic.outline.width > 0 ? graphic.outline.color : null,
+];
+
 // Where each element type keeps its colours. A new type, or a new colour
-// field on one (graphic palettes), adds its colours here.
+// field on one, adds its colours here.
 const elementColors = (element: DesignElement): Colors => {
   switch (element.type) {
     case "text": {
@@ -78,6 +88,9 @@ const elementColors = (element: DesignElement): Colors => {
     case "image":
     case "frame": {
       return photoColors(element);
+    }
+    case "graphic": {
+      return graphicColors(element);
     }
     default: {
       // Unreachable while every type is listed; a new one fails to compile

@@ -8,6 +8,7 @@ import {
 } from "@remixicon/react";
 import type { RemixiconComponentType } from "@remixicon/react";
 
+import { GraphicTile } from "@/components/editor/panels/graphic-tile";
 import { PanelSection } from "@/components/editor/panels/panel-section";
 import { Button } from "@/components/ui/button";
 import { useInsertElement } from "@/hooks/use-insert-element";
@@ -19,6 +20,7 @@ import {
 import { FRAME_SHAPES } from "@/lib/document/frame-shapes";
 import type { Size } from "@/lib/document/geometry";
 import type { DesignElement } from "@/lib/document/schema";
+import { BUILTIN_GRAPHICS } from "@/lib/graphics/builtin";
 
 interface ShapeOption {
   label: string;
@@ -91,6 +93,15 @@ export const ShapesPanel = () => {
         <p className="text-muted-foreground text-xs">
           Drop a photo onto a frame to fill it.
         </p>
+      </PanelSection>
+      <PanelSection title="Stickers">
+        <ul className="grid grid-cols-4 gap-2" aria-label="Stickers">
+          {BUILTIN_GRAPHICS.map((graphic) => (
+            <li key={graphic.id}>
+              <GraphicTile graphic={graphic} />
+            </li>
+          ))}
+        </ul>
       </PanelSection>
     </>
   );

@@ -7,12 +7,14 @@ import type {
   DesignElement,
   EllipseElement,
   FrameElement,
+  GraphicElement,
   ImageElement,
   LinearElement,
   RectElement,
   TextElement,
 } from "@/lib/document/schema";
 import { DEFAULT_FONT_ID } from "@/lib/fonts/catalog";
+import type { GraphicEntry } from "@/lib/graphics/entry";
 
 const HEX_BYTE = Array.from({ length: 256 }, (_, byte) =>
   byte.toString(16).padStart(2, "0")
@@ -297,6 +299,40 @@ export const createLinearElement = (
   return type === "line"
     ? { ...fields, type: "line" }
     : { ...fields, type: "arrow" };
+};
+
+// Graphics land with their longer side at a quarter of the page's shorter
+// side, centred on the page or on a point (drop)
+const GRAPHIC_PAGE_RATIO = 0.25;
+
+export const createGraphicElement = (
+  entry: GraphicEntry,
+  page: Size,
+  at?: Point
+): GraphicElement => {
+  const art = { height: entry.viewBox[3], width: entry.viewBox[2] };
+  const side = Math.min(page.width, page.height) * GRAPHIC_PAGE_RATIO;
+  const size = fitWithin(art, { height: side, width: side });
+  const origin = at
+    ? { x: at.x - size.width / 2, y: at.y - size.height / 2 }
+    : centerIn(size, page);
+  return {
+    ...baseFields(entry.name),
+    flipX: false,
+    flipY: false,
+    height: size.height,
+    kind: entry.kind,
+    layers: entry.layers,
+    outline: null,
+    palette: [...entry.palette],
+    source: entry.id,
+    strokeScale: 1,
+    type: "graphic",
+    viewBox: entry.viewBox,
+    width: size.width,
+    x: origin.x,
+    y: origin.y,
+  };
 };
 
 const DUPLICATE_OFFSET = 24;

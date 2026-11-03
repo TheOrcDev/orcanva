@@ -92,7 +92,8 @@ const bakeTransform = (
       return live ? { ...baked, ...live } : baked;
     }
     case "rect":
-    case "ellipse": {
+    case "ellipse":
+    case "graphic": {
       return bakeBoxTransform(element, transform);
     }
     case "frame": {

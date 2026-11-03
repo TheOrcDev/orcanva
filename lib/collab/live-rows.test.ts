@@ -53,7 +53,7 @@ describe("entriesFromRows", () => {
   });
 
   it("keeps the elements it knows next to a type from a newer Orcanva", () => {
-    const sticker = { ...rect, id: "g1", type: "graphic" };
+    const sticker = { ...rect, id: "g1", type: "hologram" };
     const { entries, skipped } = entriesFromRows(
       [
         { data: rect, id: "r1", position: "a0" },
