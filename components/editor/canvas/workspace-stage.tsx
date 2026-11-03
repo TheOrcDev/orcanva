@@ -30,6 +30,10 @@ import {
   useEditorStoreApi,
 } from "@/components/editor/editor-store-context";
 import { PageCropToolbar } from "@/components/editor/page-crop-toolbar";
+import {
+  BadgeGuide,
+  CornerPreview,
+} from "@/components/editor/youtube-preview-overlays";
 import { Spinner } from "@/components/ui/spinner";
 import { useElementDrag } from "@/hooks/use-element-drag";
 import { useSelectionBox } from "@/hooks/use-selection-box";
@@ -488,6 +492,8 @@ export const WorkspaceStage = () => {
       {cropping ? <CropToolbar element={cropping} /> : null}
       {pageCrop ? <PageCropToolbar box={pageCrop} /> : null}
       <RemoteCursors origin={origin} zoom={zoom} />
+      <BadgeGuide origin={origin} zoom={zoom} />
+      <CornerPreview />
       {viewport.width > 0 && viewport.height > 0 ? (
         <Stage
           width={viewport.width}

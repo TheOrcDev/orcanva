@@ -1,13 +1,14 @@
 "use client";
 
 import { RiEyeLine } from "@remixicon/react";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { CompareDesignsPicker } from "@/components/editor/compare-designs-picker";
 import {
   useEditor,
   useEditorStoreApi,
 } from "@/components/editor/editor-store-context";
+import { useYouTubePreview } from "@/components/editor/youtube-preview-context";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,7 +18,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
 import {
   ComparePicker,
   MAX_COMPARES,
@@ -28,9 +39,6 @@ import { ownCard, previewFeed } from "@/components/youtube-preview/feed";
 import type { Arrangement } from "@/components/youtube-preview/feed";
 import { ViewControls } from "@/components/youtube-preview/view-controls";
 import { YouTubeMock } from "@/components/youtube-preview/youtube-mock";
-import { useDesignPreview } from "@/hooks/use-design-preview";
-import { usePreviewDetails } from "@/hooks/use-preview-details";
-import { loadTitle, saveTitle } from "@/lib/youtube-preview/details";
 import {
   DEFAULT_LAYOUT,
   findLayout,
@@ -38,7 +46,48 @@ import {
 } from "@/lib/youtube-preview/layout";
 import type { LayoutId } from "@/lib/youtube-preview/layout";
 
-const FALLBACK_CHANNEL = "Your channel";
+// The two helpers that keep showing once the dialog is closed
+const WhileEditingFields = () => {
+  const id = useId();
+  const { details, setDetails } = useYouTubePreview();
+
+  return (
+    <FieldSet className="min-w-0">
+      <FieldLegend variant="label">While you edit</FieldLegend>
+      <FieldGroup>
+        <Field orientation="horizontal">
+          <FieldContent>
+            <FieldLabel htmlFor={`${id}-corner`}>Corner preview</FieldLabel>
+            <FieldDescription>
+              Your thumbnail in Up next, kept live in a corner of the canvas.
+            </FieldDescription>
+          </FieldContent>
+          <Switch
+            id={`${id}-corner`}
+            checked={details.corner}
+            onCheckedChange={(corner) => setDetails({ ...details, corner })}
+          />
+        </Field>
+        <Field orientation="horizontal">
+          <FieldContent>
+            <FieldLabel htmlFor={`${id}-badge`}>Length badge</FieldLabel>
+            <FieldDescription>
+              Shows on the canvas where the badge covers your design, at its
+              size in Up next, where it covers the most.
+            </FieldDescription>
+          </FieldContent>
+          <Switch
+            id={`${id}-badge`}
+            checked={details.badgeGuide}
+            onCheckedChange={(badgeGuide) =>
+              setDetails({ ...details, badgeGuide })
+            }
+          />
+        </Field>
+      </FieldGroup>
+    </FieldSet>
+  );
+};
 
 // The design in mock video feeds, at the size viewers see it, with the
 // title, channel and length it'll go out with, and beside up to three other
@@ -47,40 +96,41 @@ const FALLBACK_CHANNEL = "Your channel";
 // the title is kept per design.
 export const YouTubePreviewDialog = () => {
   const store = useEditorStoreApi();
-  const designId = useEditor((state) => state.designId);
+  const {
+    channelPlaceholder,
+    details,
+    dialogOpen,
+    own,
+    preview,
+    setDetails,
+    setDialogOpen,
+    setTitle,
+    shownTitle,
+    title,
+  } = useYouTubePreview();
   const name = useEditor((state) => state.name);
-  const viewer = useEditor((state) => state.viewer);
-  const [open, setOpen] = useState(false);
-  const preview = useDesignPreview(open);
-  const [details, setDetails] = usePreviewDetails();
   const [layoutId, setLayoutId] = useState<LayoutId>(DEFAULT_LAYOUT);
   const [arrangement, setArrangement] = useState<Arrangement>("mixed");
-  // Empty until typed: the design's name stands in
-  const [title, setTitle] = useState(() => loadTitle(designId));
   const { add, addFiles, compares, remove } = useCompares();
 
-  const channelPlaceholder = viewer?.name ?? FALLBACK_CHANNEL;
-  const channel = details.channel.trim() || channelPlaceholder;
-  const avatar = details.avatar ?? viewer?.image ?? null;
-  const own = { avatar, channel, duration: details.duration };
   const layout = findLayout(layoutId);
   const current = preview
     ? ownCard(own, {
         cover: thumbnailFit(preview.size).exact,
         image: preview.url,
-        title: title.trim() || name,
+        title: shownTitle,
       })
     : null;
 
   return (
     <Dialog
-      open={open}
+      open={dialogOpen}
       onOpenChange={(next) => {
         // Ending a text edit commits it, so the preview shows the words
         if (next) {
           store.getState().setEditingText(null);
         }
-        setOpen(next);
+        setDialogOpen(next);
       }}
     >
       <DialogTrigger render={<Button variant="outline" />}>
@@ -98,16 +148,13 @@ export const YouTubePreviewDialog = () => {
         <div className="-mx-6 flex min-h-0 flex-col gap-6 overflow-y-auto px-6 md:flex-row">
           <div className="flex w-full shrink-0 flex-col gap-7 md:w-64">
             <DetailsForm
-              avatar={avatar}
-              channel={channel}
+              avatar={own.avatar}
+              channel={own.channel}
               channelPlaceholder={channelPlaceholder}
               details={details}
               onDetailsChange={setDetails}
               title={title}
-              onTitleChange={(next) => {
-                setTitle(next);
-                saveTitle(designId, next);
-              }}
+              onTitleChange={setTitle}
               titlePlaceholder={name}
             />
             <ComparePicker
@@ -134,6 +181,7 @@ export const YouTubePreviewDialog = () => {
                 }}
               />
             </ComparePicker>
+            <WhileEditingFields />
           </div>
           <div className="flex min-w-0 flex-1 flex-col gap-4">
             <ViewControls
@@ -156,7 +204,7 @@ export const YouTubePreviewDialog = () => {
                 layout={layout.id}
                 letterboxed={!current.cover}
                 theme={details.theme}
-                viewer={{ avatar, channel }}
+                viewer={own}
               />
             ) : (
               <div className="text-muted-foreground flex h-60 items-center justify-center gap-2 text-sm">

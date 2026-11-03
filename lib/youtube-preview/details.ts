@@ -37,7 +37,11 @@ export const previewDetailsSchema = z.object({
     .startsWith("data:image/")
     .nullable()
     .catch(null),
+  // The editor draws where the badge lands over the design
+  badgeGuide: z.boolean().catch(false),
   channel: z.string().trim().max(MAX_CHANNEL).catch(""),
+  // The editor keeps a small live preview in a corner of the canvas
+  corner: z.boolean().catch(false),
   duration: z.string().regex(DURATION).catch(DEFAULT_DURATION),
   theme: z.enum(PREVIEW_THEMES).catch("light"),
 });

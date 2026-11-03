@@ -1,8 +1,5 @@
 import { FILLERS } from "@/components/youtube-preview/fillers";
-import type {
-  FeedCard,
-  PictureSource,
-} from "@/components/youtube-preview/video-card";
+import type { FeedCard } from "@/components/youtube-preview/video-card";
 import { arrangeFeed } from "@/lib/youtube-preview/layout";
 
 // Mixed into the made-up videos, or alone side by side
@@ -20,7 +17,8 @@ export interface CompareThumbnail {
 
 // The channel every one of the person's own videos goes out under
 export interface OwnChannel {
-  avatar: PictureSource | null;
+  // A data URL picked for the preview, or the account's picture
+  avatar: string | null;
   channel: string;
   duration: string;
 }

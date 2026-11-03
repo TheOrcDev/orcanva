@@ -101,7 +101,9 @@ describe("saved details", () => {
   it("reads what was saved", () => {
     const details = {
       avatar: AVATAR,
+      badgeGuide: true,
       channel: "Orc Painter",
+      corner: true,
       duration: "1:02:03",
       theme: "dark",
     } as const;
@@ -112,7 +114,9 @@ describe("saved details", () => {
     expect(
       parseDetails({
         avatar: "https://example.com/me.png",
+        badgeGuide: "yes",
         channel: 42,
+        corner: 1,
         duration: "soon",
         theme: "sepia",
       })
