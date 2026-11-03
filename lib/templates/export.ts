@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { SIZE_PRESETS, findPresetById } from "@/lib/document/presets";
 import { templatePreviewUrl } from "@/lib/templates/assets";
 import type { Template, TemplateSummary } from "@/lib/templates/schema";
@@ -6,6 +8,32 @@ import type { Template, TemplateSummary } from "@/lib/templates/schema";
 // catalog every list reads (lib/templates/catalog.ts, safe for the client)
 // and the server's lazy loaders (lib/templates/documents.ts). Pure, so
 // tests check the committed files against the data.
+
+// Template images are named by their SHA-256, and their asset ids are
+// UUIDv5s of it in this namespace, so a file is always the same row
+const TEMPLATE_ASSET_NAMESPACE = "6f1d9a52-3c4b-4e0a-9b1e-8a7c2d5e4f30";
+
+export const sha256Hex = (bytes: Uint8Array): string =>
+  createHash("sha256").update(bytes).digest("hex");
+
+// RFC 4122 version 5: SHA-1 of the namespace's bytes and the name
+export const uuidV5 = (name: string, namespace: string): string => {
+  const hash = createHash("sha1")
+    .update(Buffer.from(namespace.replaceAll("-", ""), "hex"))
+    .update(name, "utf-8")
+    .digest();
+  hash[6] = ((hash[6] ?? 0) % 16) + 0x50;
+  hash[8] = ((hash[8] ?? 0) % 64) + 0x80;
+  const hex = hash.subarray(0, 16).toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+};
+
+export const templateAssetId = (sha256: string): string =>
+  uuidV5(sha256, TEMPLATE_ASSET_NAMESPACE);
+
+// <first 16 hex digits of the SHA-256>.<extension>
+export const templateImageFile = (sha256: string, extension: string): string =>
+  `${sha256.slice(0, 16)}.${extension}`;
 
 const presetOrder = new Map<string, number>(
   SIZE_PRESETS.map((preset, index) => [preset.id, index])

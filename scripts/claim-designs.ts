@@ -31,7 +31,8 @@ const main = async () => {
 
   const [designs, assets] = await sql.transaction([
     sql`UPDATE designs SET owner_id = ${user.id} WHERE owner_id IS NULL RETURNING id`,
-    sql`UPDATE assets SET owner_id = ${user.id} WHERE owner_id IS NULL RETURNING id`,
+    // Uploads only: template images have no owner and must stay that way
+    sql`UPDATE assets SET owner_id = ${user.id} WHERE owner_id IS NULL AND origin = 'upload' RETURNING id`,
   ]);
   log(
     `${user.name} (${email}) now owns ${designs?.length ?? 0} designs and ${assets?.length ?? 0} uploads`

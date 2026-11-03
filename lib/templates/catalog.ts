@@ -3,6 +3,16 @@ import type { TemplateSummary } from "@/lib/templates/schema";
 
 export const TEMPLATES: readonly TemplateSummary[] = [
   {
+    category: "Tutorial",
+    height: 720,
+    id: "paint-with-me",
+    name: "Paint with me",
+    presetId: "youtube-thumbnail",
+    preview: "/template-files/previews/paint-with-me.be5ed9c5.webp",
+    tags: ["tutorial", "art", "photo", "how to", "pastel"],
+    width: 1280,
+  },
+  {
     category: "Reaction",
     height: 720,
     id: "shocked-reaction",

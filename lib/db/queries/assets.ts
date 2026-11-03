@@ -6,7 +6,7 @@ import { getDb } from "@/lib/db/client";
 import { assets, designElements } from "@/lib/db/schema";
 import type { AssetRow } from "@/lib/db/schema";
 import type { EditorAsset } from "@/lib/editor/store";
-import { storageUrl } from "@/lib/storage/keys";
+import { assetFileUrl } from "@/lib/templates/assets";
 
 // The same table again, for "the sources of these assets" subqueries
 const lookedUp = alias(assets, "looked_up");
@@ -16,11 +16,12 @@ export const toEditorAsset = (row: AssetRow): EditorAsset => ({
   id: row.id,
   name: row.originalName,
   sourceAssetId: row.sourceAssetId,
-  url: storageUrl(row.key),
+  url: assetFileUrl(row),
   width: row.width,
 });
 
-// An account's uploads library, newest first
+// An account's uploads library, newest first: only its own uploads, never
+// template images (which have no owner)
 export const listLibrary = async (ownerId: string): Promise<EditorAsset[]> => {
   const rows = await getDb()
     .select()

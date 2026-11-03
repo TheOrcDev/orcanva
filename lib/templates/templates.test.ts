@@ -8,7 +8,13 @@ import { findPresetById } from "@/lib/document/presets";
 import { MAX_ELEMENT_JSON_LENGTH } from "@/lib/document/schema";
 import { findFont } from "@/lib/fonts/catalog";
 import { TEMPLATES } from "@/lib/templates/catalog";
-import { summarizeTemplate, sortTemplates } from "@/lib/templates/export";
+import {
+  sha256Hex,
+  sortTemplates,
+  summarizeTemplate,
+  templateAssetId,
+  templateImageFile,
+} from "@/lib/templates/export";
 import { templateSchema } from "@/lib/templates/schema";
 import type { Template } from "@/lib/templates/schema";
 
@@ -96,7 +102,13 @@ describe.each(templates.map((template) => [template.id, template]))(
         true
       );
       for (const asset of template.assets) {
-        expect(existsSync(path.join(FILES, "images", asset.file))).toBe(true);
+        const bytes = readFileSync(path.join(FILES, "images", asset.file));
+        const sha256 = sha256Hex(bytes);
+        expect(asset.file).toBe(
+          templateImageFile(sha256, asset.file.split(".").at(-1) ?? "")
+        );
+        expect(asset.id).toBe(templateAssetId(sha256));
+        expect(asset.bytes).toBe(bytes.length);
       }
     });
   }

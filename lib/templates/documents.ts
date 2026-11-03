@@ -4,6 +4,8 @@ import "server-only";
 // Each template's file, loaded only when it's used
 export const TEMPLATE_FILES: Readonly<Record<string, () => Promise<unknown>>> =
   {
+    "paint-with-me": () =>
+      import("./data/paint-with-me.json").then((file) => file.default),
     "shocked-reaction": () =>
       import("./data/shocked-reaction.json").then((file) => file.default),
     "versus-split": () =>

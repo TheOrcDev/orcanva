@@ -5,9 +5,15 @@ import { z } from "zod";
 
 import { requireViewer } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/client";
-import { designElements, designVisibility, designs } from "@/lib/db/schema";
+import {
+  assets,
+  designElements,
+  designVisibility,
+  designs,
+} from "@/lib/db/schema";
 import { findPresetById } from "@/lib/document/presets";
 import { DOCUMENT_VERSION } from "@/lib/document/schema";
+import { templateAssetRow } from "@/lib/templates/assets";
 import { TEMPLATE_FILES } from "@/lib/templates/documents";
 import {
   initialPositions,
@@ -64,8 +70,17 @@ export const createDesignFromTemplate = async (
     id: element.id,
     position: positions[index] ?? "",
   }));
+  // With rows for its images, which its photos point at
   await db.batch([
     design,
+    ...(template.assets.length > 0
+      ? [
+          db
+            .insert(assets)
+            .values(template.assets.map(templateAssetRow))
+            .onConflictDoNothing(),
+        ]
+      : []),
     ...(elements.length > 0
       ? [db.insert(designElements).values(elements)]
       : []),

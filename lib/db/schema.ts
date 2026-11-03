@@ -153,6 +153,10 @@ export const assetStatus = pgEnum("asset_status", ["pending", "ready"]);
 // Derived images (e.g. a background-removed cutout) point at their source
 export const assetVariant = pgEnum("asset_variant", ["no-background"]);
 
+// Uploads are files in the bucket; template images ship with the app in
+// public/template-files and have rows so photos can point at them
+export const assetOrigin = pgEnum("asset_origin", ["upload", "template"]);
+
 export const assets = pgTable(
   "assets",
   {
@@ -161,9 +165,12 @@ export const assets = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     key: text("key").notNull().unique(),
     mimeType: text("mime_type").notNull(),
+    // Where the file lives (see assetOrigin): uploads in the bucket under
+    // `key`, template images at /<key>
+    origin: assetOrigin("origin").notNull().default("upload"),
     originalName: text("original_name").notNull(),
     // The uploader's account and whose library it's in; null for uploads
-    // made by guests, which are in nobody's library
+    // made by guests and for template images, which are in nobody's library
     ownerId: uuid("owner_id"),
     // Computed by the browser and never verified, so only ever matched
     // within one account's own uploads
