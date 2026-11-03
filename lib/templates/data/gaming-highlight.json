@@ -1,0 +1,281 @@
+{
+  "assets": [],
+  "category": "Gaming",
+  "document": {
+    "background": {
+      "angle": 135,
+      "stops": [
+        {
+          "color": "#0a0118",
+          "offset": 0
+        },
+        {
+          "color": "#2e0a5c",
+          "offset": 0.5
+        },
+        {
+          "color": "#7c1fd1",
+          "offset": 1
+        }
+      ],
+      "type": "linear"
+    },
+    "elements": [
+      {
+        "cornerRadius": 0,
+        "fill": "#22d3ee",
+        "groupId": null,
+        "height": 900,
+        "id": "el-1",
+        "locked": false,
+        "name": "Stripe",
+        "opacity": 0.18,
+        "rotation": 18,
+        "stroke": "#111111",
+        "strokeWidth": 0,
+        "type": "rect",
+        "visible": true,
+        "width": 80,
+        "x": 700,
+        "y": -60
+      },
+      {
+        "cornerRadius": 0,
+        "fill": "#f0abfc",
+        "groupId": null,
+        "height": 900,
+        "id": "el-2",
+        "locked": false,
+        "name": "Stripe",
+        "opacity": 0.25,
+        "rotation": 18,
+        "stroke": "#111111",
+        "strokeWidth": 0,
+        "type": "rect",
+        "visible": true,
+        "width": 26,
+        "x": 800,
+        "y": -60
+      },
+      {
+        "assetId": null,
+        "crop": null,
+        "filter": null,
+        "flipX": false,
+        "flipY": false,
+        "glow": null,
+        "groupId": null,
+        "height": 600,
+        "id": "el-3",
+        "locked": false,
+        "name": "Gameplay",
+        "opacity": 1,
+        "outline": null,
+        "rotation": 0,
+        "shadow": null,
+        "shape": "hexagon",
+        "type": "frame",
+        "visible": true,
+        "width": 540,
+        "x": 690,
+        "y": 70
+      },
+      {
+        "align": "left",
+        "curve": 0,
+        "effect": {
+          "angle": 0,
+          "color": "#22d3ee",
+          "intensity": 50,
+          "kind": "glitch",
+          "offsetEm": 0.04
+        },
+        "fill": "#ffffff",
+        "fillGradient": null,
+        "fontId": "russo-one",
+        "fontSize": 140,
+        "groupId": null,
+        "highlight": null,
+        "id": "el-4",
+        "italic": false,
+        "letterSpacingEm": 0,
+        "lineHeight": 1,
+        "locked": false,
+        "marks": [
+          {
+            "end": 4,
+            "fill": "#ff3864",
+            "start": 0
+          }
+        ],
+        "name": "1 HP",
+        "opacity": 1,
+        "rotation": 0,
+        "shadow": null,
+        "strike": false,
+        "stroke": null,
+        "text": "1 HP\nCLUTCH",
+        "type": "text",
+        "underline": false,
+        "uppercase": false,
+        "visible": true,
+        "weight": 400,
+        "width": 660,
+        "x": 56,
+        "y": 150
+      },
+      {
+        "align": "left",
+        "curve": 0,
+        "effect": null,
+        "fill": "#0a0118",
+        "fillGradient": null,
+        "fontId": "russo-one",
+        "fontSize": 40,
+        "groupId": null,
+        "highlight": {
+          "color": "#22d3ee",
+          "paddingEm": 0.3,
+          "radiusEm": 0.1
+        },
+        "id": "el-5",
+        "italic": false,
+        "letterSpacingEm": 0.06,
+        "lineHeight": 1,
+        "locked": false,
+        "marks": [],
+        "name": "RANKED · SEASON 4",
+        "opacity": 1,
+        "rotation": 0,
+        "shadow": null,
+        "strike": false,
+        "stroke": null,
+        "text": "RANKED · SEASON 4",
+        "type": "text",
+        "underline": false,
+        "uppercase": false,
+        "visible": true,
+        "weight": 400,
+        "width": 560,
+        "x": 62,
+        "y": 470
+      },
+      {
+        "flipX": false,
+        "flipY": false,
+        "groupId": null,
+        "height": 170,
+        "id": "el-6",
+        "kind": "sticker",
+        "layers": [
+          {
+            "d": "M58 6l-38 60 28 0-12 52 48-72-28 0 18-40z",
+            "fill": 0,
+            "fillRule": "nonzero",
+            "lineCap": "butt",
+            "lineJoin": "round",
+            "opacity": 1,
+            "stroke": 1,
+            "strokeWidth": 6
+          }
+        ],
+        "locked": false,
+        "name": "Lightning bolt",
+        "opacity": 1,
+        "outline": null,
+        "palette": ["#ffd60a", "#111111"],
+        "rotation": 12,
+        "source": "sticker:lightning",
+        "strokeScale": 1,
+        "type": "graphic",
+        "viewBox": [0, 0, 104, 124],
+        "visible": true,
+        "width": 142.5806451612903,
+        "x": 560,
+        "y": 520
+      },
+      {
+        "flipX": false,
+        "flipY": false,
+        "groupId": null,
+        "height": 130,
+        "id": "el-7",
+        "kind": "emoji",
+        "layers": [
+          {
+            "d": "M16.03 1c-8.28 0-15 6.72-15 14.99 0 2.77.76 4.74 2.28 6.04 1.26 1.07 2.92 1.55 4.72 1.78v4.19c0 1.65 1.35 3 3 3 1.04 0 1.96-.54 2.5-1.34.54.81 1.46 1.34 2.5 1.34 1.04 0 1.96-.54 2.5-1.34.54.81 1.46 1.34 2.5 1.34 1.65 0 3-1.35 3-3v-4.19c1.79-.23 3.45-.72 4.71-1.79 1.52-1.29 2.29-3.26 2.29-6.03 0-8.28-6.72-14.99-15-14.99z",
+            "fill": 0,
+            "fillRule": "nonzero",
+            "lineCap": "butt",
+            "lineJoin": "miter",
+            "opacity": 1,
+            "stroke": null,
+            "strokeWidth": 0
+          },
+          {
+            "d": "M16.03 2c-7.73 0-14 6.27-14 13.99 0 5.18 2.82 6.57 7 6.92v5.09c0 1.1.9 2 2 2 1.1 0 2-.9 2-2v-2.51c0-.28.22-.5.5-.5.28 0 .5.22.5.5v2.51c0 1.1.9 2 2 2 1.1 0 2-.9 2-2v-2.51c0-.28.22-.5.5-.5.28 0 .5.22.5.5v2.51c0 1.1.9 2 2 2 1.1 0 2-.9 2-2v-5.09c4.18-.36 7-1.74 7-6.92 0-7.73-6.27-13.99-14-13.99z",
+            "fill": 1,
+            "fillRule": "nonzero",
+            "lineCap": "butt",
+            "lineJoin": "miter",
+            "opacity": 1,
+            "stroke": null,
+            "strokeWidth": 0
+          },
+          {
+            "d": "M14 16.76c0 2.63-2.01 3.24-4.5 3.24-2.49 0-4.5-.61-4.5-3.24 0-2.63 2.01-4.76 4.5-4.76 2.49 0 4.5 2.13 4.5 4.76z",
+            "fill": 2,
+            "fillRule": "nonzero",
+            "lineCap": "butt",
+            "lineJoin": "miter",
+            "opacity": 1,
+            "stroke": null,
+            "strokeWidth": 0
+          },
+          {
+            "d": "M27 16.76c0 2.63-2.01 3.24-4.5 3.24-2.49 0-4.5-.61-4.5-3.24 0-2.63 2.01-4.76 4.5-4.76 2.49 0 4.5 2.13 4.5 4.76z",
+            "fill": 2,
+            "fillRule": "nonzero",
+            "lineCap": "butt",
+            "lineJoin": "miter",
+            "opacity": 1,
+            "stroke": null,
+            "strokeWidth": 0
+          },
+          {
+            "d": "M15.01 21.97h1.97c.5 0 .85-.49.68-.96l-.37-1.08c-.19-.56-.71-.93-1.3-.93-.59 0-1.12.38-1.31.93l-.36 1.08c-.16.47.19.96.69.96z",
+            "fill": 2,
+            "fillRule": "nonzero",
+            "lineCap": "butt",
+            "lineJoin": "miter",
+            "opacity": 1,
+            "stroke": null,
+            "strokeWidth": 0
+          }
+        ],
+        "locked": false,
+        "name": "Skull",
+        "opacity": 1,
+        "outline": null,
+        "palette": ["#9b9b9b", "#ffffff", "#402a32"],
+        "rotation": -10,
+        "source": "fluent:skull",
+        "strokeScale": 1,
+        "type": "graphic",
+        "viewBox": [0, 0, 32, 32],
+        "visible": true,
+        "width": 130,
+        "x": 1110,
+        "y": 560
+      }
+    ],
+    "height": 720,
+    "version": 1,
+    "width": 1280
+  },
+  "id": "gaming-highlight",
+  "name": "Gaming highlight",
+  "presetId": "youtube-thumbnail",
+  "preview": "gaming-highlight.70115727.webp",
+  "tags": ["gaming", "neon", "highlight", "clutch", "esports"]
+}

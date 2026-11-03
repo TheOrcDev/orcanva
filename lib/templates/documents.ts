@@ -4,10 +4,58 @@ import "server-only";
 // Each template's file, loaded only when it's used
 export const TEMPLATE_FILES: Readonly<Record<string, () => Promise<unknown>>> =
   {
+    "ask-me-anything": () =>
+      import("./data/ask-me-anything.json").then((file) => file.default),
+    "before-and-after": () =>
+      import("./data/before-and-after.json").then((file) => file.default),
+    "big-number-stat": () =>
+      import("./data/big-number-stat.json").then((file) => file.default),
+    "blog-post": () =>
+      import("./data/blog-post.json").then((file) => file.default),
+    "chapter-title-card": () =>
+      import("./data/chapter-title-card.json").then((file) => file.default),
+    "creator-banner": () =>
+      import("./data/creator-banner.json").then((file) => file.default),
+    "end-screen": () =>
+      import("./data/end-screen.json").then((file) => file.default),
+    "event-poster": () =>
+      import("./data/event-poster.json").then((file) => file.default),
+    "gaming-highlight": () =>
+      import("./data/gaming-highlight.json").then((file) => file.default),
+    giveaway: () => import("./data/giveaway.json").then((file) => file.default),
+    "hiring-banner": () =>
+      import("./data/hiring-banner.json").then((file) => file.default),
+    "how-to-tutorial": () =>
+      import("./data/how-to-tutorial.json").then((file) => file.default),
+    "lake-travel-vlog": () =>
+      import("./data/lake-travel-vlog.json").then((file) => file.default),
+    "landscape-banner": () =>
+      import("./data/landscape-banner.json").then((file) => file.default),
+    "new-video-story": () =>
+      import("./data/new-video-story.json").then((file) => file.default),
     "paint-with-me": () =>
       import("./data/paint-with-me.json").then((file) => file.default),
+    "podcast-episode": () =>
+      import("./data/podcast-episode.json").then((file) => file.default),
+    "product-launch": () =>
+      import("./data/product-launch.json").then((file) => file.default),
+    "product-page": () =>
+      import("./data/product-page.json").then((file) => file.default),
+    "quote-card": () =>
+      import("./data/quote-card.json").then((file) => file.default),
     "shocked-reaction": () =>
       import("./data/shocked-reaction.json").then((file) => file.default),
+    "summer-sale": () =>
+      import("./data/summer-sale.json").then((file) => file.default),
+    "this-or-that": () =>
+      import("./data/this-or-that.json").then((file) => file.default),
+    "thread-cover": () =>
+      import("./data/thread-cover.json").then((file) => file.default),
+    "tips-carousel-cover": () =>
+      import("./data/tips-carousel-cover.json").then((file) => file.default),
+    "top-ten-list": () =>
+      import("./data/top-ten-list.json").then((file) => file.default),
     "versus-split": () =>
       import("./data/versus-split.json").then((file) => file.default),
+    webinar: () => import("./data/webinar.json").then((file) => file.default),
   };

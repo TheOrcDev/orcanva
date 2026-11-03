@@ -18,56 +18,47 @@
     },
     "elements": [
       {
+        "cornerRadius": 0,
+        "fill": "#ffd60a",
         "groupId": null,
+        "height": 700,
         "id": "el-1",
         "locked": false,
         "name": "Sun behind the photo",
         "opacity": 1,
         "rotation": 0,
-        "visible": true,
-        "x": 640,
-        "y": 70,
-        "cornerRadius": 0,
-        "fill": "#ffd60a",
-        "height": 700,
         "stroke": "#111111",
         "strokeWidth": 0,
         "type": "ellipse",
-        "width": 700
+        "visible": true,
+        "width": 700,
+        "x": 640,
+        "y": 70
       },
       {
-        "groupId": null,
-        "id": "el-2",
-        "locked": false,
-        "name": "Your photo",
-        "opacity": 1,
-        "rotation": 0,
-        "visible": true,
-        "x": 670,
-        "y": 100,
+        "assetId": null,
         "crop": null,
         "filter": null,
         "flipX": false,
         "flipY": false,
         "glow": null,
-        "outline": null,
-        "shadow": null,
-        "assetId": null,
+        "groupId": null,
         "height": 640,
+        "id": "el-2",
+        "locked": false,
+        "name": "Your photo",
+        "opacity": 1,
+        "outline": null,
+        "rotation": 0,
+        "shadow": null,
         "shape": "circle",
         "type": "frame",
-        "width": 640
+        "visible": true,
+        "width": 640,
+        "x": 670,
+        "y": 100
       },
       {
-        "groupId": null,
-        "id": "el-3",
-        "locked": false,
-        "name": "I CAN'T",
-        "opacity": 1,
-        "rotation": 0,
-        "visible": true,
-        "x": 60,
-        "y": 70,
         "align": "left",
         "curve": 0,
         "effect": null,
@@ -75,17 +66,23 @@
         "fillGradient": null,
         "fontId": "anton",
         "fontSize": 176,
+        "groupId": null,
         "highlight": null,
+        "id": "el-3",
         "italic": false,
         "letterSpacingEm": 0,
         "lineHeight": 0.98,
+        "locked": false,
         "marks": [
           {
             "end": 20,
-            "start": 16,
-            "fill": "#ffd60a"
+            "fill": "#ffd60a",
+            "start": 16
           }
         ],
+        "name": "I CAN'T",
+        "opacity": 1,
+        "rotation": 0,
         "shadow": {
           "blurEm": 0.06,
           "color": "#000000b3",
@@ -101,166 +98,169 @@
         "type": "text",
         "underline": false,
         "uppercase": false,
+        "visible": true,
         "weight": 400,
-        "width": 640
+        "width": 640,
+        "x": 60,
+        "y": 70
       },
       {
-        "groupId": null,
-        "id": "el-4",
-        "locked": false,
-        "name": "Yellow arrow",
-        "opacity": 1,
-        "rotation": -12,
-        "visible": true,
-        "x": 470,
-        "y": 470,
         "flipX": false,
         "flipY": false,
+        "groupId": null,
         "height": 215.16129032258064,
+        "id": "el-4",
         "kind": "sticker",
         "layers": [
           {
-            "fillRule": "nonzero",
-            "lineCap": "round",
-            "lineJoin": "round",
-            "opacity": 1,
-            "stroke": 0,
-            "strokeWidth": 10,
             "d": "M18 44l54 0 0-22 42 40-42 40 0-22-54 0z",
-            "fill": 0
-          },
-          {
+            "fill": 0,
             "fillRule": "nonzero",
             "lineCap": "round",
             "lineJoin": "round",
             "opacity": 1,
             "stroke": 0,
-            "strokeWidth": 10,
-            "d": "M12 36l54 0 0-22 42 40-42 40 0-22-54 0z",
-            "fill": 0
+            "strokeWidth": 10
           },
           {
+            "d": "M12 36l54 0 0-22 42 40-42 40 0-22-54 0z",
+            "fill": 0,
+            "fillRule": "nonzero",
+            "lineCap": "round",
+            "lineJoin": "round",
+            "opacity": 1,
+            "stroke": 0,
+            "strokeWidth": 10
+          },
+          {
+            "d": "M18 44l54 0 0-22 42 40-42 40 0-22-54 0z",
+            "fill": 1,
             "fillRule": "nonzero",
             "lineCap": "butt",
             "lineJoin": "round",
             "opacity": 1,
             "stroke": 1,
-            "strokeWidth": 3,
-            "d": "M18 44l54 0 0-22 42 40-42 40 0-22-54 0z",
-            "fill": 1
+            "strokeWidth": 3
           },
           {
+            "d": "M12 36l54 0 0-22 42 40-42 40 0-22-54 0z",
+            "fill": 2,
             "fillRule": "nonzero",
             "lineCap": "butt",
             "lineJoin": "round",
             "opacity": 1,
             "stroke": 2,
-            "strokeWidth": 3,
-            "d": "M12 36l54 0 0-22 42 40-42 40 0-22-54 0z",
-            "fill": 2
+            "strokeWidth": 3
           }
         ],
+        "locked": false,
+        "name": "Yellow arrow",
+        "opacity": 1,
         "outline": null,
         "palette": ["#111111", "#ff7a00", "#ffd60a"],
+        "rotation": -12,
         "source": "sticker:arrow-yellow",
         "strokeScale": 1,
         "type": "graphic",
         "viewBox": [0, 0, 124, 116],
-        "width": 230
+        "visible": true,
+        "width": 230,
+        "x": 470,
+        "y": 470
       },
       {
-        "groupId": null,
-        "id": "el-5",
-        "locked": false,
-        "name": "Face screaming in fear",
-        "opacity": 1,
-        "rotation": 10,
-        "visible": true,
-        "x": 1060,
-        "y": 40,
         "flipX": false,
         "flipY": false,
+        "groupId": null,
         "height": 170,
+        "id": "el-5",
         "kind": "emoji",
         "layers": [
           {
-            "fillRule": "nonzero",
-            "lineCap": "butt",
-            "lineJoin": "miter",
-            "opacity": 1,
-            "stroke": null,
-            "strokeWidth": 0,
             "d": "M30 16c0 7.73-4.66 14-14 14-9.33 0-14-6.27-14-14 0-.68.04-1.35.11-2l13.89-6 13.89 6c.07.65.11 1.32.11 2z",
-            "fill": 0
-          },
-          {
+            "fill": 0,
             "fillRule": "nonzero",
             "lineCap": "butt",
             "lineJoin": "miter",
             "opacity": 1,
             "stroke": null,
-            "strokeWidth": 0,
+            "strokeWidth": 0
+          },
+          {
             "d": "M29.89 14c-.75-6.78-5.38-12-13.89-12-8.52 0-13.14 5.22-13.89 12h27.78z",
-            "fill": 1
-          },
-          {
+            "fill": 1,
             "fillRule": "nonzero",
             "lineCap": "butt",
             "lineJoin": "miter",
             "opacity": 1,
             "stroke": null,
-            "strokeWidth": 0,
+            "strokeWidth": 0
+          },
+          {
             "d": "M10.5 16c2.49 0 4.5-2.01 4.5-4.5 0-2.49-2.01-4.5-4.5-4.5-2.49 0-4.5 2.01-4.5 4.5 0 2.49 2.01 4.5 4.5 4.5z",
-            "fill": 2
-          },
-          {
+            "fill": 2,
             "fillRule": "nonzero",
             "lineCap": "butt",
             "lineJoin": "miter",
             "opacity": 1,
             "stroke": null,
-            "strokeWidth": 0,
+            "strokeWidth": 0
+          },
+          {
             "d": "M21.5 16c2.49 0 4.5-2.01 4.5-4.5 0-2.49-2.01-4.5-4.5-4.5-2.49 0-4.5 2.01-4.5 4.5 0 2.49 2.01 4.5 4.5 4.5z",
-            "fill": 2
-          },
-          {
+            "fill": 2,
             "fillRule": "nonzero",
             "lineCap": "butt",
             "lineJoin": "miter",
             "opacity": 1,
             "stroke": null,
-            "strokeWidth": 0,
+            "strokeWidth": 0
+          },
+          {
             "d": "M13 21c0-1.66 1.34-3 3-3 1.66 0 3 1.34 3 3v3c0 1.66-1.34 3-3 3-1.66 0-3-1.34-3-3v-3z",
-            "fill": 3
-          },
-          {
+            "fill": 3,
             "fillRule": "nonzero",
             "lineCap": "butt",
             "lineJoin": "miter",
             "opacity": 1,
             "stroke": null,
-            "strokeWidth": 0,
+            "strokeWidth": 0
+          },
+          {
             "d": "M1 18.5v5.38c0 1.37.49 2.69 1.38 3.73l1.57 1.83c1.6 1.87 4.5 1.87 6.1 0 1.57-1.83 1.18-4.62-.82-5.95l-4.52-3.01c-.45-.3-.71-.8-.71-1.34v-.64c0-.83-.67-1.5-1.5-1.5-.83 0-1.5.67-1.5 1.5z",
-            "fill": 4
-          },
-          {
+            "fill": 4,
             "fillRule": "nonzero",
             "lineCap": "butt",
             "lineJoin": "miter",
             "opacity": 1,
             "stroke": null,
-            "strokeWidth": 0,
+            "strokeWidth": 0
+          },
+          {
             "d": "M31.07 18.5v5.38c0 1.37-.49 2.69-1.38 3.73l-1.57 1.83c-1.6 1.87-4.5 1.87-6.1 0-1.57-1.83-1.18-4.62.82-5.95l4.51-3.01c.45-.3.71-.8.72-1.34v-.64c0-.83.67-1.5 1.5-1.5.83 0 1.5.67 1.5 1.5z",
-            "fill": 4
+            "fill": 4,
+            "fillRule": "nonzero",
+            "lineCap": "butt",
+            "lineJoin": "miter",
+            "opacity": 1,
+            "stroke": null,
+            "strokeWidth": 0
           }
         ],
+        "locked": false,
+        "name": "Face screaming in fear",
+        "opacity": 1,
         "outline": null,
         "palette": ["#ffb02e", "#5092ff", "#ffffff", "#bb1d80", "#ff822d"],
+        "rotation": 10,
         "source": "fluent:face-screaming-in-fear",
         "strokeScale": 1,
         "type": "graphic",
         "viewBox": [0, 0, 32, 32],
-        "width": 170
+        "visible": true,
+        "width": 170,
+        "x": 1060,
+        "y": 40
       }
     ],
     "height": 720,

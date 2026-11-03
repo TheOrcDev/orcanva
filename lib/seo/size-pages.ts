@@ -57,7 +57,14 @@ export const SIZE_PAGES = [
       title: "Free YouTube thumbnail maker.",
     },
     slug: "youtube-thumbnail-maker",
-    templates: ["shocked-reaction", "paint-with-me", "versus-split"],
+    templates: [
+      "shocked-reaction",
+      "paint-with-me",
+      "how-to-tutorial",
+      "top-ten-list",
+      "gaming-highlight",
+      "lake-travel-vlog",
+    ],
     tips: [
       {
         body: "Three or four words, big enough to read on a phone. An outline or drop shadow keeps them legible over any photo.",
@@ -99,7 +106,13 @@ export const SIZE_PAGES = [
       title: "Free Instagram post maker.",
     },
     slug: "instagram-post-maker",
-    templates: [],
+    templates: [
+      "quote-card",
+      "summer-sale",
+      "giveaway",
+      "tips-carousel-cover",
+      "event-poster",
+    ],
     tips: [
       {
         body: "A 4:5 portrait post fills more of a phone screen than a square one, so it holds attention longer.",
@@ -141,7 +154,7 @@ export const SIZE_PAGES = [
       title: "Free Instagram Story maker.",
     },
     slug: "instagram-story-maker",
-    templates: [],
+    templates: ["new-video-story", "this-or-that", "ask-me-anything"],
     tips: [
       {
         body: "The app's own buttons cover the top and bottom of a Story, so keep what matters in the middle.",
@@ -183,7 +196,7 @@ export const SIZE_PAGES = [
       title: "Free LinkedIn banner maker.",
     },
     slug: "linkedin-banner-maker",
-    templates: [],
+    templates: ["creator-banner", "landscape-banner", "hiring-banner"],
     tips: [
       {
         body: "Your profile photo covers the lower left of the banner, so keep text and logos to the right.",
@@ -225,7 +238,7 @@ export const SIZE_PAGES = [
       title: "Free Open Graph image maker.",
     },
     slug: "og-image-generator",
-    templates: [],
+    templates: ["blog-post", "product-page", "webinar"],
     tips: [
       {
         body: "Previews show small in a feed, so one large headline beats detail.",
@@ -267,7 +280,7 @@ export const SIZE_PAGES = [
       title: "Free X post image maker.",
     },
     slug: "x-post-maker",
-    templates: [],
+    templates: ["product-launch", "big-number-stat", "thread-cover"],
     tips: [
       {
         body: "People scroll fast: a few large words over a strong photo stop them better than a busy layout.",

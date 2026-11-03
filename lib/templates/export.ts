@@ -219,7 +219,9 @@ export const TEMPLATES: readonly TemplateSummary[] = ${JSON.stringify(summaries,
 };
 
 export const documentsSource = (templates: readonly Template[]): string => {
-  const loaders = sortTemplates(templates)
+  // By id, as the linter wants object keys
+  const loaders = templates
+    .toSorted((a, b) => (a.id < b.id ? -1 : 1))
     .map(
       ({ id }) =>
         `  ${JSON.stringify(id)}: () => import(${JSON.stringify(`./data/${id}.json`)}).then((file) => file.default),`

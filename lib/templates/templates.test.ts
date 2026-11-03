@@ -138,6 +138,8 @@ describe("templates", () => {
 
   it("on the maker pages exist, made for the page's sizes", () => {
     for (const page of SIZE_PAGES) {
+      expect(page.templates.length, page.slug).toBeGreaterThanOrEqual(3);
+      expect(page.templates.length, page.slug).toBeLessThanOrEqual(6);
       for (const id of page.templates) {
         const template = findTemplate(id);
         expect(template, `${page.slug}: ${id}`).toBeDefined();
