@@ -42,3 +42,4 @@ export const IMAGE_SIZES_PATH = "/social-media-image-sizes";
 export const REMOVE_AI_METADATA_PATH = "/remove-ai-metadata";
 export const YOUTUBE_PREVIEW_PATH = "/youtube-thumbnail-preview";
 export const IMAGE_UPSCALER_PATH = "/image-upscaler";
+export const MAGIC_ERASER_PATH = "/magic-eraser";

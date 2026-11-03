@@ -29,7 +29,7 @@ describe("pickBackend", () => {
   });
 
   it("falls back to the CPU without WebGPU", () => {
-    for (const spec of [MODELS.migan, MODELS.lama, MODELS.realesrgan]) {
+    for (const spec of [MODELS.lama, MODELS.realesrgan]) {
       expect(pickBackend(spec, NO_GPU)).toEqual({
         device: "wasm",
         dtype: "fp32",
@@ -40,7 +40,7 @@ describe("pickBackend", () => {
 
 describe("backendChoices", () => {
   it("lists the CPU after the GPU, for when WebGPU fails", () => {
-    expect(backendChoices(MODELS.migan, GPU_F16)).toEqual([
+    expect(backendChoices(MODELS.lama, GPU_F16)).toEqual([
       { device: "webgpu", dtype: "fp32" },
       { device: "wasm", dtype: "fp32" },
     ]);

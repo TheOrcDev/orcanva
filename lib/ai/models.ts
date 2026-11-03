@@ -4,7 +4,7 @@
 // keeps them in Cache Storage ("transformers-cache"), keyed by that URL.
 // Licences were checked against each repo's model card and LICENSE file.
 
-export type ModelId = "ben2" | "lama" | "migan" | "realesrgan";
+export type ModelId = "ben2" | "lama" | "realesrgan";
 
 // Weights in half or full precision. Transformers.js picks the file by it:
 // "<file>_fp16.onnx" or "<file>.onnx".
@@ -61,10 +61,12 @@ export const MODELS: Readonly<Record<ModelId, ModelSpec>> = {
     sessionOptions: { graphOptimizationLevel: "basic" },
     subfolder: "onnx",
   },
-  // The eraser's optional second model: big-lama (Apache-2.0, from
-  // advimman/lama via Carve/LaMa-ONNX) with its weights stored as int4/int8
-  // and the Fourier units rewritten to rank 4 or less so every WebGPU runs
-  // them. Fixed 512×512 input.
+  // The magic eraser: big-lama (Apache-2.0, from advimman/lama via
+  // Carve/LaMa-ONNX) with its weights stored as int4/int8, which ONNX
+  // Runtime folds back to fp32 as it loads, and the Fourier units rewritten
+  // to rank 4 or less so every WebGPU runs them. Fixed 512×512 input. It beat
+  // MI-GAN (MIT, 28 MB) in a bake-off on ten thumbnail photos, most of all
+  // on big holes, for a similar download.
   lama: {
     bytes: { fp32: 36_931_151 },
     config: BARE_ONNX,
@@ -80,25 +82,6 @@ export const MODELS: Readonly<Record<ModelId, ModelSpec>> = {
     revision: "b52ebb642126086fe3da1524a3b1d7629ae4c6a9",
     // Folds the int4/int8 weights back to fp32 when the session loads
     sessionOptions: { extra: { session: { disable_quant_qdq: "1" } } },
-    subfolder: "",
-    trainedOn: "Places2",
-  },
-  // The magic eraser: Picsart's MI-GAN 512 (Places2) as their ONNX pipeline,
-  // which takes a photo of any size with a mask, crops around the mask,
-  // fills it at 512px and blends the result back
-  migan: {
-    bytes: { fp32: 28_079_181 },
-    config: BARE_ONNX,
-    file: "migan_pipeline_v2",
-    gpuOnly: false,
-    heavy: false,
-    licence: {
-      name: "MIT",
-      url: "https://huggingface.co/andraniksargsyan/migan/blob/406830d0fa60666da0071c342ad2fbc8f30c5c64/LICENSE",
-    },
-    name: "MI-GAN",
-    repo: "andraniksargsyan/migan",
-    revision: "406830d0fa60666da0071c342ad2fbc8f30c5c64",
     subfolder: "",
     trainedOn: "Places2",
   },

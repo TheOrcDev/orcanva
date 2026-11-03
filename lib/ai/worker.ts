@@ -46,6 +46,8 @@ env.logLevel = LogLevel.ERROR;
 
 export type AiTask =
   | { kind: "cutout"; image: Blob }
+  // Fills the pixels `mask` paints (one byte per pixel, above 0 to fill)
+  | { kind: "inpaint"; image: ImageData; mask: Uint8Array }
   // To exactly this size, which may be less than 4× (see upscaleOptions)
   | { kind: "upscale"; image: Blob; width: number; height: number };
 
@@ -53,6 +55,8 @@ export type AiTaskKind = AiTask["kind"];
 
 export interface AiResults {
   cutout: { png: Blob; width: number; height: number };
+  // The picture with the hole filled, opaque, at its own size
+  inpaint: ImageData;
   // A JPEG, or a PNG when the photo has transparency
   upscale: { blob: Blob; width: number; height: number };
 }
@@ -89,7 +93,8 @@ interface WebGpu {
   requestAdapter: () => Promise<{ features: ReadonlySet<string> } | null>;
 }
 
-const reply = (message: AiMessage) => postMessage(message);
+const reply = (message: AiMessage, transfer: Transferable[] = []) =>
+  postMessage(message, { transfer });
 
 // Jobs run one at a time, so progress belongs to the current one
 let activeJob = 0;
@@ -444,10 +449,169 @@ const upscale = async ({
   return { blob, height, width };
 };
 
+// Opaque RGBA from a model's planar RGB output, scaled by `scale` (255 for
+// outputs in 0…1, 1 for ones already in 0…255)
+const fromPlanar = (
+  values: ArrayLike<number>,
+  width: number,
+  height: number,
+  scale: number
+): ImageData => {
+  const plane = width * height;
+  // Uint8ClampedArray rounds and clamps
+  const rgba = new Uint8ClampedArray(plane * 4);
+  for (let pixel = 0; pixel < plane; pixel += 1) {
+    rgba[pixel * 4] = (values[pixel] ?? 0) * scale;
+    rgba[pixel * 4 + 1] = (values[plane + pixel] ?? 0) * scale;
+    rgba[pixel * 4 + 2] = (values[plane * 2 + pixel] ?? 0) * scale;
+    rgba[pixel * 4 + 3] = 255;
+  }
+  return new ImageData(rgba, width, height);
+};
+
+// Pixels redrawn at another size with the browser's best smoothing
+const resizePixels = (
+  image: ImageData,
+  width: number,
+  height: number
+): ImageData => {
+  const source = new OffscreenCanvas(image.width, image.height);
+  source.getContext("2d")?.putImageData(image, 0, 0);
+  const context = new OffscreenCanvas(width, height).getContext("2d");
+  if (!context) {
+    throw new Error("Could not resize the image");
+  }
+  context.imageSmoothingQuality = "high";
+  context.drawImage(source, 0, 0, width, height);
+  return context.getImageData(0, 0, width, height);
+};
+
+// Runs the eraser's model on its two inputs and returns its one output
+const runInpaint = (inputs: { image: Tensor; mask: Tensor }): Promise<Tensor> =>
+  withModel("lama", async (model) => {
+    const {
+      outputNames: [name = ""],
+    } = model.sessions.model as ModelSession;
+    const outputs = (await model(inputs)) as Record<string, Tensor>;
+    const output = outputs[name];
+    if (!output) {
+      throw new Error("The AI model returned no image");
+    }
+    return output;
+  });
+
+// LaMa only takes 512 × 512. The picture is scaled to fit at its own shape
+// and the rest of the square is filled by mirroring it, so nothing gets
+// squashed; every pixel the brush touched counts as hole, soft edges
+// included, or LaMa spreads the object's edge into it.
+const LAMA_SIDE = 512;
+
+// Draws `source` repeatedly across `size`, every other copy mirrored, so
+// the edges meet seamlessly
+const mirrorFill = (
+  source: OffscreenCanvas,
+  width: number,
+  height: number
+): OffscreenCanvas => {
+  const canvas = new OffscreenCanvas(width, height);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Could not prepare the image");
+  }
+  for (let y = 0; y < height; y += source.height) {
+    for (let x = 0; x < width; x += source.width) {
+      const flipX = Math.round(x / source.width) % 2 === 1;
+      const flipY = Math.round(y / source.height) % 2 === 1;
+      context.save();
+      context.translate(
+        flipX ? x + source.width : x,
+        flipY ? y + source.height : y
+      );
+      context.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+      context.drawImage(source, 0, 0);
+      context.restore();
+    }
+  }
+  return canvas;
+};
+
+// The picture fitted into the model's square at its own shape, mirrored
+// beyond its edges; `width` and `height` are the part that's the picture
+const toSquare = (image: ImageData) => {
+  const scale = LAMA_SIDE / Math.max(image.width, image.height);
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  const fitted = new OffscreenCanvas(width, height);
+  fitted
+    .getContext("2d")
+    ?.putImageData(resizePixels(image, width, height), 0, 0);
+  const square = mirrorFill(fitted, LAMA_SIDE, LAMA_SIDE).getContext("2d");
+  if (!square) {
+    throw new Error("Could not prepare the image");
+  }
+  return {
+    height,
+    pixels: square.getImageData(0, 0, LAMA_SIDE, LAMA_SIDE),
+    width,
+  };
+};
+
+const inpaintLama = async (image: ImageData, hole: Uint8Array) => {
+  const { height, width } = image;
+  const holeAlpha = new Uint8ClampedArray(width * height * 4);
+  for (const [pixel, value] of hole.entries()) {
+    holeAlpha[pixel * 4 + 3] = value;
+  }
+  const picture = toSquare(image);
+  // Mirrored too, so the object's mirror images are filled as well
+  const holes = toSquare(new ImageData(holeAlpha, width, height)).pixels;
+  const plane = LAMA_SIDE * LAMA_SIDE;
+  const rgb = new Float32Array(plane * 3);
+  const mask = new Float32Array(plane);
+  for (let pixel = 0; pixel < plane; pixel += 1) {
+    rgb[pixel] = (picture.pixels.data[pixel * 4] ?? 0) / 255;
+    rgb[plane + pixel] = (picture.pixels.data[pixel * 4 + 1] ?? 0) / 255;
+    rgb[plane * 2 + pixel] = (picture.pixels.data[pixel * 4 + 2] ?? 0) / 255;
+    mask[pixel] = (holes.data[pixel * 4 + 3] ?? 0) > 0 ? 1 : 0;
+  }
+  const output = await runInpaint({
+    image: new Tensor("float32", rgb, [1, 3, LAMA_SIDE, LAMA_SIDE]),
+    mask: new Tensor("float32", mask, [1, 1, LAMA_SIDE, LAMA_SIDE]),
+  });
+  const filled = new OffscreenCanvas(LAMA_SIDE, LAMA_SIDE);
+  filled
+    .getContext("2d")
+    ?.putImageData(
+      fromPlanar(output.data as Float32Array, LAMA_SIDE, LAMA_SIDE, 1),
+      0,
+      0
+    );
+  const context = new OffscreenCanvas(width, height).getContext("2d");
+  if (!context) {
+    throw new Error("Could not resize the image");
+  }
+  context.imageSmoothingQuality = "high";
+  context.drawImage(
+    filled,
+    0,
+    0,
+    picture.width,
+    picture.height,
+    0,
+    0,
+    width,
+    height
+  );
+  return context.getImageData(0, 0, width, height);
+};
+
 const runTask = (task: AiTask): Promise<AiResults[AiTaskKind]> => {
   switch (task.kind) {
     case "cutout": {
       return cutOut(task.image);
+    }
+    case "inpaint": {
+      return inpaintLama(task.image, task.mask);
     }
     case "upscale": {
       return upscale(task);
@@ -461,7 +625,12 @@ const runTask = (task: AiTask): Promise<AiResults[AiTaskKind]> => {
 const runJob = async ({ id, task }: AiRequest) => {
   activeJob = id;
   try {
-    reply({ id, result: await runTask(task), type: "done" });
+    const result = await runTask(task);
+    // A filled picture's pixels are handed over, not copied
+    reply(
+      { id, result, type: "done" },
+      result instanceof ImageData ? [result.data.buffer] : []
+    );
   } catch (error) {
     reply({
       id,
