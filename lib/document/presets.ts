@@ -72,7 +72,18 @@ export const SIZE_PRESETS = [
   },
 ] as const satisfies readonly SizePreset[];
 
+export type PresetId = (typeof SIZE_PRESETS)[number]["id"];
+
+// The ids alone, for schemas that name a preset
+export const PRESET_IDS = SIZE_PRESETS.map((preset) => preset.id) as [
+  PresetId,
+  ...PresetId[],
+];
+
 export const [DEFAULT_PRESET] = SIZE_PRESETS;
+
+export const findPresetById = (id: string): SizePreset | undefined =>
+  SIZE_PRESETS.find((preset) => preset.id === id);
 
 export const findPresetBySize = (
   width: number,
