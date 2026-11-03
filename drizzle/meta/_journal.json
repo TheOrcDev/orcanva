@@ -64,6 +64,13 @@
       "when": 1793558097828,
       "tag": "0008_design_shares",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793709490158,
+      "tag": "0009_brand_kit",
+      "breakpoints": true
     }
   ]
 }

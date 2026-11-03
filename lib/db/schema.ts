@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
+import { BRAND_KIT_KINDS } from "@/lib/brand-kit/schema";
 import type {
   Background,
   DesignDocument,
@@ -190,7 +191,42 @@ export const assets = pgTable(
   ]
 );
 
+export const brandKitItemKind = pgEnum("brand_kit_item_kind", BRAND_KIT_KINDS);
+
+// An account's brand kit: colours, fonts and logos offered wherever it
+// picks a colour, a font or an image. One row per item, like
+// design_elements, so two tabs adding at once can't overwrite each other.
+export const brandKitItems = pgTable(
+  "brand_kit_items",
+  {
+    // Logos only: the upload it shows, which takes the logo with it
+    assetId: uuid("asset_id").references(() => assets.id, {
+      onDelete: "cascade",
+    }),
+    createdAt: timestamps.createdAt,
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: brandKitItemKind("kind").notNull(),
+    // References neon_auth."user"(id) in drizzle/0009_*, like owner_id on
+    // designs
+    ownerId: uuid("owner_id").notNull(),
+    // Lowercase hex, a catalog font id, or the logo's asset id
+    value: text("value").notNull(),
+  },
+  (table) => [
+    uniqueIndex("brand_kit_items_owner_kind_value_idx").on(
+      table.ownerId,
+      table.kind,
+      table.value
+    ),
+    index("brand_kit_items_owner_created_idx").on(
+      table.ownerId,
+      table.createdAt
+    ),
+  ]
+);
+
 export type DesignRow = typeof designs.$inferSelect;
 export type DesignElementRow = typeof designElements.$inferSelect;
 export type AssetRow = typeof assets.$inferSelect;
 export type DesignShareRow = typeof designShares.$inferSelect;
+export type BrandKitItemRow = typeof brandKitItems.$inferSelect;
