@@ -1,13 +1,9 @@
 "use client";
 
-import { useId } from "react";
-import type { ReactNode } from "react";
-
 import { ColorPicker } from "@/components/editor/panels/color-picker";
+import { EffectToggle } from "@/components/editor/panels/effect-toggle";
 import { PanelSection } from "@/components/editor/panels/panel-section";
 import { TransactionSlider } from "@/components/editor/panels/transaction-slider";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { useUpdateElement } from "@/hooks/use-selected-element";
 import type {
   TextElement,
@@ -29,37 +25,8 @@ const DEFAULT_HIGHLIGHT: TextHighlight = {
   radiusEm: 0.12,
 };
 
-const percent = (value: number) => `${Math.round(value * 100)}%`;
-
 // Effect sizes are relative to font size; show them as % of the size
-const EffectToggle = ({
-  title,
-  enabled,
-  onToggle,
-  children,
-}: {
-  title: string;
-  enabled: boolean;
-  onToggle: (enabled: boolean) => void;
-  children: ReactNode;
-}) => {
-  const id = useId();
-  return (
-    <PanelSection
-      title={title}
-      action={
-        <div className="flex items-center gap-2">
-          <Label htmlFor={id} className="sr-only">
-            {title}
-          </Label>
-          <Switch id={id} checked={enabled} onCheckedChange={onToggle} />
-        </div>
-      }
-    >
-      {enabled ? children : null}
-    </PanelSection>
-  );
-};
+const percent = (value: number) => `${Math.round(value * 100)}%`;
 
 export const EffectsProperties = ({ element }: { element: TextElement }) => {
   const update = useUpdateElement(element.id);

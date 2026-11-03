@@ -9,7 +9,7 @@ import {
 
 export type FilterSource = HTMLImageElement | HTMLCanvasElement;
 
-interface Program {
+export interface Program {
   program: WebGLProgram;
   locations: Map<string, WebGLUniformLocation | null>;
 }
@@ -23,8 +23,8 @@ interface PassTarget {
 }
 
 // One WebGL2 context for the whole editor (browsers cap how many a page
-// may hold). Each draw lands in a caller-owned 2D canvas, which Konva and
-// the export clone then share.
+// may hold), shared with photo effects (lib/photo-effects). Each draw lands
+// in a caller-owned 2D canvas, which Konva and the export clone then share.
 interface Renderer {
   canvas: HTMLCanvasElement;
   gl: WebGL2RenderingContext;
@@ -69,7 +69,11 @@ const compile = (
   return shader;
 };
 
-const link = (gl: WebGL2RenderingContext, fragment: string): Program => {
+// A program from the shared full-screen vertex shader and a fragment shader
+export const linkProgram = (
+  gl: WebGL2RenderingContext,
+  fragment: string
+): Program => {
   const program = gl.createProgram();
   gl.attachShader(program, compile(gl, gl.VERTEX_SHADER, VERTEX_SHADER));
   gl.attachShader(program, compile(gl, gl.FRAGMENT_SHADER, fragment));
@@ -83,7 +87,7 @@ const link = (gl: WebGL2RenderingContext, fragment: string): Program => {
   return { locations: new Map(), program };
 };
 
-const location = (
+export const uniformLocation = (
   gl: WebGL2RenderingContext,
   { locations, program }: Program,
   name: string
@@ -158,8 +162,8 @@ const createRenderer = (): Renderer | null => {
   gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
 
   const created: Renderer = {
-    adjust: link(gl, ADJUST_SHADER),
-    blur: link(gl, BLUR_SHADER),
+    adjust: linkProgram(gl, ADJUST_SHADER),
+    blur: linkProgram(gl, BLUR_SHADER),
     canvas,
     gl,
     maxSide: Math.min(MAX_FILTER_SIDE, gl.getParameter(gl.MAX_TEXTURE_SIZE)),
@@ -274,7 +278,7 @@ const setUniforms = (
   uniforms: FilterUniforms,
   size: Size
 ) => {
-  const at = (name: string) => location(gl, program, name);
+  const at = (name: string) => uniformLocation(gl, program, name);
   gl.uniform1i(at("u_image"), 0);
   gl.uniform1f(at("u_flipY"), 1);
   gl.uniform2f(at("u_texel"), 1 / size.width, 1 / size.height);
@@ -294,15 +298,22 @@ const setUniforms = (
   gl.uniform1f(at("u_grain"), uniforms.grain);
 };
 
-// Gaussian blur in two passes at a reduced size; returns the blurred
-// texture, or null when the filter has no visible blur
-const blurred = (
+// A blurred copy at a reduced size, and that size
+export interface Blurred {
+  texture: WebGLTexture;
+  size: Size;
+}
+
+// Gaussian blur of `source` (which has mip levels) in two passes at a
+// reduced size. `sigma` is in pixels of `size`. Null when the blur wouldn't
+// show. The result lives in shared pass textures: use it before the next
+// blur.
+const blurPasses = (
   { blur, gl, passes }: Renderer,
   source: WebGLTexture,
-  uniforms: FilterUniforms,
+  sigma: number,
   size: Size
-): WebGLTexture | null => {
-  const sigma = uniforms.blur * Math.max(size.width, size.height);
+): Blurred | null => {
   if (sigma < MIN_BLUR_SIGMA) {
     return null;
   }
@@ -315,7 +326,7 @@ const blurred = (
   sizePassTarget(gl, horizontal, reduced);
   sizePassTarget(gl, vertical, reduced);
 
-  const at = (name: string) => location(gl, blur, name);
+  const at = (name: string) => uniformLocation(gl, blur, name);
   gl.useProgram(blur.program);
   gl.viewport(0, 0, reduced.width, reduced.height);
   gl.uniform1i(at("u_image"), 0);
@@ -333,7 +344,23 @@ const blurred = (
   gl.uniform2f(at("u_step"), 0, 1 / reduced.height);
   gl.uniform1f(at("u_lod"), 0);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  return vertical.texture;
+  return { size: reduced, texture: vertical.texture };
+};
+
+// The shared context and the canvas it draws on, or null without WebGL2.
+// Filters and effects take turns on it, so each pass sets all the state it
+// relies on.
+export const sharedGl = (): Pick<Renderer, "canvas" | "gl"> | null =>
+  getRenderer();
+
+// Blurs a texture of the shared context (on texture unit 0); see blurPasses
+export const blurred = (
+  source: WebGLTexture,
+  sigma: number,
+  size: Size
+): Blurred | null => {
+  const current = getRenderer();
+  return current ? blurPasses(current, source, sigma, size) : null;
 };
 
 // Largest side a filtered image may have on this GPU
@@ -357,7 +384,8 @@ export const renderFilter = (
 
   gl.activeTexture(gl.TEXTURE0);
   const texture = textureFor(current, source, size);
-  const input = blurred(current, texture, uniforms, size) ?? texture;
+  const sigma = uniforms.blur * Math.max(size.width, size.height);
+  const input = blurPasses(current, texture, sigma, size)?.texture ?? texture;
   if (canvas.width !== size.width || canvas.height !== size.height) {
     canvas.width = size.width;
     canvas.height = size.height;

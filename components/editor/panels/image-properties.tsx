@@ -16,6 +16,7 @@ import { BackgroundRemovalButton } from "@/components/editor/panels/background-r
 import { ImageAdjustments } from "@/components/editor/panels/image-adjustments";
 import { ImageFilters } from "@/components/editor/panels/image-filters";
 import { PanelSection } from "@/components/editor/panels/panel-section";
+import { PhotoEffectsProperties } from "@/components/editor/panels/photo-effects-properties";
 import { TransactionSlider } from "@/components/editor/panels/transaction-slider";
 import { Button } from "@/components/ui/button";
 import { useUpdateElement } from "@/hooks/use-selected-element";
@@ -113,6 +114,7 @@ export const ImageProperties = ({ element }: { element: ImageElement }) => {
       </PanelSection>
       <ImageFilters element={element} />
       <ImageAdjustments element={element} />
+      <PhotoEffectsProperties element={element} />
       <PanelSection title="Corners">
         <TransactionSlider
           label="Radius"

@@ -8,6 +8,7 @@ import { useEditor } from "@/components/editor/editor-store-context";
 import { useAssetImage } from "@/hooks/use-asset-image";
 import { useFilteredImage } from "@/hooks/use-filtered-image";
 import type { ImageCrop, ImageFilter } from "@/lib/document/schema";
+import { PHOTO_NODE_NAME } from "@/lib/editor/node-names";
 
 const PLACEHOLDER_FILL = "#e4e4e7";
 const MISSING_FILL = "#fecaca";
@@ -58,6 +59,7 @@ export const PhotoNode = ({
   return (
     <KonvaImage
       ref={imageRef}
+      name={PHOTO_NODE_NAME}
       image={image}
       width={width}
       height={height}

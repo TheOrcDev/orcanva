@@ -23,7 +23,11 @@ import type {
   ImageElement,
 } from "@/lib/document/schema";
 import { MIN_ELEMENT_SIZE, cropToEdge, edgeOfAnchor } from "@/lib/editor/bake";
-import { ELEMENT_NODE_NAME } from "@/lib/editor/node-names";
+import {
+  ELEMENT_NODE_NAME,
+  LIVE_CROP_ATTR,
+  photoNodeOf,
+} from "@/lib/editor/node-names";
 
 interface Position {
   x: number;
@@ -106,10 +110,6 @@ const rewrapText = (event: Konva.KonvaEventObject<Event>) => {
   }
 };
 
-// Where a side-handle crop has got to, kept on the photo's node until the
-// gesture is baked
-export const LIVE_CROP_ATTR = "liveCrop";
-
 export interface LiveCrop {
   crop: ImageCrop | null;
   width: number;
@@ -118,14 +118,15 @@ export interface LiveCrop {
 
 // Side handles on a photo crop it instead of stretching it: fold the scale
 // into the photo's size and crop while the drag is live. `element` is the
-// photo as the gesture started.
+// photo as the gesture started. Its effects hide until the crop is baked
+// (see PhotoEffectsNode).
 const recropImage = (
   event: Konva.KonvaEventObject<Event>,
   element: ImageElement
 ) => {
   const group = event.currentTarget as Konva.Group;
   const edge = edgeOfAnchor(activeAnchor(group));
-  const image = group.findOne<Konva.Image>("Image");
+  const image = photoNodeOf(group);
   const source = image?.image();
   // The photo, or its filtered copy (see useFilteredImage)
   const drawn =

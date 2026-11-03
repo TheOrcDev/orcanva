@@ -8,10 +8,7 @@ import { Group, Layer, Rect, Stage } from "react-konva";
 import { usePageNodeRef } from "@/components/editor/canvas-context";
 import { BackgroundNode } from "@/components/editor/canvas/background-node";
 import { CropOverlay, isCropUi } from "@/components/editor/canvas/crop-overlay";
-import {
-  ElementNode,
-  LIVE_CROP_ATTR,
-} from "@/components/editor/canvas/element-node";
+import { ElementNode } from "@/components/editor/canvas/element-node";
 import type { LiveCrop } from "@/components/editor/canvas/element-node";
 import { LineHandles } from "@/components/editor/canvas/line-handles";
 import { PageCropOverlay } from "@/components/editor/canvas/page-crop-overlay";
@@ -59,6 +56,8 @@ import { unitOf } from "@/lib/editor/groups";
 import {
   BACKGROUND_NODE_NAME,
   ELEMENT_NODE_NAME,
+  LIVE_CROP_ATTR,
+  photoNodeOf,
 } from "@/lib/editor/node-names";
 import { ratioValue } from "@/lib/editor/page-crop";
 import { toggleUnit } from "@/lib/editor/selection";
@@ -86,7 +85,7 @@ const bakeTransform = (
   switch (element.type) {
     case "image": {
       // A side handle cropped the photo live (see recropImage)
-      const image = (node as Konva.Group).findOne("Image");
+      const image = photoNodeOf(node as Konva.Group);
       const live = image?.getAttr(LIVE_CROP_ATTR) as LiveCrop | undefined;
       image?.setAttr(LIVE_CROP_ATTR, undefined);
       const baked = bakeBoxTransform(element, transform);
