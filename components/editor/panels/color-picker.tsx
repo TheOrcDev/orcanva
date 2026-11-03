@@ -23,6 +23,8 @@ export interface ColorPickerProps {
   label: string;
   value: string;
   onChange: (color: string) => void;
+  // A round swatch instead of a field (see ColorPopover)
+  trigger?: "field" | "swatch";
 }
 
 interface Gathered {
@@ -59,7 +61,12 @@ const brandRow = (
 // design's own colours and this browser's recent ones; when it closes on a
 // new colour, that colour becomes the most recent. Signed in, the brand
 // kit's colours come first.
-export const ColorPicker = ({ label, value, onChange }: ColorPickerProps) => {
+export const ColorPicker = ({
+  label,
+  value,
+  onChange,
+  trigger,
+}: ColorPickerProps) => {
   const store = useEditorStoreApi();
   const brandKit = useEditor((state) => state.brandKit);
   const changeBrandKit = useBrandKitChange();
@@ -104,6 +111,7 @@ export const ColorPicker = ({ label, value, onChange }: ColorPickerProps) => {
       onChange={onChange}
       onOpenChange={handleOpenChange}
       rows={rows}
+      trigger={trigger}
     />
   );
 };

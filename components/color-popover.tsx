@@ -67,6 +67,9 @@ export interface ColorPopoverProps {
   // Swatch rows, top to bottom. A row with no colours and no add button is
   // left out.
   rows?: readonly SwatchRow[];
+  // How the trigger looks: a full-width field with the hex (the default),
+  // or just a round swatch, for rows of several colours
+  trigger?: "field" | "swatch";
 }
 
 // Picks a colour off the screen; only where the browser has an eyedropper
@@ -166,6 +169,7 @@ export const ColorPopover = ({
   onChange,
   onOpenChange,
   rows = DEFAULT_ROWS,
+  trigger = "field",
 }: ColorPopoverProps) => {
   // What's typed in the hex field, until it's a colour
   const [draft, setDraft] = useState<string | null>(null);
@@ -192,22 +196,40 @@ export const ColorPopover = ({
 
   return (
     <Popover onOpenChange={handleOpenChange}>
-      <PopoverTrigger
-        render={
-          <Button
-            variant="outline"
-            className="w-full justify-start"
-            aria-label={`${label}: ${value}`}
+      {trigger === "swatch" ? (
+        <PopoverTrigger
+          render={
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label={`${label}: ${value}`}
+              title={value}
+            />
+          }
+        >
+          <span
+            className="ring-foreground/15 size-5 rounded-full bg-(--swatch) ring-1"
+            style={{ "--swatch": value }}
           />
-        }
-      >
-        <span
-          className="ring-foreground/15 size-4 shrink-0 rounded-full bg-(--swatch) ring-1"
-          style={{ "--swatch": value }}
-          data-icon="inline-start"
-        />
-        <span className="truncate font-mono text-xs uppercase">{value}</span>
-      </PopoverTrigger>
+        </PopoverTrigger>
+      ) : (
+        <PopoverTrigger
+          render={
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              aria-label={`${label}: ${value}`}
+            />
+          }
+        >
+          <span
+            className="ring-foreground/15 size-4 shrink-0 rounded-full bg-(--swatch) ring-1"
+            style={{ "--swatch": value }}
+            data-icon="inline-start"
+          />
+          <span className="truncate font-mono text-xs uppercase">{value}</span>
+        </PopoverTrigger>
+      )}
       <PopoverContent
         className="max-h-(--available-height) w-60 overflow-y-auto"
         align="start"
