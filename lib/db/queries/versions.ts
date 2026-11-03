@@ -6,8 +6,10 @@ import { authUsers } from "@/lib/db/auth-schema";
 import { getDb } from "@/lib/db/client";
 import { managesHistory } from "@/lib/db/queries/designs";
 import { designVersions, designs } from "@/lib/db/schema";
+import type { DesignVersionRow } from "@/lib/db/schema";
 import { storageUrl, versionThumbnailKey } from "@/lib/storage/keys";
 import { copyObject, deleteObject } from "@/lib/storage/s3";
+import type { VersionContent } from "@/lib/versions/content";
 import { versionsToPrune } from "@/lib/versions/retention";
 import { MAX_NAMED_VERSIONS, VERSION_PAGE_SIZE } from "@/lib/versions/schema";
 import type { VersionKind, VersionSummary } from "@/lib/versions/schema";
@@ -127,6 +129,25 @@ export const writerName = (
   'Guest'
 )`;
 
+const summaryOf = ({
+  createdAt,
+  thumbnailKey,
+  ...version
+}: Pick<
+  DesignVersionRow,
+  | "createdAt"
+  | "createdByName"
+  | "elementCount"
+  | "id"
+  | "kind"
+  | "name"
+  | "thumbnailKey"
+>): VersionSummary => ({
+  ...version,
+  createdAt: createdAt.toISOString(),
+  thumbnailUrl: thumbnailKey ? storageUrl(thumbnailKey) : null,
+});
+
 // One page of a design's history, newest first; `before` continues from
 // the oldest one shown so far. Callers check access first.
 export const listVersions = async (
@@ -159,12 +180,63 @@ export const listVersions = async (
       rows.length > VERSION_PAGE_SIZE
         ? (page.at(-1)?.createdAt.toISOString() ?? null)
         : null,
-    versions: page.map(({ createdAt, thumbnailKey, ...version }) => ({
-      ...version,
-      createdAt: createdAt.toISOString(),
-      thumbnailUrl: thumbnailKey ? storageUrl(thumbnailKey) : null,
-    })),
+    versions: page.map(summaryOf),
   };
+};
+
+// One version, whole, for the preview. Callers check access first.
+export const getVersion = async (
+  designId: string,
+  versionId: string
+): Promise<{ summary: VersionSummary; content: VersionContent } | null> => {
+  const [row] = await getDb()
+    .select()
+    .from(designVersions)
+    .where(
+      and(
+        eq(designVersions.id, versionId),
+        eq(designVersions.designId, designId)
+      )
+    )
+    .limit(1);
+  if (!row) {
+    return null;
+  }
+  return {
+    content: {
+      assetIds: row.assetIds,
+      background: row.background,
+      docVersion: row.docVersion,
+      elements: row.elements,
+      height: row.height,
+      width: row.width,
+    },
+    summary: summaryOf(row),
+  };
+};
+
+// Deletes one version and its picture. False when there's no such version.
+// Callers check that the viewer owns the design.
+export const deleteVersion = async (
+  designId: string,
+  versionId: string
+): Promise<boolean> => {
+  const [row] = await getDb()
+    .delete(designVersions)
+    .where(
+      and(
+        eq(designVersions.id, versionId),
+        eq(designVersions.designId, designId)
+      )
+    )
+    .returning({ thumbnailKey: designVersions.thumbnailKey });
+  if (!row) {
+    return false;
+  }
+  if (row.thumbnailKey) {
+    await deleteObject(row.thumbnailKey).catch(() => null);
+  }
+  return true;
 };
 
 // Saves the design as it is now under a name, for the owner and people

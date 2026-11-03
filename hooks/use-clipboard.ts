@@ -29,7 +29,12 @@ export const useClipboard = () => {
     };
 
     const handleCopy = (event: ClipboardEvent) => {
-      if (isTypingTarget(event.target) || store.getState().editingTextId) {
+      // A version preview hides the canvas: nothing to copy from or paste into
+      if (
+        isTypingTarget(event.target) ||
+        store.getState().editingTextId ||
+        store.getState().previewVersionId
+      ) {
         return;
       }
       const elements = selectedElements();
@@ -47,7 +52,11 @@ export const useClipboard = () => {
     };
 
     const handlePaste = (event: ClipboardEvent) => {
-      if (isTypingTarget(event.target) || store.getState().editingTextId) {
+      if (
+        isTypingTarget(event.target) ||
+        store.getState().editingTextId ||
+        store.getState().previewVersionId
+      ) {
         return;
       }
       const data = event.clipboardData;

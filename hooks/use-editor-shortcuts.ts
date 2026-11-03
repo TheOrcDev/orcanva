@@ -202,13 +202,15 @@ export const useEditorShortcuts = () => {
     const nudge = createNudger(store);
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Text editing and cropping handle their own keys
+      // Text editing and cropping handle their own keys; a version preview
+      // hides the canvas the keys would act on
       if (
         isTypingTarget(event.target) ||
         isInsidePopup(event.target) ||
         store.getState().editingTextId ||
         store.getState().cropTargetId ||
-        store.getState().pageCrop
+        store.getState().pageCrop ||
+        store.getState().previewVersionId
       ) {
         return;
       }

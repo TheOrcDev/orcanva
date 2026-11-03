@@ -1,3 +1,5 @@
+import type { EditorAsset } from "@/lib/editor/store";
+import type { VersionContent } from "@/lib/versions/content";
 import type { VersionSummary } from "@/lib/versions/schema";
 
 // The editor's calls to the version history routes
@@ -87,4 +89,26 @@ export const uploadVersionThumbnail = async (
     headers: { "Content-Type": "image/jpeg" },
     method: "PUT",
   });
+};
+
+export interface VersionPreviewData {
+  version: VersionSummary;
+  content: VersionContent;
+  // The images it shows that the server has
+  assets: EditorAsset[];
+}
+
+export const fetchVersion = async (
+  designId: string,
+  versionId: string
+): Promise<VersionPreviewData> => {
+  const response = await send(`${versionsUrl(designId)}/${versionId}`);
+  return response.json();
+};
+
+export const deleteVersion = async (
+  designId: string,
+  versionId: string
+): Promise<void> => {
+  await send(`${versionsUrl(designId)}/${versionId}`, { method: "DELETE" });
 };

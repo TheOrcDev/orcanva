@@ -313,4 +313,43 @@ describe("editor store", () => {
     const { brandKit: _none, ...withoutKit } = init;
     expect(createEditorStore(withoutKit).getState().brandKit).toBeNull();
   });
+  it("previews a version read-only: crops and typing end, undo waits", () => {
+    const { rect, store } = setup();
+    const x = () => selectDocument(store.getState()).elements[0]?.x;
+    store.getState().change((doc) => updateElement(doc, rect.id, { x: 5 }));
+    store.getState().setHistoryOpen(true);
+    store.getState().startCrop(rect.id);
+    store.getState().change((doc) => updateElement(doc, rect.id, { x: 9 }));
+
+    store.getState().previewVersion("v1");
+    // The crop was kept and closed, the sheet makes way for the preview
+    expect(store.getState().cropTargetId).toBeNull();
+    expect(store.getState().held.size).toBe(0);
+    expect(store.getState().historyOpen).toBe(false);
+    expect(store.getState().previewVersionId).toBe("v1");
+    expect(x()).toBe(9);
+
+    // Undo and redo wait while the workspace is hidden
+    store.getState().undo();
+    expect(x()).toBe(9);
+    store.getState().redo();
+    expect(x()).toBe(9);
+
+    store.getState().previewVersion(null);
+    expect(store.getState().previewVersionId).toBeNull();
+    store.getState().undo();
+    expect(x()).toBe(5);
+  });
+
+  it("ends typing and leaves a page crop as it was when a preview opens", () => {
+    const { rect, store } = setup();
+    store.getState().startPageCrop();
+    store.getState().setPageCrop({ height: 10, width: 10, x: 0, y: 0 });
+    store.getState().setEditingText(rect.id);
+
+    store.getState().previewVersion("v1");
+    expect(store.getState().editingTextId).toBeNull();
+    expect(store.getState().pageCrop).toBeNull();
+    expect(selectDocument(store.getState())).toMatchObject(PAGE);
+  });
 });

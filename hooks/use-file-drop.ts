@@ -57,6 +57,10 @@ export const useFileDrop = () => {
         return;
       }
       event.preventDefault();
+      // Not onto a version preview, which can't change
+      if (store.getState().previewVersionId) {
+        return;
+      }
       upload([...(event.dataTransfer?.files ?? [])]).catch(() => null);
     };
 

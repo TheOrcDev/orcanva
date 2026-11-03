@@ -123,8 +123,13 @@ export const EditorToolbar = ({
 }) => {
   const router = useRouter();
   const store = useEditorStoreApi();
-  const undoable = useEditor((state) => canUndo(state.history));
-  const redoable = useEditor((state) => canRedo(state.history));
+  // Undo waits while a version preview hides the canvas
+  const undoable = useEditor(
+    (state) => canUndo(state.history) && state.previewVersionId === null
+  );
+  const redoable = useEditor(
+    (state) => canRedo(state.history) && state.previewVersionId === null
+  );
   const [isLeaving, startLeaving] = useTransition();
 
   const leave = () => {

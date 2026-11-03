@@ -169,6 +169,9 @@ export interface EditorState {
   backgroundJobs: string[];
   // The version history sheet is open
   historyOpen: boolean;
+  // The version shown read-only in place of the workspace; editing goes on
+  // underneath, but this window's keys and undo wait until it closes
+  previewVersionId: string | null;
 }
 
 export interface EditorActions {
@@ -241,6 +244,9 @@ export interface EditorActions {
   // The brand kit as it should show; ignored for guests
   setBrandKit: (kit: BrandKit) => void;
   setHistoryOpen: (open: boolean) => void;
+  // Shows a version read-only (finishing a crop or text edit first), or
+  // goes back to editing with null
+  previewVersion: (id: string | null) => void;
 }
 
 export type EditorStore = EditorState & EditorActions;
@@ -522,11 +528,28 @@ export const createEditorStore = (init: EditorInit) => {
     pending: EMPTY_PENDING,
     pointer: null,
     presenceRows: [],
+    previewVersion: (id) => {
+      if (id !== null) {
+        get().finishCrop(true);
+        get().finishPageCrop(false);
+      }
+      set(
+        id === null
+          ? { previewVersionId: null }
+          : {
+              editingTextId: null,
+              historyOpen: false,
+              previewVersionId: id,
+              textSelection: null,
+            }
+      );
+    },
+    previewVersionId: null,
     profile: initialProfile(init.viewer),
     reconnectLive: null,
     redo: () =>
       set((state) => {
-        if (state.outdated) {
+        if (state.outdated || state.previewVersionId) {
           return state;
         }
         const { history, step } = redo(state.history);
@@ -716,7 +739,7 @@ export const createEditorStore = (init: EditorInit) => {
     textSelection: null,
     undo: () =>
       set((state) => {
-        if (state.outdated) {
+        if (state.outdated || state.previewVersionId) {
           return state;
         }
         const { history, step } = undo(state.history);

@@ -12,6 +12,7 @@ import {
   useEditor,
 } from "@/components/editor/editor-store-context";
 import { ExportPopover } from "@/components/editor/export-popover";
+import { VersionPreview } from "@/components/editor/history/version-preview";
 import { OutdatedDialog } from "@/components/editor/outdated-dialog";
 import { PropertiesPanel } from "@/components/editor/panels/properties-panel";
 import { EditorToolbar } from "@/components/editor/toolbar";
@@ -39,6 +40,7 @@ const EditorShell = ({
 }) => {
   const accessLost = useEditor((state) => state.accessLost);
   const outdated = useEditor((state) => state.outdated);
+  const previewing = useEditor((state) => state.previewVersionId !== null);
   const { flush: flushSave, setAwaitSync } = useOutbox(live !== null);
   // Nothing to stream or show others once the design is gone for us
   const connected = live !== null && !accessLost;
@@ -74,10 +76,15 @@ const EditorShell = ({
             </>
           }
         />
-        <div className="flex min-h-0 flex-1">
-          <EditorSidebar />
-          <WorkspaceStage />
-          <PropertiesPanel />
+        <div className="relative flex min-h-0 flex-1">
+          {/* Stays mounted under a version preview, so live edits, the
+              gallery preview and downloads keep working */}
+          <div className="flex min-h-0 flex-1" inert={previewing}>
+            <EditorSidebar />
+            <WorkspaceStage />
+            <PropertiesPanel />
+          </div>
+          <VersionPreview />
         </div>
       </YouTubePreviewProvider>
     </div>
