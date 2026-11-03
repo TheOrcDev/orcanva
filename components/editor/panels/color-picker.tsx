@@ -1,5 +1,6 @@
 "use client";
 
+import { RiSipLine } from "@remixicon/react";
 import { useState } from "react";
 import { HexAlphaColorPicker } from "react-colorful";
 
@@ -8,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   InputGroup,
   InputGroupAddon,
+  InputGroupButton,
   InputGroupInput,
   InputGroupText,
 } from "@/components/ui/input-group";
@@ -16,6 +18,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { toast } from "@/components/ui/toast";
+import { eyeDropperSupported, pickScreenColor } from "@/lib/editor/eye-dropper";
 
 const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/iu;
 
@@ -33,6 +37,46 @@ export const SWATCHES = [
   "#ff2d55",
   "#8e8e93",
 ];
+
+// Picks a colour off the screen; only where the browser has an eyedropper
+const EyeDropperButton = ({
+  label,
+  value,
+  onPick,
+}: {
+  label: string;
+  value: string;
+  onPick: (color: string) => void;
+}) => {
+  // Popover content only renders in the browser, once opened
+  if (!eyeDropperSupported()) {
+    return null;
+  }
+
+  const handleClick = async () => {
+    try {
+      const picked = await pickScreenColor(value);
+      if (picked) {
+        onPick(picked);
+      }
+    } catch {
+      toast.add({ title: "Couldn't pick a color", type: "error" });
+    }
+  };
+
+  return (
+    <InputGroupAddon align="inline-end">
+      <InputGroupButton
+        size="icon-xs"
+        aria-label={`Pick ${label.toLowerCase()} from the screen`}
+        title="Pick from the screen"
+        onClick={handleClick}
+      >
+        <RiSipLine />
+      </InputGroupButton>
+    </InputGroupAddon>
+  );
+};
 
 export interface ColorPickerProps {
   label: string;
@@ -95,6 +139,14 @@ export const ColorPicker = ({ label, value, onChange }: ColorPickerProps) => {
             value={draft ?? value}
             spellCheck={false}
             onChange={(event) => handleHexChange(event.target.value)}
+          />
+          <EyeDropperButton
+            label={label}
+            value={value}
+            onPick={(color) => {
+              setDraft(null);
+              onChange(color);
+            }}
           />
         </InputGroup>
         <div className="grid grid-cols-6 gap-2">

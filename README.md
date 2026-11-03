@@ -11,6 +11,7 @@ A free and open-source, Canva-style editor for YouTube thumbnails and social ima
 - Instagram-style **filters** for images: 11 one-tap looks previewed on your own photo, with an intensity slider, plus brightness, contrast, highlights, shadows, saturation, warmth, tint, fade, vignette, sharpen, grain, and blur
 - Text with 40 curated Google Fonts, inline editing (select words to change just their font, size, colour, weight, italic, underline or strikethrough), solid or gradient fills, underline and strikethrough, curved text, Canva-style effects (Hollow, Splice, Echo, Glitch, Neon, Lift), outline, drop shadow, and highlight
 - Shapes, lines, arrows, solid or gradient backgrounds, and a drag-to-reorder layers panel
+- A colour picker with an **eyedropper** that picks any colour off the screen (Chrome, Edge and Opera on the desktop), keeping the colour's transparency
 - **Select several** elements with Shift-click, ⌘A, or a box dragged across empty canvas, then move, scale (from the corners) or rotate them together; align them to each other or to the page, space them evenly, and bring them forward or back as a block
 - **Groups** (⌘G): a group selects, moves, scales, aligns and duplicates as one; click a grouped element again to change just that one
 - **Smart guides**: dragged elements snap their edges and centres to the page and to each other, and to equal spacing with their neighbours; resize handles and line ends snap too
