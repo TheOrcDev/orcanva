@@ -7,6 +7,8 @@ interface Orc {
   // The painted eyes, outer corner first like the logo's
   eyes: readonly [string, string];
   glow: number;
+  // How much the eyes grow on hover: the moon's are half the sun's size
+  grow: string;
   id: string;
   viewBox: string;
 }
@@ -20,7 +22,8 @@ const SUN: Orc = {
     "M789.8 548.6l13.6 3.3c-.2 2.7-2.4 5-5.8 5-4.2 0-8-2.7-7.8-8.3z",
     "M826.8 548.6l-13.6 3.3c.2 2.7 2.4 5 5.8 5 4.2 0 8-2.7 7.8-8.3z",
   ],
-  glow: 2.5,
+  glow: 2,
+  grow: "group-hover:scale-110",
   id: "hero-sun-eyes",
   viewBox: "0 0 1586 992",
 };
@@ -33,6 +36,7 @@ const MOON: Orc = {
     "M1385.4 166.8l-7.6 1.8c.1 1.7 1.4 3.2 3.4 3.2 2.4 0 4.4-1.8 4.2-5z",
   ],
   glow: 1.8,
+  grow: "group-hover:scale-130",
   id: "hero-moon-eyes",
   viewBox: "0 0 1776 1104",
 };
@@ -80,7 +84,10 @@ const OrcEyes = ({ orc }: { orc: Orc }) => {
             <path
               key={d}
               d={d}
-              className="origin-center transition-transform duration-300 transform-fill group-hover:scale-130 motion-reduce:transition-none"
+              className={cn(
+                "origin-center transition-transform duration-300 transform-fill motion-reduce:transition-none",
+                orc.grow
+              )}
             />
           ))}
         </g>
