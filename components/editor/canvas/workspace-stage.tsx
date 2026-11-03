@@ -1,8 +1,18 @@
 "use client";
 
 import type Konva from "konva";
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { DragEvent, PointerEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+} from "react";
+import type {
+  DragEvent,
+  MouseEvent as ReactMouseEvent,
+  PointerEvent,
+} from "react";
 import { Group, Layer, Rect, Stage } from "react-konva";
 
 import { usePageNodeRef } from "@/components/editor/canvas-context";
@@ -21,6 +31,7 @@ import { SnapGuides } from "@/components/editor/canvas/snap-guides";
 import { TextEditOverlay } from "@/components/editor/canvas/text-edit-overlay";
 import { TEXT_BODY_NAME } from "@/components/editor/canvas/text-node";
 import { RemoteCursors } from "@/components/editor/collab/remote-cursors";
+import { CommentPins } from "@/components/editor/comments/comment-pins";
 import { CropToolbar } from "@/components/editor/crop-toolbar";
 import {
   useEditor,
@@ -35,12 +46,14 @@ import { Spinner } from "@/components/ui/spinner";
 import { useElementDrag } from "@/hooks/use-element-drag";
 import { useSelectionBox } from "@/hooks/use-selection-box";
 import { useUpload } from "@/hooks/use-upload";
+import { anchorFor } from "@/lib/comments/anchor";
 import { refitFrameCrop } from "@/lib/document/crop";
 import {
   createGraphicElement,
   createImageElement,
 } from "@/lib/document/factories";
 import { fitZoom } from "@/lib/document/geometry";
+import type { Point } from "@/lib/document/geometry";
 import type { DesignElement } from "@/lib/document/schema";
 import {
   bakeBoxTransform,
@@ -194,6 +207,7 @@ export const WorkspaceStage = () => {
   const dropTargetId = useEditor((state) => state.dropTargetId);
   const pageCrop = useEditor((state) => state.pageCrop);
   const pageCropRatio = useEditor((state) => state.pageCropRatio);
+  const commentMode = useEditor((state) => state.commentMode);
 
   const { height: pageHeight, width: pageWidth } = document;
 
@@ -375,9 +389,10 @@ export const WorkspaceStage = () => {
     }
   };
 
-  const handleWheel = (event: Konva.KonvaEventObject<WheelEvent>) => {
-    event.evt.preventDefault();
-    const { ctrlKey, deltaX, deltaY, metaKey } = event.evt;
+  // Scrolling pans; pinch or ⌘-scroll zooms around the pointer (in stage
+  // pixels)
+  const wheelAt = (event: WheelEvent, pointer: Point | null) => {
+    const { ctrlKey, deltaX, deltaY, metaKey } = event;
 
     if (!(ctrlKey || metaKey)) {
       setPan({ x: effectivePan.x - deltaX, y: effectivePan.y - deltaY });
@@ -387,8 +402,6 @@ export const WorkspaceStage = () => {
       return;
     }
 
-    // Pinch or Cmd+scroll: zoom around the pointer
-    const pointer = event.target.getStage()?.getPointerPosition();
     if (!pointer) {
       return;
     }
@@ -409,6 +422,11 @@ export const WorkspaceStage = () => {
       y: pointer.y - pagePoint.y * nextZoom - centered.y,
     });
     store.getState().setZoom(nextZoom);
+  };
+
+  const handleWheel = (event: Konva.KonvaEventObject<WheelEvent>) => {
+    event.evt.preventDefault();
+    wheelAt(event.evt, event.target.getStage()?.getPointerPosition() ?? null);
   };
 
   // Elements someone else is dragging right now (not ones this window holds)
@@ -438,14 +456,17 @@ export const WorkspaceStage = () => {
   };
   const clearPointer = () => store.getState().setPointer(null);
 
-  // The unlocked frame under a point in the window, if any: photos dropped
-  // there fill it
-  const frameAt = (clientX: number, clientY: number): string | null => {
+  // The element drawn under a point in the window, if any (hidden ones
+  // aren't drawn)
+  const elementAt = (
+    clientX: number,
+    clientY: number
+  ): DesignElement | undefined => {
     const page = pageNodeRef.current;
     const layer = page?.getLayer();
     const stage = page?.getStage();
     if (!(layer && stage)) {
-      return null;
+      return undefined;
     }
     const bounds = stage.container().getBoundingClientRect();
     const shape = layer.getIntersection({
@@ -453,11 +474,66 @@ export const WorkspaceStage = () => {
       y: clientY - bounds.top,
     });
     const node = shape?.findAncestor(`.${ELEMENT_NODE_NAME}`);
-    const element = node
+    return node
       ? findElement(selectDocument(store.getState()), node.id())
       : undefined;
+  };
+
+  // The unlocked frame under a point in the window, if any: photos dropped
+  // there fill it
+  const frameAt = (clientX: number, clientY: number): string | null => {
+    const element = elementAt(clientX, clientY);
     return element?.type === "frame" && !element.locked ? element.id : null;
   };
+
+  // Comment mode: a click on the page starts a new thread pinned there, on
+  // the element under it if there's one (so the pin follows it). The layer
+  // takes the click, so nothing on the canvas reacts to it.
+  const placeComment = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const point = {
+      x: (event.clientX - bounds.left - origin.x) / zoom,
+      y: (event.clientY - bounds.top - origin.y) / zoom,
+    };
+    const onPage =
+      point.x >= 0 &&
+      point.y >= 0 &&
+      point.x <= pageWidth &&
+      point.y <= pageHeight;
+    if (!onPage) {
+      store.getState().placeDraft(null);
+      return;
+    }
+    const element = elementAt(event.clientX, event.clientY);
+    store.getState().placeDraft({
+      anchor: element ? anchorFor(element, point) : null,
+      pageId: null,
+      x: point.x,
+      y: point.y,
+    });
+  };
+
+  // The comment layer covers the stage, so it passes scrolling and pinching
+  // on (not passive, to keep the browser from zooming the page)
+  const captureRef = useRef<HTMLDivElement>(null);
+  const wheelOverCapture = useEffectEvent((event: WheelEvent) => {
+    const bounds = captureRef.current?.getBoundingClientRect();
+    event.preventDefault();
+    wheelAt(
+      event,
+      bounds
+        ? { x: event.clientX - bounds.left, y: event.clientY - bounds.top }
+        : null
+    );
+  });
+  useEffect(() => {
+    const layer = captureRef.current;
+    if (!(commentMode && layer)) {
+      return;
+    }
+    layer.addEventListener("wheel", wheelOverCapture, { passive: false });
+    return () => layer.removeEventListener("wheel", wheelOverCapture);
+  }, [commentMode]);
 
   // Files from the desktop upload; library assets and graphics place
   // directly. All land where the pointer is, converted from screen to page
@@ -526,6 +602,16 @@ export const WorkspaceStage = () => {
       <WorkspaceOverlays />
       {cropping ? <CropToolbar element={cropping} /> : null}
       {pageCrop ? <PageCropToolbar box={pageCrop} /> : null}
+      {commentMode && !pageCrop ? (
+        // A mouse affordance; the Comments tab can start a thread too
+        <div
+          ref={captureRef}
+          aria-hidden
+          className="absolute inset-0 z-4 cursor-crosshair"
+          onClick={placeComment}
+        />
+      ) : null}
+      <CommentPins origin={origin} zoom={zoom} />
       <RemoteCursors origin={origin} zoom={zoom} />
       <BadgeGuide origin={origin} zoom={zoom} />
       <CornerPreview />

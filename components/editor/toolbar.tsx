@@ -4,6 +4,7 @@ import {
   RiArrowGoBackLine,
   RiArrowGoForwardLine,
   RiArrowLeftLine,
+  RiChat3Line,
   RiZoomInLine,
   RiZoomOutLine,
 } from "@remixicon/react";
@@ -33,6 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
+import { Toggle } from "@/components/ui/toggle";
 import {
   Tooltip,
   TooltipContent,
@@ -114,6 +116,31 @@ const ZoomControls = () => {
   );
 };
 
+// Comment mode (C): clicks on the page place a comment's pin
+const CommentModeToggle = () => {
+  const store = useEditorStoreApi();
+  const commentMode = useEditor((state) => state.commentMode);
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Toggle
+            aria-label="Comment (C)"
+            pressed={commentMode}
+            onPressedChange={(pressed) =>
+              store.getState().setCommentMode(pressed)
+            }
+          />
+        }
+      >
+        <RiChat3Line />
+      </TooltipTrigger>
+      <TooltipContent>Comment (C)</TooltipContent>
+    </Tooltip>
+  );
+};
+
 export const EditorToolbar = ({
   flush,
   actions,
@@ -172,6 +199,7 @@ export const EditorToolbar = ({
         onClick={() => store.getState().redo()}
       />
       <HistorySheet />
+      <CommentModeToggle />
       <div className="flex-1" />
       <PresenceAvatars />
       <LiveStatus />

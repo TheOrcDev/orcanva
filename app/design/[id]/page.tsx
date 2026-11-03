@@ -7,10 +7,12 @@ import { roleFor } from "@/lib/auth/access";
 import { getViewer } from "@/lib/auth/server";
 import { listDesignAssets, listLibrary } from "@/lib/db/queries/assets";
 import { getBrandKit } from "@/lib/db/queries/brand-kit";
+import { listDesignComments } from "@/lib/db/queries/comments";
 import {
   getDesign,
   getDesignContent,
   getDesignRole,
+  isDesignId,
   isDesignSharedWith,
 } from "@/lib/db/queries/designs";
 import { getLiveConfig } from "@/lib/realtime/server";
@@ -20,16 +22,25 @@ const loadDesign = async (id: string) => {
   // Everything loads alongside the access check (sealing is local crypto),
   // but only leaves the server once the check has passed
   const viewerLoad = getViewer();
-  const [viewer, content, live, designAssets, library, isShared, brandKit] =
-    await Promise.all([
-      viewerLoad,
-      getDesignContent(id),
-      getLiveConfig(id),
-      listDesignAssets(id),
-      viewerLoad.then((found) => (found ? listLibrary(found.id) : [])),
-      viewerLoad.then((found) => isDesignSharedWith(id, found?.id ?? null)),
-      viewerLoad.then((found) => (found ? getBrandKit(found.id) : null)),
-    ]);
+  const [
+    viewer,
+    content,
+    live,
+    designAssets,
+    library,
+    isShared,
+    brandKit,
+    comments,
+  ] = await Promise.all([
+    viewerLoad,
+    getDesignContent(id),
+    getLiveConfig(id),
+    listDesignAssets(id),
+    viewerLoad.then((found) => (found ? listLibrary(found.id) : [])),
+    viewerLoad.then((found) => isDesignSharedWith(id, found?.id ?? null)),
+    viewerLoad.then((found) => (found ? getBrandKit(found.id) : null)),
+    isDesignId(id) ? listDesignComments(id) : [],
+  ]);
   const role = content
     ? roleFor(content.row, viewer?.id ?? null, isShared)
     : null;
@@ -44,6 +55,7 @@ const loadDesign = async (id: string) => {
       ...designAssets.filter((asset) => !libraryIds.has(asset.id)),
     ],
     brandKit,
+    comments,
     designId: content.row.id,
     document: content.document,
     hasThumbnail: content.row.thumbnailKey !== null,

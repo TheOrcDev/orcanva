@@ -44,6 +44,7 @@ import type {
   PendingWrites,
   SyncedState,
 } from "@/lib/collab/sync-state";
+import type { CommentPin, DesignComment } from "@/lib/comments/schema";
 import { createId } from "@/lib/document/factories";
 import type { Rect } from "@/lib/document/geometry";
 import type { DesignDocument } from "@/lib/document/schema";
@@ -186,6 +187,15 @@ export interface EditorState {
   // The version shown read-only in place of the workspace; editing goes on
   // underneath, but this window's keys and undo wait until it closes
   previewVersionId: string | null;
+  // Comments on the design, threads and replies (see lib/comments). Kept
+  // outside the document: they're never part of undo or a version.
+  comments: readonly DesignComment[];
+  // Clicks on the page place a comment's pin instead of selecting
+  commentMode: boolean;
+  // The thread whose popover is open
+  openThreadId: string | null;
+  // A new thread being written, and where its pin goes
+  draftPin: CommentPin | null;
 }
 
 export interface EditorActions {
@@ -267,6 +277,18 @@ export interface EditorActions {
   // Shows a version read-only (finishing a crop or text edit first), or
   // goes back to editing with null
   previewVersion: (id: string | null) => void;
+  // Comment mode on (finishing crops and typing, and clearing the
+  // selection) or off (dropping a thread being written)
+  setCommentMode: (on: boolean) => void;
+  openThread: (id: string | null) => void;
+  // Starts writing a new thread pinned there, or stops with null
+  placeDraft: (pin: CommentPin | null) => void;
+  // Esc: drops a thread being written, else closes the open thread, else
+  // leaves comment mode. False when there was nothing to leave.
+  leaveComments: () => boolean;
+  // A comment this window posted or changed, shown before the live query
+  // brings it
+  upsertComment: (comment: DesignComment) => void;
 }
 
 export type EditorStore = EditorState & EditorActions;
@@ -289,6 +311,8 @@ export interface EditorInit {
   brandKit?: BrandKit | null;
   // designs.restore_seq when the page was loaded
   restoreSeq?: number;
+  // The design's comments when the page was loaded
+  comments?: DesignComment[];
 }
 
 export const MIN_ZOOM = 0.05;
@@ -504,9 +528,12 @@ export const createEditorStore = (init: EditorInit) => {
         state.selectedIds.length === 0 ? state : { selectedIds: [] }
       ),
     clientId: createId(),
+    commentMode: false,
+    comments: init.comments ?? [],
     cropTargetId: null,
     designId: init.designId,
     doc,
+    draftPin: null,
     dragPreview: null,
     dropTargetId: null,
     dropWrites: (batch) =>
@@ -553,6 +580,22 @@ export const createEditorStore = (init: EditorInit) => {
     historyOpen: false,
     hold: (ids) => set((state) => ({ held: new Set([...state.held, ...ids]) })),
     lastRestore: null,
+    leaveComments: () => {
+      const state = get();
+      if (state.draftPin) {
+        set({ draftPin: null });
+        return true;
+      }
+      if (state.openThreadId) {
+        set({ openThreadId: null });
+        return true;
+      }
+      if (state.commentMode) {
+        set({ commentMode: false });
+        return true;
+      }
+      return false;
+    },
     libraryIds: init.libraryIds,
     liveStatus: init.live ? "connecting" : "off",
     loseAccess: () =>
@@ -568,11 +611,19 @@ export const createEditorStore = (init: EditorInit) => {
       set((state) => (state.outdated ? state : { outdated: true })),
     missingAssetIds: [],
     name: init.name,
+    openThread: (id) =>
+      set((state) =>
+        state.openThreadId === id && state.draftPin === null
+          ? state
+          : { draftPin: null, openThreadId: id }
+      ),
+    openThreadId: null,
     outdated: false,
     pageCrop: null,
     pageCropRatio: "free",
     peers: [],
     pending: EMPTY_PENDING,
+    placeDraft: (pin) => set({ draftPin: pin, openThreadId: null }),
     pointer: null,
     presenceRows: [],
     previewVersion: (id) => {
@@ -682,6 +733,15 @@ export const createEditorStore = (init: EditorInit) => {
           brandKit: kit,
         };
       }),
+    setCommentMode: (on) => {
+      if (on) {
+        get().finishCrop(true);
+        get().finishPageCrop(true);
+        set({ commentMode: true, editingTextId: null, selectedIds: [] });
+      } else {
+        set({ commentMode: false, draftPin: null });
+      }
+    },
     setDragPreview: (preview) => set({ dragPreview: preview }),
     setDropTarget: (id) =>
       set((state) =>
@@ -805,6 +865,18 @@ export const createEditorStore = (init: EditorInit) => {
         };
       }),
     uploadsInFlight: 0,
+    upsertComment: (comment) =>
+      set((state) => {
+        const index = state.comments.findIndex(
+          (item) => item.id === comment.id
+        );
+        return {
+          comments:
+            index === -1
+              ? [...state.comments, comment]
+              : state.comments.with(index, comment),
+        };
+      }),
     viewer: init.viewer,
     visibility: init.visibility,
     zoom: 1,

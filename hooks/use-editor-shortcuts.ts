@@ -167,7 +167,15 @@ const handlePlainShortcut = (
   const state = store.getState();
 
   if (event.key === "Escape") {
-    state.clearSelection();
+    // A comment being written or open first, then comment mode, then the
+    // selection
+    if (!state.leaveComments()) {
+      state.clearSelection();
+    }
+    return true;
+  }
+  if (event.key === "c" && !event.shiftKey) {
+    state.setCommentMode(!state.commentMode);
     return true;
   }
   if (event.key === "Enter") {

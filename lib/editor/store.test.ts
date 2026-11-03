@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { DesignComment } from "@/lib/comments/schema";
 import { createBoxElement, createDocument } from "@/lib/document/factories";
 import {
   insertElement,
@@ -432,5 +433,113 @@ describe("editor store", () => {
       seq: 5,
     });
     expect(store.getState().restoring).toBe(false);
+  });
+});
+
+const comment = (
+  id: string,
+  patch: Partial<DesignComment> = {}
+): DesignComment => ({
+  anchorHeight: null,
+  anchorWidth: null,
+  anchorX: null,
+  anchorY: null,
+  authorId: "u",
+  authorImage: null,
+  authorName: "Jay",
+  body: "Hi",
+  createdAt: "2026-11-03T10:00:00.000Z",
+  editedAt: null,
+  elementId: null,
+  id,
+  mentions: {},
+  pageId: null,
+  resolvedAt: null,
+  threadId: null,
+  x: 1,
+  y: 2,
+  ...patch,
+});
+
+const PIN = { anchor: null, pageId: null, x: 10, y: 20 };
+
+describe("comments in the editor store", () => {
+  it("starts with the comments the page loaded", () => {
+    const store = createEditorStore({
+      assets: [],
+      comments: [comment("a")],
+      designId: "d",
+      document: createDocument(PAGE),
+      hasThumbnail: false,
+      libraryIds: [],
+      name: "Test",
+      role: "owner",
+      viewer: null,
+      visibility: "public",
+    });
+    expect(store.getState().comments.map((item) => item.id)).toEqual(["a"]);
+  });
+
+  it("clears the selection and ends crops and typing in comment mode", () => {
+    const { rect, store } = setup();
+    store.getState().select([rect.id]);
+    store.getState().setEditingText(rect.id);
+    store.getState().startCrop(rect.id);
+
+    store.getState().setCommentMode(true);
+    expect(store.getState()).toMatchObject({
+      commentMode: true,
+      cropTargetId: null,
+      editingTextId: null,
+      selectedIds: [],
+    });
+
+    store.getState().placeDraft(PIN);
+    store.getState().setCommentMode(false);
+    expect(store.getState().commentMode).toBe(false);
+    expect(store.getState().draftPin).toBeNull();
+  });
+
+  it("leaves a draft, then an open thread, then comment mode, then nothing", () => {
+    const { store } = setup();
+    store.getState().setCommentMode(true);
+    store.getState().openThread("a");
+    store.getState().placeDraft(PIN);
+    // Placing a draft closes the open thread
+    expect(store.getState().openThreadId).toBeNull();
+    store.getState().openThread("a");
+    store.getState().placeDraft(PIN);
+
+    expect(store.getState().leaveComments()).toBe(true);
+    expect(store.getState().draftPin).toBeNull();
+    expect(store.getState().commentMode).toBe(true);
+
+    store.getState().openThread("a");
+    expect(store.getState().leaveComments()).toBe(true);
+    expect(store.getState().openThreadId).toBeNull();
+    expect(store.getState().commentMode).toBe(true);
+
+    expect(store.getState().leaveComments()).toBe(true);
+    expect(store.getState().commentMode).toBe(false);
+
+    expect(store.getState().leaveComments()).toBe(false);
+  });
+
+  it("shows a posted comment at once, and replaces it when it changes", () => {
+    const { store } = setup();
+    const { history } = store.getState();
+    store.getState().upsertComment(comment("a"));
+    store.getState().upsertComment(comment("b", { threadId: "a" }));
+    const before = store.getState().comments;
+    store.getState().upsertComment(comment("a", { body: "Edited" }));
+    const after = store.getState().comments;
+    expect(after.map((item) => [item.id, item.body])).toEqual([
+      ["a", "Edited"],
+      ["b", "Hi"],
+    ]);
+    // Untouched comments keep their identity
+    expect(after[1]).toBe(before[1]);
+    // Nothing about comments is undoable
+    expect(store.getState().history).toBe(history);
   });
 });

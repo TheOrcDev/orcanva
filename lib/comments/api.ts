@@ -1,0 +1,65 @@
+import type { DesignComment, NewComment } from "@/lib/comments/schema";
+
+// The editor's calls to the comment routes (app/api/designs/[id]/comments)
+
+export class CommentRequestError extends Error {
+  // The server's answer; null when it couldn't be reached
+  readonly status: number | null;
+
+  constructor(message: string, status: number | null) {
+    super(message);
+    this.name = "CommentRequestError";
+    this.status = status;
+  }
+}
+
+const errorMessage = async (response: Response): Promise<string> => {
+  try {
+    const body: unknown = await response.json();
+    if (
+      typeof body === "object" &&
+      body !== null &&
+      "error" in body &&
+      typeof body.error === "string"
+    ) {
+      return body.error;
+    }
+  } catch {
+    // Not JSON: fall through to the status
+  }
+  return `Request failed with ${response.status}`;
+};
+
+const send = async (url: string, init?: RequestInit): Promise<Response> => {
+  let response: Response;
+  try {
+    response = await fetch(url, init);
+  } catch {
+    throw new CommentRequestError("Couldn't reach the server", null);
+  }
+  if (!response.ok) {
+    throw new CommentRequestError(
+      await errorMessage(response),
+      response.status
+    );
+  }
+  return response;
+};
+
+const commentsUrl = (designId: string) => `/api/designs/${designId}/comments`;
+
+const jsonBody = (body: unknown, method: string): RequestInit => ({
+  body: JSON.stringify(body),
+  headers: { "Content-Type": "application/json" },
+  method,
+});
+
+// A new thread or a reply; resolves with the stored comment
+export const postComment = async (
+  designId: string,
+  comment: NewComment
+): Promise<DesignComment> => {
+  const response = await send(commentsUrl(designId), jsonBody(comment, "POST"));
+  const { comment: stored }: { comment: DesignComment } = await response.json();
+  return stored;
+};
