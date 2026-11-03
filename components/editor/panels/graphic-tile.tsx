@@ -6,6 +6,13 @@ import { createGraphicElement } from "@/lib/document/factories";
 import { GRAPHIC_DRAG_TYPE } from "@/lib/editor/drag-data";
 import type { GraphicEntry } from "@/lib/graphics/entry";
 
+// Emoji and icons often share a name ("Rocket"), so tiles say which
+const KIND_NOUNS: Record<GraphicEntry["kind"], string> = {
+  emoji: "emoji",
+  icon: "icon",
+  sticker: "sticker",
+};
+
 // A graphic to click onto the middle of the page, or drag to where it goes
 export const GraphicTile = ({ graphic }: { graphic: GraphicEntry }) => {
   const insert = useInsertElement();
@@ -15,7 +22,7 @@ export const GraphicTile = ({ graphic }: { graphic: GraphicEntry }) => {
       type="button"
       draggable
       className="bg-muted hover:ring-ring focus-visible:ring-ring block aspect-square w-full rounded-xl p-2 transition-shadow outline-none hover:ring-2 focus-visible:ring-2"
-      aria-label={`Add ${graphic.name}`}
+      aria-label={`Add ${graphic.name} ${KIND_NOUNS[graphic.kind]}`}
       title={graphic.name}
       onClick={() => insert((page) => createGraphicElement(graphic, page))}
       onDragStart={(event) => {

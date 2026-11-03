@@ -299,6 +299,8 @@ export const GraphicsPanel = () => {
         <ToggleGroup
           variant="outline"
           size="sm"
+          spacing={0}
+          className="w-full"
           aria-label="Kind of graphic"
           value={[filter]}
           onValueChange={(value) => {
@@ -311,7 +313,11 @@ export const GraphicsPanel = () => {
           }}
         >
           {FILTERS.map((option) => (
-            <ToggleGroupItem key={option.value} value={option.value}>
+            <ToggleGroupItem
+              key={option.value}
+              value={option.value}
+              className="flex-1"
+            >
               {option.label}
             </ToggleGroupItem>
           ))}
