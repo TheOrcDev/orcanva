@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import type { AiProgress } from "@/lib/ai/client";
-import type { ImageElement } from "@/lib/document/schema";
+import type { PhotoElement } from "@/lib/document/schema";
 import { stopIfOutdated } from "@/lib/editor/outdated";
 import { upscaleImage } from "@/lib/editor/upscale";
 import { factorLabel, looksSoft, upscaleOptions } from "@/lib/upscale/options";
@@ -20,10 +20,16 @@ const sizeLabel = ({ height, width }: UpscaleOption) => `${width} × ${height}`;
 
 // 2× and 4× (capped at 4096px), each labelled with the size it makes, and a
 // hint when the photo has fewer pixels than its size on the page needs
-export const UpscaleButtons = ({ element }: { element: ImageElement }) => {
+export const UpscaleButtons = ({
+  assetId,
+  element,
+}: {
+  assetId: string;
+  element: PhotoElement;
+}) => {
   const store = useEditorStoreApi();
   const asset = useEditor((state) =>
-    state.assets.find((item) => item.id === element.assetId)
+    state.assets.find((item) => item.id === assetId)
   );
   const job = useEditor((state) => state.imageJobs[element.id] ?? null);
 

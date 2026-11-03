@@ -1,10 +1,11 @@
 "use client";
 
 import type Konva from "konva";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Group, Rect, Shape } from "react-konva";
 import { useStore } from "zustand";
 
+import { scaledPath } from "@/components/editor/canvas/frame-node";
 import { PhotoImage } from "@/components/editor/canvas/photo-node";
 import { useEditorStoreApi } from "@/components/editor/editor-store-context";
 import {
@@ -12,6 +13,7 @@ import {
   runEraseAction,
 } from "@/components/editor/erase-toolbar";
 import { isTypingTarget } from "@/hooks/use-editor-shortcuts";
+import { frameShape } from "@/lib/document/frame-shapes";
 import type { Point } from "@/lib/document/geometry";
 import type { PhotoElement } from "@/lib/document/schema";
 import { findElement } from "@/lib/editor/document-ops";
@@ -89,6 +91,13 @@ export const EraseOverlay = ({
   const [pointer, setPointer] = useState<Point | null>(null);
 
   const { flipX, flipY, height, width } = element;
+  // A frame shows its photo through its shape, and so does the eraser
+  const shapePath =
+    element.type === "frame" ? frameShape(element.shape).path : null;
+  const clip = useMemo(
+    () => (shapePath ? scaledPath(shapePath, width, height) : null),
+    [shapePath, width, height]
+  );
   const placement = placementOf(element, canvas);
   const transform = assetToLocal(placement);
   // Brush radius in photo pixels: screen → page (zoom) → photo
@@ -202,7 +211,13 @@ export const EraseOverlay = ({
         onPointerDown={startStroke}
         onPointerLeave={() => setPointer(null)}
       >
-        <Group clipX={0} clipY={0} clipWidth={width} clipHeight={height}>
+        <Group
+          clipX={0}
+          clipY={0}
+          clipWidth={width}
+          clipHeight={height}
+          clipFunc={clip ? () => [clip] : undefined}
+        >
           {canvas ? (
             <PhotoImage
               image={canvas}

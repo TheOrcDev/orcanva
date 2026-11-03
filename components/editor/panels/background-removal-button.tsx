@@ -9,23 +9,26 @@ import {
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
-import type { ImageElement } from "@/lib/document/schema";
+import type { PhotoElement } from "@/lib/document/schema";
 import { hasVariant } from "@/lib/editor/asset-variants";
 import { removeImageBackground } from "@/lib/editor/background-removal";
 import { stopIfOutdated } from "@/lib/editor/outdated";
 
 export const BackgroundRemovalButton = ({
+  assetId,
   element,
 }: {
-  element: ImageElement;
+  // The photo it shows (a frame's may be missing, so it's passed in)
+  assetId: string;
+  element: PhotoElement;
 }) => {
   const store = useEditorStoreApi();
   const asset = useEditor((state) =>
-    state.assets.find((item) => item.id === element.assetId)
+    state.assets.find((item) => item.id === assetId)
   );
   // A cutout, or something made from one, has no background left to remove
   const cutOut = useEditor((state) =>
-    hasVariant(state.assets, element.assetId, "no-background")
+    hasVariant(state.assets, assetId, "no-background")
   );
   // Any AI tool at work on this image keeps the others waiting
   const job = useEditor((state) => state.imageJobs[element.id] ?? null);

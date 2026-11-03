@@ -12,8 +12,13 @@ import type { FrameElement } from "@/lib/document/schema";
 // empty frame keeps its effects for the next photo but draws none.
 const EMPTY_FILL = "#d4d4d8";
 
-// The frame's shape at its size, for clipping its photo
-const scaledPath = (path: string, width: number, height: number): Path2D => {
+// The frame's shape at its size, for clipping its photo (the magic eraser
+// clips its work in progress the same way)
+export const scaledPath = (
+  path: string,
+  width: number,
+  height: number
+): Path2D => {
   const scaled = new Path2D();
   scaled.addPath(new Path2D(path), new DOMMatrix().scale(width, height));
   return scaled;

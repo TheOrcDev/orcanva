@@ -9,6 +9,7 @@ import {
 } from "@remixicon/react";
 
 import { useEditorStoreApi } from "@/components/editor/editor-store-context";
+import { AiImageTools } from "@/components/editor/panels/ai-image-tools";
 import { ImageAdjustments } from "@/components/editor/panels/image-adjustments";
 import { ImageFilters } from "@/components/editor/panels/image-filters";
 import { PanelSection } from "@/components/editor/panels/panel-section";
@@ -129,6 +130,7 @@ export const FrameProperties = ({ element }: { element: FrameElement }) => {
           <ImageFilters element={element} />
           <ImageAdjustments element={element} />
           <PhotoEffectsProperties element={element} />
+          <AiImageTools element={element} />
         </>
       ) : null}
     </>
