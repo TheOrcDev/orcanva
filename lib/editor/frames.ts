@@ -1,7 +1,11 @@
 import { coverCrop } from "@/lib/document/crop";
 import { createId } from "@/lib/document/factories";
 import type { Size } from "@/lib/document/geometry";
-import type { DesignDocument, ImageElement } from "@/lib/document/schema";
+import type {
+  DesignDocument,
+  ImageElement,
+  PhotoEffects,
+} from "@/lib/document/schema";
 import {
   findElement,
   insertElement,
@@ -30,8 +34,9 @@ export const fillFrame = (
 };
 
 // Takes the photo out of a frame: it becomes an image right above the
-// frame showing exactly what the frame showed (as a box), and the frame is
-// empty again. Returns the new image's id.
+// frame showing exactly what the frame showed (as a box), effects included,
+// and the frame is empty again. The frame keeps its effects for the next
+// photo (an empty frame draws none). Returns the new image's id.
 export const detachPhoto = (
   document: DesignDocument,
   frameId: string
@@ -47,13 +52,16 @@ export const detachPhoto = (
     filter: frame.filter,
     flipX: frame.flipX,
     flipY: frame.flipY,
+    glow: frame.glow,
     groupId: null,
     height: frame.height,
     id: createId(),
     locked: false,
     name: "Image",
     opacity: frame.opacity,
+    outline: frame.outline,
     rotation: frame.rotation,
+    shadow: frame.shadow,
     type: "image",
     visible: true,
     width: frame.width,
@@ -74,8 +82,12 @@ export const detachPhoto = (
   };
 };
 
+const hasEffects = ({ glow, outline, shadow }: PhotoEffects): boolean =>
+  glow !== null || outline !== null || shadow !== null;
+
 // Moves an image's photo into a frame (keeping its filter and flips) and
-// removes the image, as dropping one on a frame does. `photo` is the
+// removes the image, as dropping one on a frame does. A frame with effects
+// of its own keeps them; otherwise it takes the image's. `photo` is the
 // photo's own size.
 export const photoIntoFrame = (
   document: DesignDocument,
@@ -91,7 +103,13 @@ export const photoIntoFrame = (
   if (filled === document) {
     return document;
   }
+  const frame = findElement(document, frameId);
+  const effects =
+    frame?.type === "frame" && hasEffects(frame)
+      ? {}
+      : { glow: image.glow, outline: image.outline, shadow: image.shadow };
   const styled = updateElement(filled, frameId, {
+    ...effects,
     filter: image.filter,
     flipX: image.flipX,
     flipY: image.flipY,

@@ -3,11 +3,17 @@ import { describe, expect, it } from "vitest";
 import {
   createBoxElement,
   createDocument,
+  createFrameElement,
   createImageElement,
   createLinearElement,
   createTextElement,
 } from "@/lib/document/factories";
-import type { DesignDocument, TextElement } from "@/lib/document/schema";
+import type {
+  DesignDocument,
+  ImageElement,
+  PhotoEffects,
+  TextElement,
+} from "@/lib/document/schema";
 import {
   bakeBoxTransform,
   bakeLineTransform,
@@ -40,6 +46,18 @@ const withElements = (count: number): DesignDocument => {
 
 const names = (document: DesignDocument) =>
   document.elements.map((element) => element.name);
+
+const EFFECTS: PhotoEffects = {
+  glow: { color: "#ff2e93", size: 30 },
+  outline: { color: "#ffffff", width: 10 },
+  shadow: { blur: 20, color: "#00000080", offsetX: -4, offsetY: 8 },
+};
+
+const PHOTO_ASSET = {
+  height: 600,
+  id: "8a5b3f4e-1c2d-4e5f-8a9b-0c1d2e3f4a5b",
+  width: 800,
+};
 
 describe("document ops", () => {
   it("updates one element immutably and skips unknown ids", () => {
@@ -128,6 +146,27 @@ describe("document ops", () => {
     const original = document.elements[2] as TextElement;
     expect(text.fontSize).toBeCloseTo(original.fontSize * 1.5);
   });
+
+  it("scales photo effects evenly with the page's content", () => {
+    const document = createDocument(PAGE);
+    document.elements.push(
+      { ...createImageElement(PHOTO_ASSET, PAGE), ...EFFECTS },
+      { ...createFrameElement(PAGE), ...EFFECTS }
+    );
+    // 2× wide, 1.5× tall: effects follow the smaller, like font sizes
+    const scaled = resizeDocument(
+      document,
+      { height: 1080, width: 2560 },
+      true
+    );
+    for (const element of scaled.elements) {
+      expect(element).toMatchObject({
+        glow: { size: 45 },
+        outline: { color: "#ffffff", width: 15 },
+        shadow: { blur: 30, offsetX: -6, offsetY: 12 },
+      });
+    }
+  });
 });
 
 describe("transform baking", () => {
@@ -153,6 +192,65 @@ describe("transform baking", () => {
       x: 10,
       y: 20,
     });
+  });
+
+  it("scales a photo's effects with it, and a shape has none", () => {
+    const image = { ...createImageElement(PHOTO_ASSET, PAGE), ...EFFECTS };
+    const baked = bakeBoxTransform(image, {
+      rotation: 0,
+      scaleX: 2,
+      scaleY: 2,
+      x: 0,
+      y: 0,
+    });
+    expect(baked).toMatchObject({
+      glow: { size: 60 },
+      outline: { width: 20 },
+      shadow: { blur: 40, offsetX: -8, offsetY: 16 },
+    });
+    // A stretch counts by its area: √(4 × 1) = 2
+    const frame = { ...createFrameElement(PAGE), ...EFFECTS };
+    const stretched = bakeBoxTransform(frame, {
+      rotation: 0,
+      scaleX: 4,
+      scaleY: 1,
+      x: 0,
+      y: 0,
+    });
+    expect(stretched.outline?.width).toBeCloseTo(20);
+    const rect = bakeBoxTransform(createBoxElement("rect", PAGE), {
+      rotation: 0,
+      scaleX: 2,
+      scaleY: 2,
+      x: 0,
+      y: 0,
+    });
+    expect(rect).not.toHaveProperty("outline");
+  });
+
+  it("keeps effects as they are when a side handle crops a photo", () => {
+    const image: ImageElement = {
+      ...createImageElement(PHOTO_ASSET, PAGE),
+      ...EFFECTS,
+      height: 300,
+      width: 400,
+    };
+    const { crop, size } = cropToEdge(image, "right", 250);
+    // The live crop leaves the node at scale 1 (see recropImage)
+    const baked = {
+      ...bakeBoxTransform(image, {
+        rotation: 0,
+        scaleX: 1,
+        scaleY: 1,
+        x: 0,
+        y: 0,
+      }),
+      crop,
+      width: size,
+    };
+    expect(baked.outline).toBe(image.outline);
+    expect(baked.glow).toBe(image.glow);
+    expect(baked.shadow).toBe(image.shadow);
   });
 
   it("scales font size on corner drags and only width on side drags", () => {

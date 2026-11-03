@@ -10,8 +10,10 @@ import type {
   ImageCrop,
   ImageElement,
   LinearElement,
+  PhotoEffects,
   TextElement,
 } from "@/lib/document/schema";
+import { scalePhotoEffects } from "@/lib/photo-effects/geometry";
 
 // Konva writes gestures into scale; documents store real sizes with scale 1
 export interface NodeTransform {
@@ -32,6 +34,24 @@ export const normalizeRotation = (degrees: number): number => {
   return Math.abs(signed) < 1e-6 ? 0 : signed;
 };
 
+const isPhoto = (
+  element: ImageElement | FrameElement | BoxShapeElement
+): element is ImageElement | FrameElement =>
+  element.type === "image" || element.type === "frame";
+
+// A photo's effects grow with it, by the area's scale so a stretch counts
+// evenly. A side-handle crop ends at scale 1 and leaves them alone.
+const scaledEffects = (
+  element: ImageElement | FrameElement | BoxShapeElement,
+  transform: NodeTransform
+): Partial<PhotoEffects> =>
+  isPhoto(element)
+    ? scalePhotoEffects(
+        element,
+        Math.sqrt(Math.abs(transform.scaleX * transform.scaleY))
+      )
+    : {};
+
 export const bakeBoxTransform = <
   T extends ImageElement | FrameElement | BoxShapeElement,
 >(
@@ -39,6 +59,7 @@ export const bakeBoxTransform = <
   transform: NodeTransform
 ): T => ({
   ...element,
+  ...scaledEffects(element, transform),
   height: Math.max(
     MIN_ELEMENT_SIZE,
     element.height * Math.abs(transform.scaleY)

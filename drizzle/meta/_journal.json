@@ -71,6 +71,13 @@
       "when": 1793709490158,
       "tag": "0009_brand_kit",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793718865089,
+      "tag": "0010_photo_effects",
+      "breakpoints": true
     }
   ]
 }

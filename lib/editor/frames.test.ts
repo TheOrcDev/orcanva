@@ -5,6 +5,7 @@ import {
   createFrameElement,
   createImageElement,
 } from "@/lib/document/factories";
+import type { PhotoEffects } from "@/lib/document/schema";
 import { detachPhoto, fillFrame, photoIntoFrame } from "@/lib/editor/frames";
 
 const PAGE = { height: 720, width: 1280 };
@@ -12,6 +13,17 @@ const PHOTO = {
   height: 600,
   id: "8a5b3f4e-1c2d-4e5f-8a9b-0c1d2e3f4a5b",
   width: 1200,
+};
+
+const STICKER: PhotoEffects = {
+  glow: null,
+  outline: { color: "#ffffff", width: 12 },
+  shadow: { blur: 16, color: "#00000066", offsetX: 0, offsetY: 8 },
+};
+const NEON: PhotoEffects = {
+  glow: { color: "#ff2e93", size: 40 },
+  outline: { color: "#ff2e93", width: 4 },
+  shadow: null,
 };
 
 describe("fillFrame", () => {
@@ -54,6 +66,49 @@ describe("fillFrame", () => {
       type: "image",
       width: 300,
     });
+  });
+
+  it("keeps a frame's effects when its photo is replaced or detached", () => {
+    const frame = {
+      ...createFrameElement(PAGE),
+      ...STICKER,
+      height: 300,
+      width: 300,
+    };
+    const filled = fillFrame(
+      { ...createDocument(PAGE), elements: [frame] },
+      frame.id,
+      PHOTO
+    );
+    expect(filled.elements[0]).toMatchObject(STICKER);
+    const { document } = detachPhoto(filled, frame.id);
+    const [emptied, photo] = document.elements;
+    expect(photo).toMatchObject({ ...STICKER, type: "image" });
+    expect(emptied).toMatchObject({ ...STICKER, assetId: null });
+  });
+
+  it("gives a frame without effects the dropped image's", () => {
+    const plain = { ...createFrameElement(PAGE), height: 300, width: 300 };
+    const styled = { ...plain, ...STICKER, id: "styled-frame" };
+    const image = { ...createImageElement(PHOTO, PAGE), ...NEON };
+    const document = {
+      ...createDocument(PAGE),
+      elements: [plain, styled, image],
+    };
+    const [taken] = photoIntoFrame(
+      document,
+      image.id,
+      plain.id,
+      PHOTO
+    ).elements;
+    expect(taken).toMatchObject(NEON);
+    const [, kept] = photoIntoFrame(
+      document,
+      image.id,
+      styled.id,
+      PHOTO
+    ).elements;
+    expect(kept).toMatchObject(STICKER);
   });
 
   it("moves an image's photo into a frame and removes the image", () => {

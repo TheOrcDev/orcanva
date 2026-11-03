@@ -8,6 +8,7 @@ import type {
 } from "@/lib/document/schema";
 import { regroupCopies } from "@/lib/editor/groups";
 import { cropGradient, isFullPage, wholeBox } from "@/lib/editor/page-crop";
+import { scalePhotoEffects } from "@/lib/photo-effects/geometry";
 
 type DistributivePartial<T> = T extends unknown
   ? Partial<Omit<T, "id" | "type">>
@@ -243,12 +244,20 @@ const scaleElement = (
   const position = { x: element.x * sx, y: element.y * sy };
   const uniform = Math.min(sx, sy);
   switch (element.type) {
-    case "image":
     case "rect":
     case "ellipse": {
       return {
         ...element,
         ...position,
+        height: element.height * sy,
+        width: element.width * sx,
+      };
+    }
+    case "image": {
+      return {
+        ...element,
+        ...position,
+        ...scalePhotoEffects(element, uniform),
         height: element.height * sy,
         width: element.width * sx,
       };
@@ -259,6 +268,7 @@ const scaleElement = (
         ...element,
         ...position,
         ...size,
+        ...scalePhotoEffects(element, uniform),
         crop: element.assetId ? refitFrameCrop(element, size) : element.crop,
       };
     }

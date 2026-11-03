@@ -19,9 +19,11 @@ import { PanelSection } from "@/components/editor/panels/panel-section";
 import { TransactionSlider } from "@/components/editor/panels/transaction-slider";
 import { Button } from "@/components/ui/button";
 import { useUpdateElement } from "@/hooks/use-selected-element";
+import { fullPhotoSize } from "@/lib/document/crop";
 import { centerIn, coverSize } from "@/lib/document/geometry";
 import type { ImageElement } from "@/lib/document/schema";
 import { moveElementTo, updateElement } from "@/lib/editor/document-ops";
+import { scalePhotoEffects } from "@/lib/photo-effects/geometry";
 
 export const ImageProperties = ({ element }: { element: ImageElement }) => {
   const store = useEditorStoreApi();
@@ -38,9 +40,12 @@ export const ImageProperties = ({ element }: { element: ImageElement }) => {
       const page = { height: doc.height, width: doc.width };
       const size = coverSize(source, page);
       const origin = centerIn(size, page);
+      // The whole photo is drawn this much bigger, and its effects with it
+      const growth = size.width / fullPhotoSize(element, element.crop).width;
       const placed = updateElement(doc, element.id, {
         ...size,
         ...origin,
+        ...scalePhotoEffects(element, growth),
         crop: null,
         locked: true,
         rotation: 0,

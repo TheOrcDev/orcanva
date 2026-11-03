@@ -92,8 +92,40 @@ export const imageCropSchema = z
     { message: "Crop must stay inside the photo" }
   );
 
+// Effects drawn around what a photo shows (its cut-out edge, crop and
+// shape). Sizes are page px: a photo has no font size, and its own lengths
+// change when it's cropped. Transforms that scale the photo scale them too.
+export const MAX_PHOTO_EFFECT_SIZE = 2000;
+export const MAX_PHOTO_EFFECT_OFFSET = 4000;
+const effectSize = z.number().min(0).max(MAX_PHOTO_EFFECT_SIZE);
+const effectOffset = z
+  .number()
+  .min(-MAX_PHOTO_EFFECT_OFFSET)
+  .max(MAX_PHOTO_EFFECT_OFFSET);
+
+export const photoOutlineSchema = z.object({ color, width: effectSize });
+
+export const photoGlowSchema = z.object({ color, size: effectSize });
+
+export const photoShadowSchema = z.object({
+  blur: effectSize,
+  color,
+  offsetX: effectOffset,
+  offsetY: effectOffset,
+});
+
+// Three top-level fields, like text's stroke and shadow, so a tab that
+// doesn't know one keeps it (keepUnknownFields only sees top-level keys).
+// null = off; photos saved before effects existed have none.
+const photoEffectFields = {
+  glow: photoGlowSchema.nullable().default(null),
+  outline: photoOutlineSchema.nullable().default(null),
+  shadow: photoShadowSchema.nullable().default(null),
+};
+
 export const imageElementSchema = z.object({
   ...baseElement,
+  ...photoEffectFields,
   assetId: z.uuid(),
   cornerRadius: z.number().min(0),
   // null = the whole photo; images saved before cropping have no field
@@ -113,6 +145,7 @@ export const imageElementSchema = z.object({
 // that doesn't know a newer shape still keeps the frame (it draws a square).
 export const frameElementSchema = z.object({
   ...baseElement,
+  ...photoEffectFields,
   assetId: z.uuid().nullable(),
   crop: imageCropSchema.nullable().default(null),
   filter: imageFilterSchema.nullable().default(null),
@@ -277,6 +310,10 @@ export type ImageCrop = z.infer<typeof imageCropSchema>;
 export type FrameElement = z.infer<typeof frameElementSchema>;
 // Elements that show a photo
 export type PhotoElement = ImageElement | FrameElement;
+export type PhotoOutline = z.infer<typeof photoOutlineSchema>;
+export type PhotoGlow = z.infer<typeof photoGlowSchema>;
+export type PhotoShadow = z.infer<typeof photoShadowSchema>;
+export type PhotoEffects = Pick<PhotoElement, "glow" | "outline" | "shadow">;
 export type TextElement = z.infer<typeof textElementSchema>;
 export type TextAlign = z.infer<typeof textAlignSchema>;
 export type TextStroke = z.infer<typeof textStrokeSchema>;

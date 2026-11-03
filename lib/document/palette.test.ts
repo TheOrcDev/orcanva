@@ -130,6 +130,54 @@ describe("documentColors", () => {
     expect(documentColors(page([hidden, outline]))).toEqual(["#ffffff"]);
   });
 
+  it("finds photo effect colours on images and filled frames", () => {
+    const asset = {
+      height: 10,
+      id: "8a5b3f4e-1c2d-4e5f-8a9b-0c1d2e3f4a5b",
+      width: 10,
+    };
+    const image = {
+      ...createImageElement(asset, PAGE),
+      glow: { color: "#FF2E93", size: 30 },
+      outline: { color: "#fff", width: 10 },
+      shadow: { blur: 12, color: "#00000080", offsetX: 0, offsetY: 6 },
+    };
+    const frame = {
+      ...createFrameElement(PAGE),
+      assetId: asset.id,
+      outline: { color: "#00ff00", width: 4 },
+      shadow: { blur: 0, color: "#0000ff", offsetX: 3, offsetY: 0 },
+    };
+    expect(documentColors(page([image, frame]))).toEqual([
+      "#ffffff",
+      "#ff2e93",
+      "#00000080",
+      "#00ff00",
+      "#0000ff",
+    ]);
+  });
+
+  it("leaves out photo effects that don't show", () => {
+    const asset = {
+      height: 10,
+      id: "8a5b3f4e-1c2d-4e5f-8a9b-0c1d2e3f4a5b",
+      width: 10,
+    };
+    const image = {
+      ...createImageElement(asset, PAGE),
+      glow: { color: "#ff2e93", size: 0 },
+      outline: { color: "#123456", width: 0 },
+      // Right behind the photo, unblurred
+      shadow: { blur: 0, color: "#654321", offsetX: 0, offsetY: 0 },
+    };
+    // An empty frame draws no effects
+    const empty = {
+      ...createFrameElement(PAGE),
+      outline: { color: "#abcdef", width: 8 },
+    };
+    expect(documentColors(page([image, empty]))).toEqual(["#ffffff"]);
+  });
+
   it("puts the most-used first, once each, up to the limit", () => {
     const boxes = ["#AA0000", "#bb0000", "#aa0000", "#bb0000ff", "#a00"].map(
       (fill) => ({ ...createBoxElement("rect", PAGE), fill })
