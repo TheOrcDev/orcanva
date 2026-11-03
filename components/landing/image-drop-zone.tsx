@@ -62,6 +62,7 @@ export const ImageDropZone = ({
   accept,
   busy = false,
   children,
+  className,
   error,
   formats,
   onImage,
@@ -71,6 +72,8 @@ export const ImageDropZone = ({
   // Ignores new images while the last one is still being worked on
   busy?: boolean;
   children: ReactNode;
+  // Changes the box's shape, e.g. to fit a whole tool once there's an image
+  className?: string;
   error?: string;
   // Named under the button: "JPG, PNG, WebP or GIF"
   formats: string;
@@ -138,6 +141,7 @@ export const ImageDropZone = ({
         onDrop={onDrop}
         className={cn(
           "bg-card ring-foreground/10 relative flex aspect-4/3 items-center justify-center overflow-hidden rounded-3xl shadow-xl ring-1 transition-shadow sm:aspect-video",
+          className,
           dragging && "ring-primary ring-2"
         )}
       >

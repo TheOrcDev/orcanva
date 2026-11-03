@@ -16,7 +16,7 @@ export const LAYOUTS = [
   },
   {
     // A results row: the thumbnail and the text beside it
-    frameWidth: 860,
+    frameWidth: 824,
     id: "search",
     label: "Search",
     slots: 4,

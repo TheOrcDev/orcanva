@@ -67,7 +67,7 @@ export const SIZE_PAGES = [
         title: "Show a face",
       },
       {
-        body: "Zoom out to see how it reads at the size people scroll past it, then download.",
+        body: "Press Preview to see it at the size people scroll past it, beside other videos and on a phone, then download.",
         title: "Check it small",
       },
     ],
