@@ -166,6 +166,7 @@ describe("editor store", () => {
     expect(createEditorStore(base).getState().liveStatus).toBe("off");
     const sealed = { capability: "x", expiresAt: 0, queryFingerprint: "f" };
     const live = {
+      comments: sealed,
       elements: sealed,
       page: sealed,
       presence: sealed,
@@ -463,6 +464,28 @@ const comment = (
 
 const PIN = { anchor: null, pageId: null, x: 10, y: 20 };
 
+// A comment's row as the live query delivers it
+const liveRow = (id: string, body = "Hi") => ({
+  anchor_height: null,
+  anchor_width: null,
+  anchor_x: null,
+  anchor_y: null,
+  author_id: "u",
+  author_image: null,
+  author_name: "Jay",
+  body,
+  created_at: new Date("2026-11-03T10:00:00.000Z"),
+  edited_at: null,
+  element_id: null,
+  id,
+  mentions: {},
+  page_id: null,
+  resolved_at: null,
+  thread_id: null,
+  x: 1,
+  y: 2,
+});
+
 describe("comments in the editor store", () => {
   it("starts with the comments the page loaded", () => {
     const store = createEditorStore({
@@ -541,5 +564,29 @@ describe("comments in the editor store", () => {
     expect(after[1]).toBe(before[1]);
     // Nothing about comments is undoable
     expect(store.getState().history).toBe(history);
+  });
+
+  it("takes comments from the live query, keeping its own until they show", () => {
+    const { store } = setup();
+    store.getState().applyLiveComments([liveRow("a")]);
+    expect(store.getState().comments).toEqual([comment("a")]);
+
+    // Posted here, then a result from before the post arrives
+    store.getState().upsertComment(comment("mine"));
+    store.getState().openThread("mine");
+    store.getState().applyLiveComments([liveRow("a")]);
+    expect(store.getState().comments.map((item) => item.id)).toEqual([
+      "a",
+      "mine",
+    ]);
+    expect(store.getState().openThreadId).toBe("mine");
+
+    // The live query shows it: nothing left to wait for
+    store.getState().applyLiveComments([liveRow("a"), liveRow("mine")]);
+    expect(store.getState().commentEchoes.size).toBe(0);
+
+    // Someone deleted the open thread
+    store.getState().applyLiveComments([liveRow("a")]);
+    expect(store.getState().openThreadId).toBeNull();
   });
 });

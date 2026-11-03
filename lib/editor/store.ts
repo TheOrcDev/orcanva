@@ -44,6 +44,8 @@ import type {
   PendingWrites,
   SyncedState,
 } from "@/lib/collab/sync-state";
+import { commentsFromRows, withEchoes } from "@/lib/comments/live-rows";
+import type { CommentEcho, LiveCommentRow } from "@/lib/comments/live-rows";
 import type { CommentPin, DesignComment } from "@/lib/comments/schema";
 import { createId } from "@/lib/document/factories";
 import type { Rect } from "@/lib/document/geometry";
@@ -190,6 +192,9 @@ export interface EditorState {
   // Comments on the design, threads and replies (see lib/comments). Kept
   // outside the document: they're never part of undo or a version.
   comments: readonly DesignComment[];
+  // This window's own posts, edits and deletes, kept on top of live results
+  // until the live query shows them
+  commentEchoes: ReadonlyMap<string, CommentEcho>;
   // Clicks on the page place a comment's pin instead of selecting
   commentMode: boolean;
   // The thread whose popover is open
@@ -217,6 +222,7 @@ export interface EditorActions {
   // New results from the live queries
   applyLiveElements: (rows: readonly LiveElementRow[]) => void;
   applyLivePage: (row: LivePageRow) => void;
+  applyLiveComments: (rows: readonly LiveCommentRow[]) => void;
   setLiveStatus: (status: LiveStatus) => void;
   setReconnectLive: (reconnect: (() => void) | null) => void;
   setFlushWrites: (flush: (() => Promise<void>) | null) => void;
@@ -459,6 +465,22 @@ export const createEditorStore = (init: EditorInit) => {
       set((state) => ({
         uploadsInFlight: Math.max(0, state.uploadsInFlight + delta),
       })),
+    applyLiveComments: (rows) =>
+      set((state) => {
+        const live = commentsFromRows(rows, state.comments);
+        const { comments, echoes } = withEchoes(
+          live,
+          state.commentEchoes,
+          Date.now()
+        );
+        // Someone deleted the thread that's open here
+        const openThreadId =
+          state.openThreadId !== null &&
+          comments.some((comment) => comment.id === state.openThreadId)
+            ? state.openThreadId
+            : null;
+        return { commentEchoes: echoes, comments, openThreadId };
+      }),
     applyLiveElements: (rows) =>
       set((state) => {
         const { entries, skipped } = entriesFromRows(
@@ -528,6 +550,7 @@ export const createEditorStore = (init: EditorInit) => {
         state.selectedIds.length === 0 ? state : { selectedIds: [] }
       ),
     clientId: createId(),
+    commentEchoes: new Map(),
     commentMode: false,
     comments: init.comments ?? [],
     cropTargetId: null,
@@ -871,6 +894,10 @@ export const createEditorStore = (init: EditorInit) => {
           (item) => item.id === comment.id
         );
         return {
+          commentEchoes: new Map(state.commentEchoes).set(comment.id, {
+            at: Date.now(),
+            comment,
+          }),
           comments:
             index === -1
               ? [...state.comments, comment]

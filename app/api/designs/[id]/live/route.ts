@@ -3,16 +3,18 @@ import { z } from "zod";
 import { getDesignAccess } from "@/lib/auth/design-access";
 import type { LiveQueryName } from "@/lib/realtime/rows";
 import {
+  sealCommentsQuery,
   sealElementsQuery,
   sealPageQuery,
   sealPresenceQuery,
 } from "@/lib/realtime/server";
 
 const renewPayload = z.object({
-  query: z.enum(["page", "elements", "presence"]),
+  query: z.enum(["page", "elements", "presence", "comments"]),
 });
 
 const SEALERS = {
+  comments: sealCommentsQuery,
   elements: sealElementsQuery,
   page: sealPageQuery,
   presence: sealPresenceQuery,

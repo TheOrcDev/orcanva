@@ -13,6 +13,7 @@ import {
 } from "@/components/editor/editor-store-context";
 import type { AwaitSync } from "@/lib/collab/outbox";
 import type { LivePresenceRow } from "@/lib/collab/presence";
+import type { LiveCommentRow } from "@/lib/comments/live-rows";
 import type { LiveStatus } from "@/lib/editor/store";
 import type {
   LiveConfig,
@@ -73,9 +74,9 @@ interface LiveQueriesProps {
   setAwaitSync: (awaitSync: AwaitSync | null) => void;
 }
 
-// Subscribes to the design's page row and element rows and feeds every
-// result into the store, where it's rebased under this window's own
-// unconfirmed edits.
+// Subscribes to the design's page row, element rows, presence rows and
+// comments, and feeds every result into the store, where elements are
+// rebased under this window's own unconfirmed edits.
 const LiveQueries = ({ live, setAwaitSync }: LiveQueriesProps) => {
   const store = useEditorStoreApi();
   const designId = useEditor((state) => state.designId);
@@ -109,7 +110,15 @@ const LiveQueries = ({ live, setAwaitSync }: LiveQueriesProps) => {
   const presence = useLiveQuery(live.presence, {
     refreshQuery: refreshPresence,
   });
+  const refreshComments = useCallback(
+    () => renew<LiveCommentRow>("comments"),
+    [renew]
+  );
+  const comments = useLiveQuery(live.comments, {
+    refreshQuery: refreshComments,
+  });
   const presenceUtils = presence.utils;
+  const commentUtils = comments.utils;
   const pageUtils = page.utils;
   const elementUtils = elements.utils;
 
@@ -146,7 +155,22 @@ const LiveQueries = ({ live, setAwaitSync }: LiveQueriesProps) => {
     return presenceUtils.onChange((snapshot) => apply(snapshot.data));
   }, [presenceUtils, store]);
 
-  const status = combineStatus([page.status, elements.status, presence.status]);
+  useEffect(() => {
+    const apply = (rows: readonly LiveCommentRow[] | undefined) => {
+      if (rows) {
+        store.getState().applyLiveComments(rows);
+      }
+    };
+    apply(commentUtils.getSnapshot().data);
+    return commentUtils.onChange((snapshot) => apply(snapshot.data));
+  }, [commentUtils, store]);
+
+  const status = combineStatus([
+    page.status,
+    elements.status,
+    presence.status,
+    comments.status,
+  ]);
   useEffect(() => {
     store.getState().setLiveStatus(status);
   }, [status, store]);
@@ -204,14 +228,15 @@ export const LiveSync = ({ live, setAwaitSync }: LiveQueriesProps) => {
   const reconnect = useCallback(() => {
     const renew = async () => {
       try {
-        const [page, elements, presence] = await Promise.all([
+        const [page, elements, presence, comments] = await Promise.all([
           fetchSealed<LivePageRow>(designId, "page"),
           fetchSealed<LiveElementRow>(designId, "elements"),
           fetchSealed<LivePresenceRow>(designId, "presence"),
+          fetchSealed<LiveCommentRow>(designId, "comments"),
         ]);
         setSession((current) => ({
           attempt: current.attempt + 1,
-          live: { ...current.live, elements, page, presence },
+          live: { ...current.live, comments, elements, page, presence },
         }));
       } catch (error) {
         if (isAccessLost(error)) {

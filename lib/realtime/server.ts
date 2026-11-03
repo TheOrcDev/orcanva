@@ -3,6 +3,8 @@ import { createRealtime, rawSql } from "@neon/realtime/server";
 import type { RealtimeServer, SealedLiveQuery } from "@neon/realtime/server";
 
 import type { LivePresenceRow } from "@/lib/collab/presence";
+import { COMMENT_COLUMNS } from "@/lib/comments/live-rows";
+import type { LiveCommentRow } from "@/lib/comments/live-rows";
 import { getEnv } from "@/lib/env";
 import type {
   LiveConfig,
@@ -29,6 +31,13 @@ const elementsQuery = (designId: string) =>
 const presenceQuery = (designId: string) =>
   rawSql<LivePresenceRow>(
     "SELECT client_id, name, color, image, x, y, selection, drag, seen_at FROM design_presence WHERE design_id = $1",
+    [designId]
+  );
+
+// Threads and replies in one table, so this stays a single-table query
+const commentsQuery = (designId: string) =>
+  rawSql<LiveCommentRow>(
+    `SELECT ${COMMENT_COLUMNS} FROM design_comments WHERE design_id = $1`,
     [designId]
   );
 
@@ -67,6 +76,11 @@ export const sealPresenceQuery = (
 ): Promise<SealedLiveQuery<LivePresenceRow>> | null =>
   getRealtime()?.seal({ query: presenceQuery(designId) }) ?? null;
 
+export const sealCommentsQuery = (
+  designId: string
+): Promise<SealedLiveQuery<LiveCommentRow>> | null =>
+  getRealtime()?.seal({ query: commentsQuery(designId) }) ?? null;
+
 export const getLiveConfig = async (
   designId: string
 ): Promise<LiveConfig | null> => {
@@ -74,10 +88,12 @@ export const getLiveConfig = async (
   const page = sealPageQuery(designId);
   const elements = sealElementsQuery(designId);
   const presence = sealPresenceQuery(designId);
-  if (!(url && page && elements && presence)) {
+  const comments = sealCommentsQuery(designId);
+  if (!(url && page && elements && presence && comments)) {
     return null;
   }
   return {
+    comments: await comments,
     elements: await elements,
     page: await page,
     presence: await presence,

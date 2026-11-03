@@ -1,6 +1,7 @@
 import type { SealedLiveQuery } from "@neon/realtime/client";
 
 import type { LivePresenceRow } from "@/lib/collab/presence";
+import type { LiveCommentRow } from "@/lib/comments/live-rows";
 
 // Rows as the live queries deliver them. jsonb arrives parsed but not
 // validated, so the editor checks it before use (see lib/collab/live-rows).
@@ -24,7 +25,7 @@ export interface LiveElementRow {
   data: unknown;
 }
 
-export type LiveQueryName = "page" | "elements" | "presence";
+export type LiveQueryName = "page" | "elements" | "presence" | "comments";
 
 // Everything the browser needs to subscribe to a design's live queries
 export interface LiveConfig {
@@ -32,4 +33,5 @@ export interface LiveConfig {
   page: SealedLiveQuery<LivePageRow>;
   elements: SealedLiveQuery<LiveElementRow>;
   presence: SealedLiveQuery<LivePresenceRow>;
+  comments: SealedLiveQuery<LiveCommentRow>;
 }

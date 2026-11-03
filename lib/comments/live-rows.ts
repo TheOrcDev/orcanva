@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { isDeepEqual } from "@/lib/collab/equal";
 import type { DesignComment } from "@/lib/comments/schema";
 import { isStoredAvatarUrl } from "@/lib/storage/keys";
 
@@ -108,4 +109,74 @@ export const commentFromRow = (row: unknown): DesignComment | null => {
     x: data.x,
     y: data.y,
   };
+};
+
+// Comments from a live result. A row that didn't change keeps its previous
+// object, and an unchanged result the previous array, so nothing redraws
+// for nothing; rows that don't read as comments are left out.
+export const commentsFromRows = (
+  rows: readonly unknown[],
+  previous: readonly DesignComment[]
+): readonly DesignComment[] => {
+  const known = new Map(previous.map((comment) => [comment.id, comment]));
+  const comments: DesignComment[] = [];
+  for (const row of rows) {
+    const comment = commentFromRow(row);
+    if (comment) {
+      const before = known.get(comment.id);
+      comments.push(before && isDeepEqual(before, comment) ? before : comment);
+    }
+  }
+  const unchanged =
+    comments.length === previous.length &&
+    comments.every((comment, index) => comment === previous[index]);
+  return unchanged ? previous : comments;
+};
+
+// A comment this window posted, changed (`comment`) or deleted (null) at
+// `at`, kept on top of live results until one shows it: a result the live
+// query worked out before the write would otherwise hide it for a moment
+export interface CommentEcho {
+  comment: DesignComment | null;
+  at: number;
+}
+
+// After this long a live result wins whatever it says
+export const COMMENT_ECHO_MS = 10_000;
+
+export const withEchoes = (
+  live: readonly DesignComment[],
+  echoes: ReadonlyMap<string, CommentEcho>,
+  now: number
+): {
+  comments: readonly DesignComment[];
+  echoes: ReadonlyMap<string, CommentEcho>;
+} => {
+  const waiting = new Map<string, CommentEcho>();
+  for (const [id, echo] of echoes) {
+    const shown = live.find((comment) => comment.id === id);
+    const seen =
+      echo.comment === null
+        ? shown === undefined
+        : shown !== undefined && isDeepEqual(shown, echo.comment);
+    if (!seen && now - echo.at < COMMENT_ECHO_MS) {
+      waiting.set(id, echo);
+    }
+  }
+  if (waiting.size === 0) {
+    return { comments: live, echoes: echoes.size === 0 ? echoes : waiting };
+  }
+  const comments = live.flatMap((comment) => {
+    const echo = waiting.get(comment.id);
+    if (!echo) {
+      return [comment];
+    }
+    return echo.comment ? [echo.comment] : [];
+  });
+  for (const [id, echo] of waiting) {
+    if (echo.comment && !live.some((comment) => comment.id === id)) {
+      comments.push(echo.comment);
+    }
+  }
+  return { comments, echoes: waiting };
 };
