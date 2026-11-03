@@ -25,13 +25,25 @@ export interface LiveElementRow {
   data: unknown;
 }
 
-export type LiveQueryName = "page" | "elements" | "presence" | "comments";
+// Every live query an editor subscribes to
+export const LIVE_QUERY_NAMES = [
+  "page",
+  "elements",
+  "presence",
+  "comments",
+] as const;
 
-// Everything the browser needs to subscribe to a design's live queries
-export interface LiveConfig {
-  url: string;
+export type LiveQueryName = (typeof LIVE_QUERY_NAMES)[number];
+
+// A design's sealed live queries, by name
+export interface LiveQueries {
   page: SealedLiveQuery<LivePageRow>;
   elements: SealedLiveQuery<LiveElementRow>;
   presence: SealedLiveQuery<LivePresenceRow>;
   comments: SealedLiveQuery<LiveCommentRow>;
+}
+
+// Everything the browser needs to subscribe to a design's live queries
+export interface LiveConfig extends LiveQueries {
+  url: string;
 }

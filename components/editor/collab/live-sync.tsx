@@ -4,7 +4,6 @@
 // client modules like this one
 import { RealtimeProvider, useLiveQuery } from "@neon/realtime-react";
 import { createRealtimeClient } from "@neon/realtime/client";
-import type { SealedLiveQuery } from "@neon/realtime/client";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -13,12 +12,15 @@ import {
 } from "@/components/editor/editor-store-context";
 import type { AwaitSync } from "@/lib/collab/outbox";
 import type { LivePresenceRow } from "@/lib/collab/presence";
+import { createRenewalBatcher } from "@/lib/collab/renewals";
 import type { LiveCommentRow } from "@/lib/comments/live-rows";
 import type { LiveStatus } from "@/lib/editor/store";
+import { LIVE_QUERY_NAMES } from "@/lib/realtime/rows";
 import type {
   LiveConfig,
   LiveElementRow,
   LivePageRow,
+  LiveQueries as SealedQueries,
   LiveQueryName,
 } from "@/lib/realtime/rows";
 
@@ -40,19 +42,21 @@ class RenewError extends Error {
   }
 }
 
-const fetchSealed = async <Row,>(
+// Freshly sealed queries, in one request however many
+const fetchSealed = async (
   designId: string,
-  query: LiveQueryName
-): Promise<SealedLiveQuery<Row>> => {
+  queries: readonly LiveQueryName[]
+): Promise<Partial<SealedQueries>> => {
   const response = await fetch(`/api/designs/${designId}/live`, {
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ queries }),
     headers: { "Content-Type": "application/json" },
     method: "POST",
   });
   if (!response.ok) {
     throw new RenewError(response.status);
   }
-  return response.json();
+  const { sealed }: { sealed: Partial<SealedQueries> } = await response.json();
+  return sealed;
 };
 
 // The design was made private or deleted: no point reconnecting
@@ -79,12 +83,23 @@ interface LiveQueriesProps {
 // rebased under this window's own unconfirmed edits.
 const LiveQueries = ({ live, setAwaitSync }: LiveQueriesProps) => {
   const store = useEditorStoreApi();
-  const designId = useEditor((state) => state.designId);
+  // One request a minute renews every query: they ask within moments of
+  // each other, and the batcher sends them together (lib/collab/renewals)
+  // Created once per session and never replaced
+  // oxlint-disable-next-line react/hook-use-state
+  const [renewals] = useState(() =>
+    createRenewalBatcher<SealedQueries>({
+      fetchBatch: (names) => fetchSealed(store.getState().designId, names),
+      names: LIVE_QUERY_NAMES,
+    })
+  );
   // Renewals that find the design gone stop the editor instead of retrying
   const renew = useCallback(
-    async <Row,>(query: LiveQueryName): Promise<SealedLiveQuery<Row>> => {
+    async <Name extends LiveQueryName>(
+      query: Name
+    ): Promise<SealedQueries[Name]> => {
       try {
-        return await fetchSealed<Row>(designId, query);
+        return await renewals.renew(query);
       } catch (error) {
         if (isAccessLost(error)) {
           store.getState().loseAccess();
@@ -92,28 +107,19 @@ const LiveQueries = ({ live, setAwaitSync }: LiveQueriesProps) => {
         throw error;
       }
     },
-    [designId, store]
+    [renewals, store]
   );
-  const refreshPage = useCallback(() => renew<LivePageRow>("page"), [renew]);
-  const refreshElements = useCallback(
-    () => renew<LiveElementRow>("elements"),
-    [renew]
-  );
+  const refreshPage = useCallback(() => renew("page"), [renew]);
+  const refreshElements = useCallback(() => renew("elements"), [renew]);
   const page = useLiveQuery(live.page, { refreshQuery: refreshPage });
   const elements = useLiveQuery(live.elements, {
     refreshQuery: refreshElements,
   });
-  const refreshPresence = useCallback(
-    () => renew<LivePresenceRow>("presence"),
-    [renew]
-  );
+  const refreshPresence = useCallback(() => renew("presence"), [renew]);
   const presence = useLiveQuery(live.presence, {
     refreshQuery: refreshPresence,
   });
-  const refreshComments = useCallback(
-    () => renew<LiveCommentRow>("comments"),
-    [renew]
-  );
+  const refreshComments = useCallback(() => renew("comments"), [renew]);
   const comments = useLiveQuery(live.comments, {
     refreshQuery: refreshComments,
   });
@@ -228,15 +234,10 @@ export const LiveSync = ({ live, setAwaitSync }: LiveQueriesProps) => {
   const reconnect = useCallback(() => {
     const renew = async () => {
       try {
-        const [page, elements, presence, comments] = await Promise.all([
-          fetchSealed<LivePageRow>(designId, "page"),
-          fetchSealed<LiveElementRow>(designId, "elements"),
-          fetchSealed<LivePresenceRow>(designId, "presence"),
-          fetchSealed<LiveCommentRow>(designId, "comments"),
-        ]);
+        const sealed = await fetchSealed(designId, LIVE_QUERY_NAMES);
         setSession((current) => ({
           attempt: current.attempt + 1,
-          live: { ...current.live, comments, elements, page, presence },
+          live: { ...current.live, ...sealed },
         }));
       } catch (error) {
         if (isAccessLost(error)) {
