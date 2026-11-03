@@ -57,6 +57,7 @@ import { toast } from "@/components/ui/toast";
 import { setDesignVisibility } from "@/lib/actions/designs";
 import { listShares, shareDesign, unshareDesign } from "@/lib/actions/shares";
 import type { SharePerson } from "@/lib/db/queries/shares";
+import { stopIfOutdated } from "@/lib/editor/outdated";
 
 const Person = ({
   person,
@@ -117,6 +118,7 @@ const SharePeople = ({
   people: SharePerson[] | null;
   onPeopleChange: (people: SharePerson[]) => void;
 }) => {
+  const store = useEditorStoreApi();
   const id = useId();
   const [email, setEmail] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -145,8 +147,10 @@ const SharePeople = ({
                 type: "warning",
               }
         );
-      } catch {
-        toast.add({ title: "Could not share it", type: "error" });
+      } catch (error) {
+        if (!stopIfOutdated(store, error)) {
+          toast.add({ title: "Could not share it", type: "error" });
+        }
       }
     });
   };
@@ -157,11 +161,13 @@ const SharePeople = ({
         onPeopleChange(
           await unshareDesign({ email: person.email, id: designId })
         );
-      } catch {
-        toast.add({
-          title: `Could not stop sharing with ${person.email}`,
-          type: "error",
-        });
+      } catch (error) {
+        if (!stopIfOutdated(store, error)) {
+          toast.add({
+            title: `Could not stop sharing with ${person.email}`,
+            type: "error",
+          });
+        }
       }
     });
   };
@@ -253,8 +259,13 @@ export const SharePopover = () => {
       try {
         await setDesignVisibility({ id: designId, visibility: next });
         store.getState().setVisibility(next);
-      } catch {
-        toast.add({ title: "Could not change who can see it", type: "error" });
+      } catch (error) {
+        if (!stopIfOutdated(store, error)) {
+          toast.add({
+            title: "Could not change who can see it",
+            type: "error",
+          });
+        }
       }
     });
   };
@@ -271,12 +282,14 @@ export const SharePopover = () => {
   const loadPeople = async () => {
     try {
       setPeople(await listShares(designId));
-    } catch {
+    } catch (error) {
       setPeople([]);
-      toast.add({
-        title: "Could not load who it's shared with",
-        type: "error",
-      });
+      if (!stopIfOutdated(store, error)) {
+        toast.add({
+          title: "Could not load who it's shared with",
+          type: "error",
+        });
+      }
     }
   };
 

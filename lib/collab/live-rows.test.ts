@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { entriesFromRows, pageFromRow } from "@/lib/collab/live-rows";
+import {
+  entriesFromRows,
+  isNewerDocument,
+  pageFromRow,
+} from "@/lib/collab/live-rows";
 import { createBoxElement } from "@/lib/document/factories";
+import { DOCUMENT_VERSION } from "@/lib/document/schema";
 
 const PAGE = { height: 720, width: 1280 };
 const rect = { ...createBoxElement("rect", PAGE), id: "r1" };
@@ -58,6 +63,26 @@ describe("entriesFromRows", () => {
     );
     expect([...entries.keys()]).toEqual(["r1"]);
     expect(skipped).toEqual(["g1"]);
+  });
+});
+
+describe("isNewerDocument", () => {
+  const row = {
+    background: { color: "#000000", type: "solid" },
+    height: 100,
+    name: "Thumb",
+    visibility: "public",
+    width: 200,
+  };
+
+  it("is true only for a version past this tab's", () => {
+    expect(isNewerDocument({ ...row, version: DOCUMENT_VERSION })).toBe(false);
+    expect(isNewerDocument({ ...row, version: DOCUMENT_VERSION - 1 })).toBe(
+      false
+    );
+    expect(isNewerDocument({ ...row, version: DOCUMENT_VERSION + 1 })).toBe(
+      true
+    );
   });
 });
 

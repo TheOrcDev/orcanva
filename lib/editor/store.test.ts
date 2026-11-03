@@ -191,6 +191,41 @@ describe("editor store", () => {
     expect(store.getState().skippedElementIds).toEqual([]);
   });
 
+  it("stops writing once the design's version is newer than this tab's", () => {
+    const { rect, store } = setup();
+    const row = {
+      background: { color: "#ffffff", type: "solid" },
+      height: PAGE.height,
+      name: "Test",
+      visibility: "public",
+      width: PAGE.width,
+    };
+    store.getState().applyLivePage({ ...row, version: 1 });
+    expect(store.getState().outdated).toBe(false);
+
+    store.getState().applyLivePage({ ...row, version: 2 });
+    expect(store.getState().outdated).toBe(true);
+    const { doc, pending, seq } = store.getState();
+    store.getState().change((d) => updateElement(d, rect.id, { x: 5 }));
+    store.getState().undo();
+    store.getState().rename("Renamed");
+    expect(store.getState()).toMatchObject({ doc, pending, seq });
+
+    // It doesn't come back, even if a later row looks older
+    store.getState().applyLivePage({ ...row, version: 1 });
+    expect(store.getState().outdated).toBe(true);
+  });
+
+  it("stops writing when told a deploy outdated this tab", () => {
+    const { rect, store } = setup();
+    store.getState().markOutdated();
+    const { seq } = store.getState();
+    store.getState().change((d) => updateElement(d, rect.id, { x: 5 }));
+    store.getState().redo();
+    expect(store.getState().seq).toBe(seq);
+    expect(selectDocument(store.getState()).elements[0]?.x).toBe(rect.x);
+  });
+
   it("clamps zoom and switches to manual mode", () => {
     const { store } = setup();
     store.getState().setZoom(100);

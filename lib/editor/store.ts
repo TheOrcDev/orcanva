@@ -16,7 +16,11 @@ import {
   saveProfile,
 } from "@/lib/collab/identity";
 import type { Profile } from "@/lib/collab/identity";
-import { entriesFromRows, pageFromRow } from "@/lib/collab/live-rows";
+import {
+  entriesFromRows,
+  isNewerDocument,
+  pageFromRow,
+} from "@/lib/collab/live-rows";
 import type { SaveStatus } from "@/lib/collab/outbox";
 import { assignPositions } from "@/lib/collab/positions";
 import { peersFromRows } from "@/lib/collab/presence";
@@ -91,6 +95,10 @@ export interface EditorState {
   viewer: EditorViewer | null;
   // The design went private or was deleted under us: stop and say so
   accessLost: boolean;
+  // Newer code took over while this tab was open: the design's version went
+  // past this tab's, or a deploy removed the Server Actions it calls. Its
+  // edits are refused from then on, and it asks for a reload.
+  outdated: boolean;
   // Identifies this editor session in writes and presence
   clientId: string;
   name: string;
@@ -208,6 +216,8 @@ export interface EditorActions {
   setSaveStatus: (status: SaveStatus) => void;
   // The server no longer lets this person at the design (404)
   loseAccess: () => void;
+  // This tab's code is out of date (see `outdated`)
+  markOutdated: () => void;
   // The owner changed who can see the design
   setVisibility: (visibility: Visibility) => void;
   // One of the viewer's own uploads (or cutouts): drawable and in the library
@@ -389,13 +399,15 @@ export const createEditorStore = (init: EditorInit) => {
         const accessLost =
           state.accessLost ||
           (visibility === "private" && !keepsPrivateAccess(state.role));
+        const outdated = state.outdated || isNewerDocument(row);
         const live = pageFromRow(row);
         if (!live) {
-          return { accessLost, visibility };
+          return { accessLost, outdated, visibility };
         }
         return {
           ...reconcile(state, { ...state.synced, ...live }, state.pending),
           accessLost,
+          outdated,
           visibility,
         };
       }),
@@ -406,6 +418,9 @@ export const createEditorStore = (init: EditorInit) => {
     begin: () => set((state) => ({ history: beginTransaction(state.history) })),
     change: (recipe) =>
       set((state) => {
+        if (state.outdated) {
+          return state;
+        }
         const next = recipe(state.doc.document);
         if (next === state.doc.document) {
           return state;
@@ -478,8 +493,11 @@ export const createEditorStore = (init: EditorInit) => {
           ? state
           : { missingAssetIds: [...state.missingAssetIds, ...added] };
       }),
+    markOutdated: () =>
+      set((state) => (state.outdated ? state : { outdated: true })),
     missingAssetIds: [],
     name: init.name,
+    outdated: false,
     pageCrop: null,
     pageCropRatio: "free",
     peers: [],
@@ -490,6 +508,9 @@ export const createEditorStore = (init: EditorInit) => {
     reconnectLive: null,
     redo: () =>
       set((state) => {
+        if (state.outdated) {
+          return state;
+        }
         const { history, step } = redo(state.history);
         if (!step) {
           return { editingTextId: null, fileDragActive: false, history };
@@ -519,16 +540,20 @@ export const createEditorStore = (init: EditorInit) => {
         };
       }),
     rename: (name) =>
-      set((state) => ({
-        name,
-        pending: addNameWrite(state.pending, name, state.seq + 1),
-        seq: state.seq + 1,
-      })),
+      set((state) =>
+        state.outdated
+          ? state
+          : {
+              name,
+              pending: addNameWrite(state.pending, name, state.seq + 1),
+              seq: state.seq + 1,
+            }
+      ),
     role: init.role,
     rollback: () =>
       set((state) => {
         const { history, reverted } = cancelTransaction(state.history);
-        if (!reverted) {
+        if (!reverted || state.outdated) {
           return { history };
         }
         return {
@@ -655,6 +680,9 @@ export const createEditorStore = (init: EditorInit) => {
     textSelection: null,
     undo: () =>
       set((state) => {
+        if (state.outdated) {
+          return state;
+        }
         const { history, step } = undo(state.history);
         if (!step) {
           return { editingTextId: null, fileDragActive: false, history };

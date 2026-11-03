@@ -4,6 +4,7 @@ import { createImageElement } from "@/lib/document/factories";
 import type { Point } from "@/lib/document/geometry";
 import { findElement, insertElement } from "@/lib/editor/document-ops";
 import { fillFrame } from "@/lib/editor/frames";
+import { stopIfOutdated } from "@/lib/editor/outdated";
 import type { EditorAsset, EditorStoreApi } from "@/lib/editor/store";
 import { selectDocument } from "@/lib/editor/store";
 import { UploadError, prepareImage } from "@/lib/upload/prepare-image";
@@ -106,6 +107,10 @@ const uploadAndPlace = async (
     state.select([element.id]);
     return null;
   } catch (error) {
+    // After a deploy the reload prompt says it all
+    if (stopIfOutdated(store, error)) {
+      return null;
+    }
     return {
       file,
       message:

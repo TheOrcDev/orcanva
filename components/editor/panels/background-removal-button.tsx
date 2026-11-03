@@ -12,6 +12,7 @@ import { toast } from "@/components/ui/toast";
 import type { ImageElement } from "@/lib/document/schema";
 import { removeImageBackground } from "@/lib/editor/background-removal";
 import { updateElement } from "@/lib/editor/document-ops";
+import { stopIfOutdated } from "@/lib/editor/outdated";
 
 export const BackgroundRemovalButton = ({
   element,
@@ -70,6 +71,10 @@ export const BackgroundRemovalButton = ({
         type: "success",
       });
     } catch (error) {
+      if (stopIfOutdated(store, error)) {
+        toast.close(toastId);
+        return;
+      }
       toast.update(toastId, {
         description: error instanceof Error ? error.message : undefined,
         title: "Couldn't remove the background",

@@ -1,6 +1,10 @@
 import type { Entry, PageSettings } from "@/lib/collab/changeset";
 import { isDeepEqual } from "@/lib/collab/equal";
-import { backgroundSchema, parseElement } from "@/lib/document/schema";
+import {
+  DOCUMENT_VERSION,
+  backgroundSchema,
+  parseElement,
+} from "@/lib/document/schema";
 import type { LiveElementRow, LivePageRow } from "@/lib/realtime/rows";
 
 // Turns live element rows into entries. Rows whose content is unchanged
@@ -46,3 +50,8 @@ export const pageFromRow = (
     page: { background: background.data, height: row.height, width: row.width },
   };
 };
+
+// Newer code has written the design in a shape this tab doesn't know (the
+// version goes up with such a change), so the tab must stop writing to it
+export const isNewerDocument = (row: LivePageRow): boolean =>
+  row.version > DOCUMENT_VERSION;

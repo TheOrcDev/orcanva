@@ -12,6 +12,7 @@ import {
   useEditor,
 } from "@/components/editor/editor-store-context";
 import { ExportPopover } from "@/components/editor/export-popover";
+import { OutdatedDialog } from "@/components/editor/outdated-dialog";
 import { PropertiesPanel } from "@/components/editor/panels/properties-panel";
 import { EditorToolbar } from "@/components/editor/toolbar";
 import { useAssetResolver } from "@/hooks/use-asset-resolver";
@@ -35,10 +36,13 @@ const EditorShell = ({
   live: LiveConfig | null;
 }) => {
   const accessLost = useEditor((state) => state.accessLost);
+  const outdated = useEditor((state) => state.outdated);
   const { flush: flushSave, setAwaitSync } = useOutbox(live !== null);
   // Nothing to stream or show others once the design is gone for us
   const connected = live !== null && !accessLost;
-  usePresence(connected);
+  // An outdated tab still hears its last writes come back, but stops
+  // showing itself to others
+  usePresence(connected && !outdated);
   const flushThumbnail = useThumbnail(hasThumbnail);
   useEditorShortcuts();
   useClipboard();
@@ -57,6 +61,7 @@ const EditorShell = ({
         <LiveSync live={live} setAwaitSync={setAwaitSync} />
       ) : null}
       <AccessLostDialog />
+      <OutdatedDialog flush={flush} />
       <EditorToolbar flush={flush} actions={<ExportPopover />} />
       <div className="flex min-h-0 flex-1">
         <EditorSidebar />
