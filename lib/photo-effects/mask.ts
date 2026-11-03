@@ -62,29 +62,18 @@ const clipTo = (
 };
 
 // Draws what the photo shows (cropped, flipped and clipped, as PhotoNode
-// draws it) into `canvas` at the layout's size, the box inset by its pad.
-// Only the alpha matters: it's the shape the effects follow.
-export const drawPhotoMask = (
-  canvas: HTMLCanvasElement,
+// draws it) with its box's top-left corner at the context's origin, `scale`
+// px per page px
+export const drawPhoto = (
+  context: CanvasRenderingContext2D,
   { box, clip, crop, flipX, flipY, source }: PhotoMask,
-  { pad, scale, size }: EffectsLayout
+  scale: number
 ) => {
-  if (canvas.width !== size.width || canvas.height !== size.height) {
-    canvas.width = size.width;
-    canvas.height = size.height;
-  } else {
-    canvas.getContext("2d")?.clearRect(0, 0, size.width, size.height);
-  }
-  const context = canvas.getContext("2d");
-  if (!context) {
-    return;
-  }
   const drawn = { height: box.height * scale, width: box.width * scale };
   const scaledClip: PhotoClip =
     clip.kind === "box" ? { ...clip, radius: clip.radius * scale } : clip;
   const part = cropToPixels(crop, sourceSize(source));
   context.save();
-  context.translate(pad, pad);
   clipTo(context, scaledClip, drawn);
   context.translate(flipX ? drawn.width : 0, flipY ? drawn.height : 0);
   context.scale(flipX ? -1 : 1, flipY ? -1 : 1);
@@ -100,5 +89,28 @@ export const drawPhotoMask = (
     drawn.width,
     drawn.height
   );
+  context.restore();
+};
+
+// The photo at the layout's size, the box inset by its pad. Only its alpha
+// matters: it's the shape the effects follow.
+export const drawPhotoMask = (
+  canvas: HTMLCanvasElement,
+  mask: PhotoMask,
+  { pad, scale, size }: EffectsLayout
+) => {
+  if (canvas.width !== size.width || canvas.height !== size.height) {
+    canvas.width = size.width;
+    canvas.height = size.height;
+  } else {
+    canvas.getContext("2d")?.clearRect(0, 0, size.width, size.height);
+  }
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return;
+  }
+  context.save();
+  context.translate(pad, pad);
+  drawPhoto(context, mask, scale);
   context.restore();
 };

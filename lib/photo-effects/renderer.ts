@@ -46,11 +46,14 @@ interface State {
   seeds: [Target, Target];
   // The latest field of the photos edited last, by owner
   fields: Map<object, { key: string; target: Target }>;
+  // For one-off fields (preset previews), never kept
+  scratch: Target;
 }
 
 export interface EffectsJob {
-  // Whose effects these are; its field is kept for the next recolouring
-  owner: object;
+  // Whose effects these are; its field is kept for the next recolouring.
+  // Null for one-off drawings (previews), which keep nothing.
+  owner: object | null;
   // Everything the field depends on: the same key reuses the owner's field
   fieldKey: string;
   layout: EffectsLayout;
@@ -172,6 +175,7 @@ const stateFor = (gl: WebGL2RenderingContext): State => {
       seed: linkProgram(gl, SEED_SHADER),
       shadow: linkProgram(gl, SHADOW_SHADER),
     },
+    scratch: createTarget(gl, "field"),
     seeds: [createTarget(gl, "seeds"), createTarget(gl, "seeds")],
   };
   states.set(gl, state);
@@ -235,16 +239,18 @@ const flood = (
 
 // The owner's field (see FIELD_SHADER), drawn again only when its key
 // changed. Scratch memory (the mask, the seeds) is handed back afterwards.
-const fieldFor = (
+// The target an owner's field lives in, most recently used last, and
+// whether it already holds this key
+const cachedTarget = (
   gl: WebGL2RenderingContext,
   state: State,
-  job: EffectsJob
-): Target => {
-  const { layout, owner } = job;
+  owner: object,
+  key: string
+): { target: Target; current: boolean } => {
   const cached = state.fields.get(owner);
   state.fields.delete(owner);
   const target = cached?.target ?? createTarget(gl, "field");
-  state.fields.set(owner, { key: job.fieldKey, target });
+  state.fields.set(owner, { key, target });
   for (const [other, field] of state.fields) {
     if (state.fields.size <= MAX_FIELDS) {
       break;
@@ -252,7 +258,19 @@ const fieldFor = (
     deleteTarget(gl, field.target);
     state.fields.delete(other);
   }
-  if (cached?.key === job.fieldKey) {
+  return { current: cached?.key === key, target };
+};
+
+const fieldFor = (
+  gl: WebGL2RenderingContext,
+  state: State,
+  job: EffectsJob
+): Target => {
+  const { layout, owner } = job;
+  const { current, target } = owner
+    ? cachedTarget(gl, state, owner, job.fieldKey)
+    : { current: false, target: state.scratch };
+  if (current) {
     return target;
   }
 
