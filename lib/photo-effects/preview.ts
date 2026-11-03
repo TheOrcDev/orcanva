@@ -1,6 +1,5 @@
 import { fitWithin } from "@/lib/document/geometry";
 import type { Rect, Size } from "@/lib/document/geometry";
-import { maxFilterSide } from "@/lib/image-filters/renderer";
 import { effectRgba } from "@/lib/photo-effects/color";
 import {
   effectsAtSize,
@@ -11,7 +10,10 @@ import {
 import type { RelativeEffects } from "@/lib/photo-effects/geometry";
 import { drawPhoto } from "@/lib/photo-effects/mask";
 import type { PhotoMask } from "@/lib/photo-effects/mask";
-import { renderPhotoEffects } from "@/lib/photo-effects/renderer";
+import {
+  effectsMaxSide,
+  renderPhotoEffects,
+} from "@/lib/photo-effects/renderer";
 
 // Tiles are about 72 CSS px wide; twice that stays sharp on retina
 export const EFFECT_PREVIEW_SIZE = 144;
@@ -47,7 +49,7 @@ const place = (
 };
 
 // The photo with a preset's effects, sized for the tile as they would be
-// for the photo on the page. Without WebGL2 it shows the photo alone.
+// for the photo on the page
 export const drawEffectsPreview = (
   target: HTMLCanvasElement,
   photo: PreviewPhoto,
@@ -68,7 +70,7 @@ export const drawEffectsPreview = (
     (target.width - box.width) / 2,
     (target.height - box.height) / 2
   );
-  const layout = effectsLayout(box, sized, maxFilterSide());
+  const layout = effectsLayout(box, sized, effectsMaxSide());
   if (layout) {
     haloCanvas ??= document.createElement("canvas");
     shadowCanvas ??= document.createElement("canvas");
@@ -81,7 +83,7 @@ export const drawEffectsPreview = (
       paint: effectsPaint(sized, 1, layout.scale, effectRgba),
       shadow: shadowCanvas,
     });
-    if (output?.shadow && layout.shadow && sized.shadow) {
+    if (output.shadow && layout.shadow && sized.shadow) {
       place(
         context,
         shadowCanvas,
@@ -90,7 +92,7 @@ export const drawEffectsPreview = (
         sized.shadow.offsetY
       );
     }
-    if (output?.halo && layout.halo) {
+    if (output.halo && layout.halo) {
       place(context, haloCanvas, regionOnPage(layout, layout.halo));
     }
   }

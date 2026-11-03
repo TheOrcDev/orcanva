@@ -2,14 +2,15 @@ import type { Rect, Size } from "@/lib/document/geometry";
 import {
   blurred,
   linkProgram,
+  maxFilterSide,
   sharedGl,
   uniformLocation,
 } from "@/lib/image-filters/renderer";
 import type { Program } from "@/lib/image-filters/renderer";
+import { renderWithCanvas } from "@/lib/photo-effects/fallback";
 import { floodSteps } from "@/lib/photo-effects/geometry";
-import type { EffectsLayout, EffectsPaint } from "@/lib/photo-effects/geometry";
+import type { EffectsJob, EffectsOutput } from "@/lib/photo-effects/job";
 import { drawPhotoMask } from "@/lib/photo-effects/mask";
-import type { PhotoMask } from "@/lib/photo-effects/mask";
 import {
   FIELD_SHADER,
   FLOOD_SHADER,
@@ -50,26 +51,13 @@ interface State {
   scratch: Target;
 }
 
-export interface EffectsJob {
-  // Whose effects these are; its field is kept for the next recolouring.
-  // Null for one-off drawings (previews), which keep nothing.
-  owner: object | null;
-  // Everything the field depends on: the same key reuses the owner's field
-  fieldKey: string;
-  layout: EffectsLayout;
-  mask: PhotoMask;
-  paint: EffectsPaint;
-  // Caller-owned canvases the bitmaps land in (Konva and exports share them)
-  halo: HTMLCanvasElement;
-  shadow: HTMLCanvasElement;
-}
+// Without WebGL2 the outline's distances are worked out on the CPU, so the
+// bitmaps stay smaller
+const FALLBACK_MAX_SIDE = 2048;
 
-// Which bitmaps were drawn. A blurred shadow is kept at a reduced size,
-// since its blur hides the detail.
-export interface EffectsOutput {
-  halo: boolean;
-  shadow: boolean;
-}
+// The largest side effect bitmaps may have here
+export const effectsMaxSide = (): number =>
+  sharedGl() ? maxFilterSide() : FALLBACK_MAX_SIDE;
 
 // Fields kept for recolouring without a new flood: about 5 bytes per
 // bitmap px each (with mip levels), so only the photos edited last
@@ -439,12 +427,12 @@ const drawShadow = (
   copyOut(canvas, size, job.shadow);
 };
 
-// Draws a photo's effects into the job's canvases. Null when this browser
-// has no WebGL2.
-export const renderPhotoEffects = (job: EffectsJob): EffectsOutput | null => {
+// Draws a photo's effects into the job's canvases, on 2D canvases when
+// this browser has no WebGL2 (see fallback.ts)
+export const renderPhotoEffects = (job: EffectsJob): EffectsOutput => {
   const shared = sharedGl();
   if (!shared) {
-    return null;
+    return renderWithCanvas(job);
   }
   const { canvas, gl } = shared;
   const state = { ...stateFor(gl), canvas };

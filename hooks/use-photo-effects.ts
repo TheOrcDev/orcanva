@@ -5,12 +5,10 @@ import { useEffect, useEffectEvent, useLayoutEffect, useRef } from "react";
 import type { RefObject } from "react";
 
 import { useEditor } from "@/components/editor/editor-store-context";
-import { toast } from "@/components/ui/toast";
 import { useAssetImage } from "@/hooks/use-asset-image";
 import type { Rect, Size } from "@/lib/document/geometry";
 import type { PhotoEffects, PhotoElement } from "@/lib/document/schema";
 import { photoNodeOf } from "@/lib/editor/node-names";
-import { maxFilterSide } from "@/lib/image-filters/renderer";
 import { resolveFilter, toUniforms } from "@/lib/image-filters/resolve";
 import { effectRgba } from "@/lib/photo-effects/color";
 import {
@@ -20,6 +18,7 @@ import {
 } from "@/lib/photo-effects/geometry";
 import type { PhotoClip } from "@/lib/photo-effects/mask";
 import {
+  effectsMaxSide,
   forgetPhotoEffects,
   renderPhotoEffects,
 } from "@/lib/photo-effects/renderer";
@@ -52,20 +51,6 @@ interface Canvases {
   halo: HTMLCanvasElement | null;
   shadow: HTMLCanvasElement | null;
 }
-
-let warnedUnsupported = false;
-
-const warnUnsupported = () => {
-  if (warnedUnsupported) {
-    return;
-  }
-  warnedUnsupported = true;
-  toast.add({
-    description: "This browser has no WebGL2, so photos show without them.",
-    title: "Photo effects can't be shown",
-    type: "error",
-  });
-};
 
 const releaseCanvas = (canvas: HTMLCanvasElement | null) => {
   if (canvas) {
@@ -157,7 +142,7 @@ export const usePhotoEffects = (
         effects: PhotoEffects;
         opacity: number;
       };
-      const layout = effectsLayout(box, settings.effects, maxFilterSide());
+      const layout = effectsLayout(box, settings.effects, effectsMaxSide());
       if (!layout) {
         clearBitmaps(shape, canvases);
         return true;
@@ -186,11 +171,6 @@ export const usePhotoEffects = (
         paint,
         shadow: shadowCanvas,
       });
-      if (!output) {
-        warnUnsupported();
-        clearBitmaps(shape, canvases);
-        return true;
-      }
       const bitmap = (
         drawn: boolean,
         canvas: HTMLCanvasElement,
