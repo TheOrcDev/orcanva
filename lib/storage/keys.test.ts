@@ -8,6 +8,7 @@ import {
   ownAvatarKey,
   storageUrl,
   thumbnailKey,
+  versionThumbnailKey,
 } from "@/lib/storage/keys";
 
 describe("storage keys", () => {
@@ -23,9 +24,23 @@ describe("storage keys", () => {
     expect(isServableKey("assets/abc.png")).toBe(true);
     expect(isServableKey("thumbnails/d/1.jpg")).toBe(true);
     expect(isServableKey("avatars/u/1.jpg")).toBe(true);
+    expect(isServableKey("versions/d/1.jpg")).toBe(true);
+    expect(isServableKey("versions/../thumbnails/d/1.jpg")).toBe(false);
     expect(isServableKey("smoke-test/x.txt")).toBe(false);
     expect(isServableKey("assets/../secrets")).toBe(false);
     expect(isServableKey("/assets/abc.png")).toBe(false);
+  });
+
+  it("builds a random key per version picture, under the design", () => {
+    expect(versionThumbnailKey("design-1", "v1")).toBe(
+      "versions/design-1/v1.jpg"
+    );
+    expect(versionThumbnailKey("design-1")).toMatch(
+      /^versions\/design-1\/[0-9a-f-]{36}\.jpg$/u
+    );
+    expect(versionThumbnailKey("design-1")).not.toBe(
+      versionThumbnailKey("design-1")
+    );
   });
 
   it("builds versioned avatar keys per account", () => {

@@ -7,7 +7,12 @@ import { z } from "zod";
 import { requireViewer } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/client";
 import { visibleTo } from "@/lib/db/queries/designs";
-import { designElements, designVisibility, designs } from "@/lib/db/schema";
+import {
+  designElements,
+  designVersions,
+  designVisibility,
+  designs,
+} from "@/lib/db/schema";
 import { createDocument } from "@/lib/document/factories";
 import {
   DOCUMENT_VERSION,
@@ -82,13 +87,23 @@ export const renameDesign = async (
   refreshStudio();
 };
 
+// Its versions go with it (the foreign key cascades), and so do their
+// pictures. RETURNING runs before the cascade, so it still sees them.
 export const deleteDesign = async (id: string): Promise<void> => {
   const designId = z.uuid().parse(id);
   const viewer = await requireViewer();
   const [row] = await getDb()
     .delete(designs)
     .where(and(eq(designs.id, designId), eq(designs.ownerId, viewer.id)))
-    .returning({ thumbnailKey: designs.thumbnailKey });
+    .returning({
+      thumbnailKey: designs.thumbnailKey,
+      versionKeys: sql<string[] | null>`(
+        SELECT array_agg(${designVersions.thumbnailKey})
+        FROM ${designVersions}
+        WHERE ${designVersions.designId} = ${designs.id}
+          AND ${designVersions.thumbnailKey} IS NOT NULL
+      )`,
+    });
   if (!row) {
     throw new Error("Design not found");
   }
@@ -96,6 +111,9 @@ export const deleteDesign = async (id: string): Promise<void> => {
   if (row.thumbnailKey) {
     await deleteObject(row.thumbnailKey);
   }
+  await Promise.allSettled(
+    (row.versionKeys ?? []).map((key) => deleteObject(key))
+  );
   refreshStudio();
 };
 
@@ -137,7 +155,8 @@ export const setDesignVisibility = async (
 const COPY_SUFFIX = " copy";
 
 // "Make a copy": a full copy (elements + preview) of any design the viewer
-// can open, owned by them, to rework without touching the original.
+// can open, owned by them, to rework without touching the original. Its
+// version history stays with the original.
 // Assets are shared, so no files are copied. Element ids only need to be
 // unique within a design, so rows copy as-is.
 export const duplicateDesign = async (id: string): Promise<{ id: string }> => {

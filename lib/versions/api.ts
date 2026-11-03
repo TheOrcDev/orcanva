@@ -75,3 +75,16 @@ export const saveVersion = async (
   });
   return response.json();
 };
+
+// A picture of the version, unless it already has one (409, ignored)
+export const uploadVersionThumbnail = async (
+  designId: string,
+  versionId: string,
+  picture: Blob
+): Promise<void> => {
+  await send(`${versionsUrl(designId)}/${versionId}/thumbnail`, {
+    body: picture,
+    headers: { "Content-Type": "image/jpeg" },
+    method: "PUT",
+  });
+};

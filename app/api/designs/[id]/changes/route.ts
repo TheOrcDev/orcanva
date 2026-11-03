@@ -117,8 +117,9 @@ export const POST = async (
   if (!row?.found) {
     return json({ error: "Not found" }, 404);
   }
-  if (row.snapshot_id) {
-    after(() => finishSnapshot(id));
+  const snapshotId = row.snapshot_id;
+  if (snapshotId) {
+    after(() => finishSnapshot(id, snapshotId));
   }
   return json({ txid: row.txid });
 };

@@ -1,12 +1,13 @@
 import "server-only";
-import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 
 import { authUsers } from "@/lib/db/auth-schema";
 import { getDb } from "@/lib/db/client";
 import { managesHistory } from "@/lib/db/queries/designs";
-import { designVersions } from "@/lib/db/schema";
-import { storageUrl } from "@/lib/storage/keys";
+import { designVersions, designs } from "@/lib/db/schema";
+import { storageUrl, versionThumbnailKey } from "@/lib/storage/keys";
+import { copyObject, deleteObject } from "@/lib/storage/s3";
 import { versionsToPrune } from "@/lib/versions/retention";
 import { MAX_NAMED_VERSIONS, VERSION_PAGE_SIZE } from "@/lib/versions/schema";
 import type { VersionKind, VersionSummary } from "@/lib/versions/schema";
@@ -234,9 +235,64 @@ export const pruneVersions = async (designId: string): Promise<string[]> => {
   return deleted.flatMap((row) => row.thumbnailKey ?? []);
 };
 
+// Points a version at a picture already stored under `key`, unless it has
+// one. False when it had one or is gone: the caller deletes the file.
+export const setVersionThumbnail = async (
+  designId: string,
+  versionId: string,
+  key: string
+): Promise<boolean> => {
+  const updated = await getDb()
+    .update(designVersions)
+    .set({ thumbnailKey: key })
+    .where(
+      and(
+        eq(designVersions.id, versionId),
+        eq(designVersions.designId, designId),
+        isNull(designVersions.thumbnailKey)
+      )
+    )
+    .returning({ id: designVersions.id });
+  return updated.length > 0;
+};
+
+// Gives an auto or restore version a copy of the design's gallery picture,
+// which shows the state the version holds (the picture is drawn by the
+// editors a few seconds after edits stop, and the version is the state from
+// before the newest batch). Designs without one get theirs when the version
+// is first previewed.
+const copyDesignThumbnail = async (
+  designId: string,
+  versionId: string
+): Promise<void> => {
+  const [design] = await getDb()
+    .select({ thumbnailKey: designs.thumbnailKey })
+    .from(designs)
+    .where(eq(designs.id, designId))
+    .limit(1);
+  if (!design?.thumbnailKey) {
+    return;
+  }
+  const key = versionThumbnailKey(designId);
+  await copyObject(design.thumbnailKey, key);
+  if (!(await setVersionThumbnail(designId, versionId, key))) {
+    await deleteObject(key);
+  }
+};
+
+const deleteFiles = async (keys: readonly string[]): Promise<void> => {
+  await Promise.allSettled(keys.map((key) => deleteObject(key)));
+};
+
 // After a snapshot was taken (in after(), so the edit that took it doesn't
-// wait): prunes the design's history. Failures are dropped; the next
-// snapshot prunes again.
-export const finishSnapshot = async (designId: string): Promise<void> => {
-  await pruneVersions(designId).catch(() => null);
+// wait): its picture, then pruning, which also deletes the pictures of the
+// versions it drops. Failures are dropped: a version without a picture gets
+// one when it's previewed, and the next snapshot prunes again.
+export const finishSnapshot = async (
+  designId: string,
+  versionId: string
+): Promise<void> => {
+  await copyDesignThumbnail(designId, versionId).catch(() => null);
+  const dropped = await pruneVersions(designId).catch(() => []);
+  await deleteFiles(dropped);
 };

@@ -1,9 +1,12 @@
 "use client";
 
-import { RiHistoryLine } from "@remixicon/react";
+import { RiHistoryLine, RiImageLine } from "@remixicon/react";
+import type Konva from "konva";
+import Image from "next/image";
 import { useId, useState } from "react";
 import type { FormEvent } from "react";
 
+import { usePageNodeRef } from "@/components/editor/canvas-context";
 import {
   useEditor,
   useEditorStoreApi,
@@ -41,7 +44,11 @@ import {
 import { useVersionHistory } from "@/hooks/use-version-history";
 import type { VersionHistory } from "@/hooks/use-version-history";
 import { canManageHistory } from "@/lib/auth/access";
-import { saveVersion } from "@/lib/versions/api";
+import type { DesignDocument } from "@/lib/document/schema";
+import { selectDocument } from "@/lib/editor/store";
+import { prepareForRender } from "@/lib/export/prepare";
+import { renderThumbnail } from "@/lib/export/render-page";
+import { saveVersion, uploadVersionThumbnail } from "@/lib/versions/api";
 import {
   formatVersionTime,
   versionByline,
@@ -50,10 +57,23 @@ import {
 import { MAX_VERSION_NAME } from "@/lib/versions/schema";
 import type { VersionSummary } from "@/lib/versions/schema";
 
+const drawPicture = async (
+  node: Konva.Group,
+  document: DesignDocument,
+  designId: string,
+  versionId: string
+) => {
+  await prepareForRender(document);
+  const picture = await renderThumbnail(node, document);
+  await uploadVersionThumbnail(designId, versionId, picture);
+};
+
 // Names the design as it is now. This window's own edits go out first, so
-// the version holds them.
+// the version holds them, and its picture is drawn from the canvas, which
+// shows the same state.
 const SaveVersionForm = ({ onSaved }: { onSaved: () => void }) => {
   const store = useEditorStoreApi();
+  const pageNodeRef = usePageNodeRef();
   const id = useId();
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -68,7 +88,14 @@ const SaveVersionForm = ({ onSaved }: { onSaved: () => void }) => {
     try {
       const { designId, flushWrites } = store.getState();
       await flushWrites?.();
-      await saveVersion(designId, trimmed);
+      const document = selectDocument(store.getState());
+      const saved = await saveVersion(designId, trimmed);
+      const node = pageNodeRef.current;
+      // Without its picture, one is drawn when it's first previewed. A tab
+      // that can't draw part of the design leaves that to another.
+      if (node && store.getState().skippedElementIds.length === 0) {
+        await drawPicture(node, document, designId, saved.id).catch(() => null);
+      }
       setName("");
       toast.add({ title: `Saved “${trimmed}”`, type: "success" });
       onSaved();
@@ -127,13 +154,29 @@ const VersionRow = ({
   const createdAt = new Date(version.createdAt);
 
   return (
-    <li className="flex min-w-0 flex-col gap-0.5 rounded-2xl px-3 py-2.5">
-      <span className="truncate font-medium">{title}</span>
-      <span className="text-muted-foreground text-xs">
-        {versionByline(version)} ·{" "}
-        <time dateTime={version.createdAt} title={createdAt.toLocaleString()}>
-          {formatVersionTime(createdAt, loadedAt)}
-        </time>
+    <li className="flex items-center gap-3 rounded-2xl px-3 py-2.5">
+      <span className="bg-muted relative flex aspect-video w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg">
+        {version.thumbnailUrl ? (
+          <Image
+            src={version.thumbnailUrl}
+            alt=""
+            fill
+            unoptimized
+            sizes="96px"
+            className="object-contain"
+          />
+        ) : (
+          <RiImageLine className="text-muted-foreground" aria-hidden />
+        )}
+      </span>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="truncate font-medium">{title}</span>
+        <span className="text-muted-foreground text-xs">
+          {versionByline(version)} ·{" "}
+          <time dateTime={version.createdAt} title={createdAt.toLocaleString()}>
+            {formatVersionTime(createdAt, loadedAt)}
+          </time>
+        </span>
       </span>
     </li>
   );
