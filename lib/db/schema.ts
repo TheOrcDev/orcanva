@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  check,
   index,
   integer,
   uniqueIndex,
@@ -219,6 +220,102 @@ export const designVersions = pgTable(
   ]
 );
 
+// Comments pinned to a design. A thread is its root comment (thread_id
+// null), which holds the pin; replies point at it. One table, so the live
+// query that streams them stays a single-table SELECT. Stored outside the
+// elements and versions, so a version restore never touches them.
+export const designComments = pgTable(
+  "design_comments",
+  {
+    // A root's pin on its element (element_id), in the element's own
+    // unrotated frame at the size it had then (anchor_width, and
+    // anchor_height for boxes), so it follows the element when it's moved,
+    // turned or resized. See lib/comments/anchor.ts.
+    anchorHeight: real("anchor_height"),
+    anchorWidth: real("anchor_width"),
+    anchorX: real("anchor_x"),
+    anchorY: real("anchor_y"),
+    // The account that wrote it; references neon_auth."user"(id) ON DELETE
+    // SET NULL in drizzle/0013_*, like owner_id
+    authorId: uuid("author_id"),
+    // Copied from the account when it was written, so the live query needs
+    // no join (and a rename doesn't reach old comments, as with presence)
+    authorImage: text("author_image"),
+    authorName: text("author_name").notNull(),
+    // Plain text; mentions are <@user id> tokens
+    body: text("body").notNull(),
+    createdAt: timestamps.createdAt,
+    designId: uuid("design_id")
+      .notNull()
+      .references(() => designs.id, { onDelete: "cascade" }),
+    editedAt: timestamp("edited_at", { withTimezone: true }),
+    elementId: text("element_id"),
+    id: uuid("id").primaryKey().defaultRandom(),
+    // The names of the people its tokens mention, by user id, as they were
+    // when it was written (like author_name)
+    mentions: jsonb("mentions")
+      .$type<Record<string, string>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    // The page it's on; null is the first page, whose id will be the
+    // design's own once designs have pages (plan 10)
+    pageId: text("page_id"),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    // References neon_auth."user"(id) ON DELETE SET NULL in drizzle/0013_*
+    resolvedBy: uuid("resolved_by"),
+    // The thread it replies to; null for a thread's root
+    threadId: uuid("thread_id").references(
+      (): AnyPgColumn => designComments.id,
+      { onDelete: "cascade" }
+    ),
+    // Where a root's pin points on the page, and where it stays when its
+    // element is gone
+    x: real("x"),
+    y: real("y"),
+  },
+  (table) => [
+    index("design_comments_design_idx").on(table.designId, table.createdAt),
+    index("design_comments_thread_idx").on(table.threadId),
+    // The per-account rate limit counts recent comments
+    index("design_comments_author_created_idx").on(
+      table.authorId,
+      table.createdAt
+    ),
+    // Roots carry the pin, replies don't
+    check(
+      "design_comments_root_pin",
+      sql`(${table.threadId} IS NULL) = (${table.x} IS NOT NULL AND ${table.y} IS NOT NULL)`
+    ),
+  ]
+);
+
+// Who a comment mentions, one row per person: what the mention emails are
+// counted and limited by, and room for an inbox later
+export const commentMentions = pgTable(
+  "comment_mentions",
+  {
+    commentId: uuid("comment_id")
+      .notNull()
+      .references(() => designComments.id, { onDelete: "cascade" }),
+    createdAt: timestamps.createdAt,
+    designId: uuid("design_id")
+      .notNull()
+      .references(() => designs.id, { onDelete: "cascade" }),
+    // When the email went out; null when it was skipped (no email set up,
+    // a limit, or they were on the design at the time)
+    emailedAt: timestamp("emailed_at", { withTimezone: true }),
+    // References neon_auth."user"(id) ON DELETE CASCADE in drizzle/0013_*
+    userId: uuid("user_id").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.commentId, table.userId] }),
+    index("comment_mentions_user_emailed_idx").on(
+      table.userId,
+      table.emailedAt
+    ),
+  ]
+);
+
 export const assetStatus = pgEnum("asset_status", ["pending", "ready"]);
 
 // Derived images (e.g. a background-removed cutout) point at their source
@@ -309,3 +406,4 @@ export type AssetRow = typeof assets.$inferSelect;
 export type DesignShareRow = typeof designShares.$inferSelect;
 export type BrandKitItemRow = typeof brandKitItems.$inferSelect;
 export type DesignVersionRow = typeof designVersions.$inferSelect;
+export type DesignCommentRow = typeof designComments.$inferSelect;

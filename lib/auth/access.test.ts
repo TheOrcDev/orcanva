@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  canComment,
+  canDeleteComment,
+  canEditComment,
   canManageHistory,
+  canMention,
+  canResolveThread,
   keepsPrivateAccess,
   roleFor,
 } from "@/lib/auth/access";
@@ -99,5 +104,45 @@ describe("canManageHistory", () => {
       false
     );
     expect(ownerless && canManageHistory(ownerless)).toBe(false);
+  });
+});
+
+describe("comments", () => {
+  it("lets anyone signed in with a role comment, but no guest", () => {
+    expect(canComment("owner", OWNER)).toBe(true);
+    expect(canComment("member", SOMEONE)).toBe(true);
+    expect(canComment("editor", SOMEONE)).toBe(true);
+    expect(canComment("editor", null)).toBe(false);
+    expect(canComment(null, SOMEONE)).toBe(false);
+  });
+
+  it("lets only the owner and people it's shared with mention", () => {
+    expect(canMention("owner")).toBe(true);
+    expect(canMention("member")).toBe(true);
+    expect(canMention("editor")).toBe(false);
+    expect(canMention(null)).toBe(false);
+  });
+
+  it("lets only the author change a comment", () => {
+    expect(canEditComment(SOMEONE, SOMEONE)).toBe(true);
+    expect(canEditComment(OWNER, SOMEONE)).toBe(false);
+    // A deleted account's comments, and guests, match nobody
+    expect(canEditComment(null, null)).toBe(false);
+  });
+
+  it("lets the author or the owner delete a comment", () => {
+    expect(canDeleteComment("editor", SOMEONE, SOMEONE)).toBe(true);
+    expect(canDeleteComment("owner", OWNER, SOMEONE)).toBe(true);
+    expect(canDeleteComment("owner", OWNER, null)).toBe(true);
+    expect(canDeleteComment("member", OWNER, SOMEONE)).toBe(false);
+    expect(canDeleteComment("editor", null, null)).toBe(false);
+  });
+
+  it("lets the owner, members and the thread's author resolve it", () => {
+    expect(canResolveThread("owner", OWNER, SOMEONE)).toBe(true);
+    expect(canResolveThread("member", OWNER, SOMEONE)).toBe(true);
+    expect(canResolveThread("editor", SOMEONE, SOMEONE)).toBe(true);
+    expect(canResolveThread("editor", SOMEONE, OWNER)).toBe(false);
+    expect(canResolveThread("editor", null, null)).toBe(false);
   });
 });
