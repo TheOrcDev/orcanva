@@ -26,6 +26,7 @@ import { MIN_ELEMENT_SIZE, cropToEdge, edgeOfAnchor } from "@/lib/editor/bake";
 import {
   ELEMENT_NODE_NAME,
   LIVE_CROP_ATTR,
+  PHOTO_EFFECTS_NAME,
   photoNodeOf,
 } from "@/lib/editor/node-names";
 
@@ -119,7 +120,9 @@ export interface LiveCrop {
 // Side handles on a photo crop it instead of stretching it: fold the scale
 // into the photo's size and crop while the drag is live. `element` is the
 // photo as the gesture started. Its effects hide until the crop is baked
-// (see PhotoEffectsNode).
+// (see PhotoEffectsNode), but their node follows the box: the Transformer
+// measures the whole element, so a node left at the old size would scale
+// every next step from the wrong width.
 const recropImage = (
   event: Konva.KonvaEventObject<Event>,
   element: ImageElement
@@ -151,6 +154,7 @@ const recropImage = (
     y: element.flipY ? height : 0,
   });
   image.crop(cropToPixels(crop, { height: drawn.height, width: drawn.width }));
+  group.findOne(`.${PHOTO_EFFECTS_NAME}`)?.size({ height, width });
   const live: LiveCrop = { crop, height, width };
   image.setAttr(LIVE_CROP_ATTR, live);
 };
