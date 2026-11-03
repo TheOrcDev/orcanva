@@ -15,6 +15,7 @@ import { ExportPopover } from "@/components/editor/export-popover";
 import { OutdatedDialog } from "@/components/editor/outdated-dialog";
 import { PropertiesPanel } from "@/components/editor/panels/properties-panel";
 import { EditorToolbar } from "@/components/editor/toolbar";
+import { YouTubePreviewDialog } from "@/components/editor/youtube-preview-dialog";
 import { useAssetResolver } from "@/hooks/use-asset-resolver";
 import { useAssetUrlSync } from "@/hooks/use-asset-url-sync";
 import { useClipboard } from "@/hooks/use-clipboard";
@@ -62,7 +63,15 @@ const EditorShell = ({
       ) : null}
       <AccessLostDialog />
       <OutdatedDialog flush={flush} />
-      <EditorToolbar flush={flush} actions={<ExportPopover />} />
+      <EditorToolbar
+        flush={flush}
+        actions={
+          <>
+            <YouTubePreviewDialog />
+            <ExportPopover />
+          </>
+        }
+      />
       <div className="flex min-h-0 flex-1">
         <EditorSidebar />
         <WorkspaceStage />
