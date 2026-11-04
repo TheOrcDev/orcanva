@@ -85,7 +85,7 @@ const EditorShell = ({
         <div className="relative flex min-h-0 flex-1">
           {/* Stays mounted under a version preview, so live edits, the
               gallery preview and downloads keep working */}
-          <div className="flex min-h-0 flex-1" inert={previewing}>
+          <div className="flex min-h-0 min-w-0 flex-1" inert={previewing}>
             <EditorSidebar />
             <div className="flex min-w-0 flex-1 flex-col">
               <WorkspaceStage />

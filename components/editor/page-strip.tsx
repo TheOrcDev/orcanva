@@ -21,7 +21,7 @@ import {
   RiFileCopyLine,
   RiMoreLine,
 } from "@remixicon/react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { ComponentProps } from "react";
 
 import {
@@ -117,6 +117,16 @@ const PageTile = ({
   });
   const size = tileSize(page);
   const label = `Page ${index + 1}`;
+  // The page on screen stays in view in a long strip (PageDown, undo)
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (active) {
+      buttonRef.current?.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+      });
+    }
+  }, [active]);
   const here =
     peers.length > 0
       ? `${label}: ${peers.map((peer) => peer.name).join(", ")} ${peers.length === 1 ? "is" : "are"} here`
@@ -136,6 +146,7 @@ const PageTile = ({
         <TooltipTrigger
           render={
             <PageButton
+              ref={buttonRef}
               size={size}
               aria-label={here}
               aria-current={active ? "page" : undefined}
