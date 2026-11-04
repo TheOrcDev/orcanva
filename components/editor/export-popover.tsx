@@ -4,6 +4,8 @@ import { RiDownload2Line } from "@remixicon/react";
 import { useId, useState, useTransition } from "react";
 
 import { usePageNodeRef } from "@/components/editor/canvas-context";
+import { usePageRenderer } from "@/components/editor/canvas/static-page";
+import type { RenderOffscreen } from "@/components/editor/canvas/static-page";
 import {
   useEditor,
   useEditorStoreApi,
@@ -30,42 +32,167 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { canExportAt, slugify } from "@/lib/document/geometry";
+import type { DesignDocument } from "@/lib/document/schema";
 import { selectDocument } from "@/lib/editor/store";
+import type { EditorStoreApi } from "@/lib/editor/store";
 import { prepareForRender } from "@/lib/export/prepare";
 import {
   EXPORT_EXTENSIONS,
   downloadBlob,
   renderPage,
 } from "@/lib/export/render-page";
-import type { ExportFormat } from "@/lib/export/render-page";
+import type { ExportFormat, RenderOptions } from "@/lib/export/render-page";
 import { formatSize } from "@/lib/format";
 
-const FORMATS: { value: ExportFormat; label: string }[] = [
+type DownloadFormat = ExportFormat;
+type PageScope = "this" | "all";
+
+const FORMATS: { value: DownloadFormat; label: string }[] = [
   { label: "PNG", value: "png" },
   { label: "JPG", value: "jpeg" },
   { label: "WebP", value: "webp" },
 ];
 
+const SCOPES: { value: PageScope; label: string }[] = [
+  { label: "This page", value: "this" },
+  { label: "All pages", value: "all" },
+];
+
 const MULTIPLIERS = [1, 2];
 
-const isFormat = (value: unknown): value is ExportFormat =>
+const isFormat = (value: unknown): value is DownloadFormat =>
   FORMATS.some((format) => format.value === value);
+
+const isScope = (value: unknown): value is PageScope =>
+  SCOPES.some((scope) => scope.value === value);
+
+// "-01", "-02", … for one of several pages
+const pageSuffix = (index: number) => `-${String(index + 1).padStart(2, "0")}`;
+
+const bytesOf = async (blob: Blob) => new Uint8Array(await blob.arrayBuffer());
+
+// Draws pages one at a time: the one on screen from the canvas, the others
+// off screen. `onPage` hears which page is being drawn.
+const drawPages = async (
+  store: EditorStoreApi,
+  node: Parameters<typeof renderPage>[0],
+  render: RenderOffscreen,
+  pages: readonly { id: string; document: DesignDocument }[],
+  options: RenderOptions,
+  onPage: (index: number) => void
+): Promise<Blob[]> => {
+  const blobs: Blob[] = [];
+  for (const [index, page] of pages.entries()) {
+    onPage(index);
+    if (page.id === store.getState().activePageId) {
+      // oxlint-disable-next-line no-await-in-loop -- one page at a time
+      await prepareForRender(page.document);
+      // oxlint-disable-next-line no-await-in-loop -- one page at a time
+      blobs.push(await renderPage(node, page.document, options));
+    } else {
+      // oxlint-disable-next-line no-await-in-loop -- one page at a time
+      blobs.push(await render(page.document, options));
+    }
+  }
+  return blobs;
+};
+
+// The ZIP writer loads only when a download needs it
+const loadZip = () => import("@/lib/export/zip");
+
+// Draws the page on screen, or every page, and downloads them: one picture
+// as it is, several in a ZIP. `onPage` hears which page of
+// several is being drawn.
+const downloadPages = async ({
+  allPages,
+  format,
+  node,
+  onPage,
+  quality,
+  render,
+  size,
+  store,
+  transparent,
+}: {
+  allPages: boolean;
+  format: DownloadFormat;
+  node: Parameters<typeof renderPage>[0];
+  onPage: (progress: { done: number; total: number } | null) => void;
+  quality: number;
+  render: RenderOffscreen;
+  size: number;
+  store: EditorStoreApi;
+  transparent: boolean;
+}): Promise<void> => {
+  // Ending an in-progress text edit commits it; prepare waits a frame so
+  // the canvas shows it before the document is read
+  store.getState().setEditingText(null);
+  await prepareForRender(selectDocument(store.getState()));
+  const state = store.getState();
+  const pages = (
+    allPages
+      ? state.pages
+      : state.pages.filter((item) => item.id === state.activePageId)
+  ).map((item) => ({ document: item.doc.document, id: item.id }));
+  const { height, width } = selectDocument(state);
+  const name = slugify(state.name);
+  const progress = (index: number) =>
+    onPage(pages.length > 1 ? { done: index, total: pages.length } : null);
+
+  const blobs = await drawPages(
+    store,
+    node,
+    render,
+    pages,
+    {
+      format,
+      pixelRatio: size,
+      quality: format === "png" ? undefined : quality / 100,
+      transparent,
+    },
+    progress
+  );
+  const pixels = `${width * size}x${height * size}`;
+  const extension = EXPORT_EXTENSIONS[format];
+  const [only] = blobs;
+  if (blobs.length === 1 && only) {
+    downloadBlob(only, `${name}-${pixels}.${extension}`);
+    return;
+  }
+  const { zipBlob } = await loadZip();
+  const files = await Promise.all(
+    blobs.map(async (blob, index) => ({
+      data: await bytesOf(blob),
+      name: `${name}-${pixels}${pageSuffix(index)}.${extension}`,
+    }))
+  );
+  downloadBlob(zipBlob(files), `${name}-${pixels}.zip`);
+};
 
 export const ExportPopover = () => {
   const id = useId();
   const store = useEditorStoreApi();
   const pageNodeRef = usePageNodeRef();
+  const render = usePageRenderer();
   const width = useEditor((state) => selectDocument(state).width);
   const height = useEditor((state) => selectDocument(state).height);
-  const [format, setFormat] = useState<ExportFormat>("png");
+  const pageCount = useEditor((state) => state.pages.length);
+  const [format, setFormat] = useState<DownloadFormat>("png");
+  const [scope, setScope] = useState<PageScope>("this");
   const [quality, setQuality] = useState(92);
   const [multiplier, setMultiplier] = useState(1);
   const [transparent, setTransparent] = useState(false);
   const [isExporting, startExport] = useTransition();
+  // Which page is being drawn, while several are
+  const [progress, setProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
 
   const page = { height, width };
   const effectiveMultiplier = canExportAt(page, multiplier) ? multiplier : 1;
-  const supportsTransparency = format !== "jpeg";
+  const supportsTransparency = format === "png" || format === "webp";
+  const allPages = pageCount > 1 && scope === "all";
 
   const download = () => {
     startExport(async () => {
@@ -74,29 +201,29 @@ export const ExportPopover = () => {
         return;
       }
       try {
-        // Ending an in-progress text edit commits it; prepare waits a frame
-        // so the canvas shows it before the document is read
-        store.getState().setEditingText(null);
-        await prepareForRender(selectDocument(store.getState()));
-        const state = store.getState();
-        const document = selectDocument(state);
-        await prepareForRender(document);
-        const blob = await renderPage(node, document, {
+        await downloadPages({
+          allPages,
           format,
-          pixelRatio: effectiveMultiplier,
-          quality: format === "png" ? undefined : quality / 100,
+          node,
+          onPage: setProgress,
+          quality,
+          render,
+          size: effectiveMultiplier,
+          store,
           transparent: supportsTransparency && transparent,
         });
-        const size = `${document.width * effectiveMultiplier}x${document.height * effectiveMultiplier}`;
-        downloadBlob(
-          blob,
-          `${slugify(state.name)}-${size}.${EXPORT_EXTENSIONS[format]}`
-        );
       } catch {
         toast.add({ title: "Export failed", type: "error" });
       }
+      setProgress(null);
     });
   };
+
+  const label = FORMATS.find((item) => item.value === format)?.label;
+  let action = `Download ${label}`;
+  if (allPages) {
+    action = `Download ${pageCount} ${label}s (ZIP)`;
+  }
 
   return (
     <Popover>
@@ -112,6 +239,32 @@ export const ExportPopover = () => {
           </PopoverDescription>
         </PopoverHeader>
         <FieldGroup>
+          {pageCount > 1 ? (
+            <Field>
+              <FieldLabel>Pages</FieldLabel>
+              <ToggleGroup
+                variant="outline"
+                value={[scope]}
+                onValueChange={(value) => {
+                  const [next] = value;
+                  if (isScope(next)) {
+                    setScope(next);
+                  }
+                }}
+              >
+                {SCOPES.map((item) => (
+                  <ToggleGroupItem key={item.value} value={item.value}>
+                    {item.label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+              {scope === "all" ? (
+                <FieldDescription>
+                  One file per page, together in a ZIP.
+                </FieldDescription>
+              ) : null}
+            </Field>
+          ) : null}
           <Field>
             <FieldLabel>File type</FieldLabel>
             <ToggleGroup
@@ -196,7 +349,9 @@ export const ExportPopover = () => {
             ) : (
               <RiDownload2Line data-icon="inline-start" />
             )}
-            Download {FORMATS.find((item) => item.value === format)?.label}
+            {progress
+              ? `Drawing page ${progress.done + 1} of ${progress.total}…`
+              : action}
           </Button>
         </FieldGroup>
       </PopoverContent>
