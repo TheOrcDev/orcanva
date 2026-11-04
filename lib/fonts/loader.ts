@@ -105,7 +105,7 @@ export const ensureFont = async (request: FontRequest): Promise<void> => {
 };
 
 // Every face a text draws with: its own, and any its marks switch to
-const waitForFonts = async (document: DesignDocument): Promise<void> => {
+export const waitForFonts = async (document: DesignDocument): Promise<void> => {
   const requests = document.elements.flatMap((element) => {
     if (element.type !== "text" || !element.visible) {
       return [];

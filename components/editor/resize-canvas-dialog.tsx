@@ -25,10 +25,96 @@ import {
   FieldDescription,
   FieldGroup,
   FieldLabel,
+  FieldLegend,
+  FieldSet,
+  FieldTitle,
 } from "@/components/ui/field";
-import { Switch } from "@/components/ui/switch";
-import { resizeDocument } from "@/lib/editor/document-ops";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Spinner } from "@/components/ui/spinner";
+import { toast } from "@/components/ui/toast";
+import type { Size } from "@/lib/document/geometry";
+import { findPresetBySize } from "@/lib/document/presets";
+import { RESIZE_LAYOUTS } from "@/lib/editor/magic-resize";
+import type { ResizeLayout } from "@/lib/editor/magic-resize";
+import { resizeInPlace, undoResize } from "@/lib/editor/resize-design";
 import { selectDocument } from "@/lib/editor/store";
+import type { EditorStoreApi } from "@/lib/editor/store";
+import { formatSize } from "@/lib/format";
+
+const LAYOUTS: Record<ResizeLayout, { title: string; description: string }> = {
+  keep: {
+    description: "Only the page changes. Everything stays where it is.",
+    title: "Keep positions",
+  },
+  magic: {
+    description:
+      "Lays the design out again: photos refit, text re-wraps and keeps its size, everything keeps its place.",
+    title: "Magic",
+  },
+  stretch: {
+    description: "Stretches positions and sizes to the new page.",
+    title: "Stretch",
+  },
+};
+
+// What a size is called in messages: its preset's name, or its pixels
+const sizeLabel = (size: Size): string =>
+  findPresetBySize(size.width, size.height)?.label ??
+  `${formatSize(size.width, size.height)} px`;
+
+// Says it's done, with an Undo that only steps back while the resize is
+// still the latest change
+const announceResize = (store: EditorStoreApi, step: object, size: Size) => {
+  const id = toast.add({
+    actionProps: {
+      children: "Undo",
+      onClick: () => {
+        toast.close(id);
+        if (!undoResize(store, step)) {
+          toast.add({
+            description: "Press ⌘Z to step back through the later ones.",
+            title: "Other changes came after the resize",
+          });
+        }
+      },
+    },
+    description: "⌘Z undoes it too.",
+    timeout: 10_000,
+    title: `Resized to ${sizeLabel(size)}`,
+    type: "success",
+  });
+};
+
+export const LayoutPicker = ({
+  idPrefix,
+  value,
+  onChange,
+}: {
+  idPrefix: string;
+  value: ResizeLayout;
+  onChange: (layout: ResizeLayout) => void;
+}) => (
+  <FieldSet>
+    <FieldLegend variant="label">Layout</FieldLegend>
+    <RadioGroup
+      className="sm:grid-cols-3"
+      value={value}
+      onValueChange={(next) => onChange(next as ResizeLayout)}
+    >
+      {RESIZE_LAYOUTS.map((layout) => (
+        <FieldLabel key={layout} htmlFor={`${idPrefix}-${layout}`}>
+          <Field orientation="horizontal">
+            <FieldContent>
+              <FieldTitle>{LAYOUTS[layout].title}</FieldTitle>
+              <FieldDescription>{LAYOUTS[layout].description}</FieldDescription>
+            </FieldContent>
+            <RadioGroupItem value={layout} id={`${idPrefix}-${layout}`} />
+          </Field>
+        </FieldLabel>
+      ))}
+    </RadioGroup>
+  </FieldSet>
+);
 
 const ResizeForm = ({ onDone }: { onDone: () => void }) => {
   const id = useId();
@@ -36,35 +122,34 @@ const ResizeForm = ({ onDone }: { onDone: () => void }) => {
   const document = useEditor(selectDocument);
   const [width, setWidth] = useState(String(document.width));
   const [height, setHeight] = useState(String(document.height));
-  const [scaleContent, setScaleContent] = useState(true);
+  const [layout, setLayout] = useState<ResizeLayout>("magic");
+  const [busy, setBusy] = useState(false);
 
   const parsedWidth = parseCanvasDimension(width);
   const parsedHeight = parseCanvasDimension(height);
   const isValid = parsedWidth !== null && parsedHeight !== null;
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (parsedWidth === null || parsedHeight === null) {
       return;
     }
-    const state = store.getState();
-    state.change((doc) =>
-      resizeDocument(
-        doc,
-        { height: parsedHeight, width: parsedWidth },
-        scaleContent
-      )
-    );
-    state.zoomToFit();
+    const size = { height: parsedHeight, width: parsedWidth };
+    setBusy(true);
+    const step = await resizeInPlace(store, size, layout);
+    setBusy(false);
     onDone();
+    if (step) {
+      announceResize(store, step, size);
+    }
   };
 
   return (
     <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
       <DialogHeader>
-        <DialogTitle>Resize canvas</DialogTitle>
+        <DialogTitle>Magic Resize</DialogTitle>
         <DialogDescription>
-          Undo with ⌘Z if the result isn&apos;t what you wanted.
+          Pick a size, and how the design should fill it.
         </DialogDescription>
       </DialogHeader>
       <FieldGroup>
@@ -77,23 +162,16 @@ const ResizeForm = ({ onDone }: { onDone: () => void }) => {
             setHeight(nextHeight);
           }}
         />
-        <Field orientation="horizontal">
-          <FieldContent>
-            <FieldLabel htmlFor={`${id}-scale`}>Scale content</FieldLabel>
-            <FieldDescription>
-              Stretch positions and sizes to the new canvas.
-            </FieldDescription>
-          </FieldContent>
-          <Switch
-            id={`${id}-scale`}
-            checked={scaleContent}
-            onCheckedChange={setScaleContent}
-          />
-        </Field>
+        <LayoutPicker
+          idPrefix={`${id}-layout`}
+          value={layout}
+          onChange={setLayout}
+        />
       </FieldGroup>
       <DialogFooter>
-        <Button type="submit" disabled={!isValid}>
-          Resize
+        <Button type="submit" disabled={!isValid || busy}>
+          {busy ? <Spinner data-icon="inline-start" /> : null}
+          Resize this design
         </Button>
       </DialogFooter>
     </form>
@@ -109,7 +187,7 @@ export const ResizeCanvasDialog = () => {
         <RiAspectRatioLine data-icon="inline-start" />
         Resize
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-3xl">
         {open ? <ResizeForm onDone={() => setOpen(false)} /> : null}
       </DialogContent>
     </Dialog>

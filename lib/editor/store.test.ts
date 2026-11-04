@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 
 import type { DesignComment } from "@/lib/comments/schema";
-import { createBoxElement, createDocument } from "@/lib/document/factories";
+import {
+  createBoxElement,
+  createDocument,
+  createTextElement,
+} from "@/lib/document/factories";
 import {
   insertElement,
   moveElementTo,
   removeElements,
   updateElement,
 } from "@/lib/editor/document-ops";
+import { resizeWithLayout } from "@/lib/editor/magic-resize";
 import { createEditorStore, selectDocument } from "@/lib/editor/store";
 import type { EditorInit } from "@/lib/editor/store";
 
@@ -160,6 +165,38 @@ describe("editor store", () => {
     store.getState().finishPageCrop(false);
     store.getState().startPageCrop();
     expect(store.getState().pageCropRatio).toBe("free");
+  });
+
+  it("resizes the design in place as one undo step, which undo takes back whole", () => {
+    const { store } = setup();
+    const title = createTextElement("heading", PAGE);
+    store.getState().change((doc) => insertElement(doc, title));
+    const before = selectDocument(store.getState());
+    const steps = store.getState().history.past.length;
+    // Every character half the font size wide, lines 1.2 × the size tall
+    const measure = (text: typeof title) => ({
+      height: text.fontSize * 1.2,
+      width: text.width,
+    });
+
+    store
+      .getState()
+      .change((doc) =>
+        resizeWithLayout(doc, { height: 1920, width: 1080 }, "magic", measure)
+      );
+    const after = selectDocument(store.getState());
+    expect(after).toMatchObject({ height: 1920, width: 1080 });
+    expect(
+      after.elements.every(
+        (element, index) => element !== before.elements[index]
+      )
+    ).toBe(true);
+    expect(store.getState().history.past).toHaveLength(steps + 1);
+
+    store.getState().undo();
+    expect(selectDocument(store.getState())).toEqual(before);
+    store.getState().redo();
+    expect(selectDocument(store.getState())).toEqual(after);
   });
 
   it("makes a whole drag gesture a single undo step", () => {

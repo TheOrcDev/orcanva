@@ -8,6 +8,7 @@ import type {
   LinearElement,
   TextElement,
 } from "@/lib/document/schema";
+import { resizeDocument } from "@/lib/editor/document-ops";
 import { selectionUnits } from "@/lib/editor/groups";
 import { unionRect } from "@/lib/editor/snapping";
 import { scalePhotoEffects } from "@/lib/photo-effects/geometry";
@@ -1318,3 +1319,18 @@ export const magicResize = (
     width: to.width,
   };
 };
+
+// How a page of another size is filled: laid out again (Magic), stretched
+// to it, or left where it was
+export const RESIZE_LAYOUTS = ["magic", "stretch", "keep"] as const;
+export type ResizeLayout = (typeof RESIZE_LAYOUTS)[number];
+
+export const resizeWithLayout = (
+  document: DesignDocument,
+  to: Size,
+  layout: ResizeLayout,
+  measure: MeasureText
+): DesignDocument =>
+  layout === "magic"
+    ? magicResize(document, to, measure)
+    : resizeDocument(document, to, layout === "stretch");
