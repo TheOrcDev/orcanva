@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { Transformer } from "react-konva";
 
 import { useEditor } from "@/components/editor/editor-store-context";
+import { usePeersHere } from "@/hooks/use-peers-here";
 import type { Peer } from "@/lib/collab/presence";
 
 // An outline in the peer's color around what they have selected. A
@@ -46,8 +47,9 @@ const PeerSelection = ({ peer }: { peer: Peer }) => {
   );
 };
 
+// What everyone else on this page has selected
 export const RemoteSelections = () => {
-  const peers = useEditor((state) => state.peers);
+  const peers = usePeersHere();
   return peers
     .filter((peer) => peer.selection.length > 0)
     .map((peer) => <PeerSelection key={peer.clientId} peer={peer} />);

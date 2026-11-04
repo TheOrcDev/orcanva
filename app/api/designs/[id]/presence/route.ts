@@ -6,6 +6,7 @@ import { MAX_PROFILE_NAME } from "@/lib/collab/identity";
 import { dragPreviewSchema } from "@/lib/collab/presence";
 import { getDb } from "@/lib/db/client";
 import { isDesignId, visibleTo } from "@/lib/db/queries/designs";
+import { pageIdSchema } from "@/lib/document/schema";
 
 const coordinate = z.number().finite().min(-100_000).max(100_000).nullable();
 
@@ -14,6 +15,8 @@ const presencePayload = z.object({
   color: z.string().regex(/^#[0-9a-f]{6}$/iu),
   drag: dragPreviewSchema.nullable(),
   name: z.string().trim().min(1).max(MAX_PROFILE_NAME),
+  // The page on screen; tabs from before pages send none (the first page)
+  pageId: pageIdSchema.nullable().optional(),
   selection: z.array(z.string().min(1).max(64)).max(500),
   x: coordinate,
   y: coordinate,
@@ -53,7 +56,7 @@ export const PUT = async (
 
   const viewer = await getViewer();
   const viewerId = viewer?.id ?? null;
-  const { clientId, color, drag, name, selection, x, y } = parsed.data;
+  const { clientId, color, drag, name, pageId, selection, x, y } = parsed.data;
   const result = await getDb().execute<{
     found: number;
     now: number;
@@ -74,11 +77,11 @@ export const PUT = async (
     ),
     written AS (
       INSERT INTO design_presence
-        (design_id, client_id, user_id, image, name, color, x, y, selection, drag, seen_at)
+        (design_id, client_id, user_id, image, name, color, x, y, selection, drag, page_id, seen_at)
       SELECT design.id, ${clientId}::uuid, ${viewerId}::uuid, ${viewer?.image ?? null},
         ${name}, ${color},
         ${x}::real, ${y}::real, ${JSON.stringify(selection)}::jsonb,
-        ${drag ? JSON.stringify(drag) : null}::jsonb, now()
+        ${drag ? JSON.stringify(drag) : null}::jsonb, ${pageId ?? null}::text, now()
       FROM design
       ON CONFLICT (design_id, client_id) DO UPDATE SET
         image = excluded.image,
@@ -88,6 +91,7 @@ export const PUT = async (
         y = excluded.y,
         selection = excluded.selection,
         drag = excluded.drag,
+        page_id = excluded.page_id,
         seen_at = now()
       WHERE design_presence.user_id IS NOT DISTINCT FROM excluded.user_id
       RETURNING 1

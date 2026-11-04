@@ -33,6 +33,8 @@ import {
   initials,
   isLightColor,
 } from "@/lib/collab/identity";
+import { peerPageId } from "@/lib/collab/presence";
+import type { Peer } from "@/lib/collab/presence";
 import type { EditorStoreApi } from "@/lib/editor/store";
 import { cn } from "@/lib/utils";
 
@@ -182,15 +184,38 @@ const ProfileEditor = () => {
   );
 };
 
+// "Jay is on page 2" once there are pages to tell apart
+const whereIs = (
+  peer: Peer,
+  pageIds: readonly string[],
+  activePageId: string
+): string => {
+  const [firstPageId = activePageId] = pageIds;
+  const pageId = peerPageId(peer, firstPageId);
+  if (pageIds.length < 2) {
+    return `${peer.name} is here`;
+  }
+  if (pageId === activePageId) {
+    return `${peer.name} is on this page`;
+  }
+  const index = pageIds.indexOf(pageId);
+  return index === -1
+    ? `${peer.name} is here`
+    : `${peer.name} is on page ${index + 1}`;
+};
+
 // Who else is on this design right now, plus your own avatar
 export const PresenceAvatars = () => {
   const peers = useEditor((state) => state.peers);
   const live = useEditor((state) => state.liveStatus !== "off");
+  const pages = useEditor((state) => state.pages);
+  const activePageId = useEditor((state) => state.activePageId);
 
   if (!live) {
     return null;
   }
 
+  const pageIds = pages.map((page) => page.id);
   const shown = peers.slice(0, MAX_SHOWN);
   const hidden = peers.length - shown.length;
 
@@ -206,7 +231,9 @@ export const PresenceAvatars = () => {
                 image={peer.image}
               />
             </TooltipTrigger>
-            <TooltipContent>{peer.name} is here</TooltipContent>
+            <TooltipContent>
+              {whereIs(peer, pageIds, activePageId)}
+            </TooltipContent>
           </Tooltip>
         ))}
         {hidden > 0 ? (

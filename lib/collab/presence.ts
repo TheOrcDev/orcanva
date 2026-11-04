@@ -14,6 +14,9 @@ export interface LivePresenceRow {
   selection: unknown;
   drag: unknown;
   seen_at: Date;
+  // The page they're on; null for the first page and for sessions from
+  // before pages (missing from queries sealed before then)
+  page_id?: string | null;
 }
 
 // Where elements are mid-drag for the person moving them, so others see
@@ -40,6 +43,8 @@ export interface PresenceState {
   y: number | null;
   selection: string[];
   drag: DragPreview | null;
+  // The page on screen
+  pageId: string;
 }
 
 export interface Peer {
@@ -50,6 +55,8 @@ export interface Peer {
   cursor: { x: number; y: number } | null;
   selection: string[];
   drag: DragPreview | null;
+  // The page they're on; null is the first page
+  pageId: string | null;
 }
 
 // A session that stops heartbeating (closed laptop, crashed tab) disappears
@@ -108,10 +115,22 @@ export const peersFromRows = (
         drag: drag.success ? drag.data : null,
         image: avatarUrl(row.image),
         name: row.name,
+        pageId: typeof row.page_id === "string" ? row.page_id : null,
         selection: selection.success ? selection.data : [],
       };
     })
     .toSorted(comparePeers);
+
+// The page a peer is on: theirs, or the first page when it says none
+export const peerPageId = (peer: Peer, firstPageId: string): string =>
+  peer.pageId ?? firstPageId;
+
+// The people on one page: whose cursors and selections that page shows
+export const peersOnPage = (
+  peers: readonly Peer[],
+  pageId: string,
+  firstPageId: string
+): Peer[] => peers.filter((peer) => peerPageId(peer, firstPageId) === pageId);
 
 export interface PresenceSender {
   update: (patch: Partial<PresenceState>) => void;

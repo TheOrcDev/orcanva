@@ -17,6 +17,7 @@ const presenceOf = (
   color: state.profile.color,
   drag: state.dragPreview,
   name: state.profile.name,
+  pageId: state.activePageId,
   selection: state.selectedIds,
   x: state.pointer?.x ?? null,
   y: state.pointer?.y ?? null,
@@ -58,7 +59,8 @@ export const usePresence = (enabled: boolean): void => {
         state.pointer !== previous.pointer ||
         state.selectedIds !== previous.selectedIds ||
         state.profile !== previous.profile ||
-        state.dragPreview !== previous.dragPreview;
+        state.dragPreview !== previous.dragPreview ||
+        state.activePageId !== previous.activePageId;
       if (changed) {
         sender.update(presenceOf(state));
       }

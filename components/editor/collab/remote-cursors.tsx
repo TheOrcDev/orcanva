@@ -1,6 +1,6 @@
 "use client";
 
-import { useEditor } from "@/components/editor/editor-store-context";
+import { usePeersHere } from "@/hooks/use-peers-here";
 import { isLightColor } from "@/lib/collab/identity";
 import type { Peer } from "@/lib/collab/presence";
 import { cn } from "@/lib/utils";
@@ -41,8 +41,9 @@ const RemoteCursor = ({ peer, at }: { peer: Peer; at: ScreenPoint }) => (
   </div>
 );
 
-// Everyone else's pointer over this window's canvas. Positions are stored in
-// page coordinates, so they line up whatever each person's zoom and pan.
+// The pointers of everyone else on this page, over this window's canvas.
+// Positions are stored in page coordinates, so they line up whatever each
+// person's zoom and pan.
 export const RemoteCursors = ({
   origin,
   zoom,
@@ -50,7 +51,7 @@ export const RemoteCursors = ({
   origin: ScreenPoint;
   zoom: number;
 }) => {
-  const peers = useEditor((state) => state.peers);
+  const peers = usePeersHere();
 
   return (
     <div

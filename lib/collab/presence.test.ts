@@ -8,7 +8,9 @@ import {
 } from "@/lib/collab/identity";
 import {
   createPresenceSender,
+  peerPageId,
   peersFromRows,
+  peersOnPage,
   PRESENCE_STALE_MS,
 } from "@/lib/collab/presence";
 import type { LivePresenceRow, PresenceState } from "@/lib/collab/presence";
@@ -92,6 +94,44 @@ describe("peersFromRows", () => {
   });
 });
 
+describe("pages", () => {
+  it("reads the page each person is on; none (an older tab) is the first", () => {
+    const peers = peersFromRows(
+      [
+        row({ client_id: "a", name: "Aka", page_id: "p2" }),
+        row({ client_id: "b", name: "Bel", page_id: null }),
+        row({ client_id: "c", name: "Cor" }),
+      ],
+      "me",
+      NOW
+    );
+    expect(peers.map((peer) => peer.pageId)).toEqual(["p2", null, null]);
+    expect(peers.map((peer) => peerPageId(peer, "first"))).toEqual([
+      "p2",
+      "first",
+      "first",
+    ]);
+  });
+
+  it("shows on a page only the people on it", () => {
+    const peers = peersFromRows(
+      [
+        row({ client_id: "a", name: "Aka", page_id: "p2" }),
+        row({ client_id: "b", name: "Bel", page_id: null }),
+        row({ client_id: "c", name: "Cor", page_id: "first" }),
+      ],
+      "me",
+      NOW
+    );
+    expect(
+      peersOnPage(peers, "first", "first").map((peer) => peer.name)
+    ).toEqual(["Bel", "Cor"]);
+    expect(peersOnPage(peers, "p2", "first").map((peer) => peer.name)).toEqual([
+      "Aka",
+    ]);
+  });
+});
+
 describe("createPresenceSender", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -104,6 +144,7 @@ describe("createPresenceSender", () => {
     color: "#e5484d",
     drag: null,
     name: "Grom",
+    pageId: "p1",
     selection: [],
     x: null,
     y: null,

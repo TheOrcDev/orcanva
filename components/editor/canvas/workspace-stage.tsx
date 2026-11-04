@@ -47,6 +47,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { useElementDrag } from "@/hooks/use-element-drag";
 import { useEraseMode } from "@/hooks/use-erase-mode";
+import { usePeersHere } from "@/hooks/use-peers-here";
 import { useSelectionBox } from "@/hooks/use-selection-box";
 import { useUpload } from "@/hooks/use-upload";
 import { anchorFor, pinPoint } from "@/lib/comments/anchor";
@@ -217,7 +218,7 @@ export const WorkspaceStage = () => {
   const zoom = useEditor((state) => state.zoom);
   const zoomMode = useEditor((state) => state.zoomMode);
   const selectedIds = useEditor((state) => state.selectedIds);
-  const peers = useEditor((state) => state.peers);
+  const peers = usePeersHere();
   const held = useEditor((state) => state.held);
   const editingTextId = useEditor((state) => state.editingTextId);
   const cropTargetId = useEditor((state) => state.cropTargetId);
@@ -458,7 +459,8 @@ export const WorkspaceStage = () => {
     wheelAt(event.evt, event.target.getStage()?.getPointerPosition() ?? null);
   };
 
-  // Elements someone else is dragging right now (not ones this window holds)
+  // Elements someone else on this page is dragging right now (not ones this
+  // window holds)
   const previews = new Map(
     peers.flatMap((peer) =>
       (peer.drag?.moves ?? [])
