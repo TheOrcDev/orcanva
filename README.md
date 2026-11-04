@@ -1,6 +1,55 @@
-# Orcanva
+<p align="center">
+  <a href="https://www.orcanva.app">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/header/glow.svg?title=Orcanva&subtitle=The+free%2C+open-source+Canva+alternative+for+thumbnails+and+social+images&logo=https%3A%2F%2Fwww.orcanva.app%2Fapple-icon.png&theme=orange&size=wide&mode=dark" />
+      <img src="https://shieldcn.dev/header/glow.svg?title=Orcanva&subtitle=The+free%2C+open-source+Canva+alternative+for+thumbnails+and+social+images&logo=https%3A%2F%2Fwww.orcanva.app%2Fapple-icon.png&theme=orange&size=wide&mode=light" alt="Orcanva: the free, open-source Canva alternative for thumbnails and social images" width="100%" />
+    </picture>
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://www.orcanva.app/studio"><img src="https://shieldcn.dev/badge/Open_Studio-ef9c88.svg?logo=lu:Palette&color=ef9c88&valueColor=1f1322&labelTextColor=1f1322&logoColor=1f1322&size=lg" alt="Open Studio" /></a>
+  <a href="https://www.orcanva.app/templates"><img src="https://shieldcn.dev/badge/Templates-ef9c88.svg?logo=lu:LayoutTemplate&color=ef9c88&valueColor=1f1322&labelTextColor=1f1322&logoColor=1f1322&size=lg" alt="Templates" /></a>
+  <a href="https://www.orcanva.app/sponsors"><img src="https://shieldcn.dev/badge/Sponsor-ef9c88.svg?logo=lu:Heart&color=ef9c88&valueColor=1f1322&labelTextColor=1f1322&logoColor=1f1322&size=lg" alt="Sponsor Orcanva" /></a>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://shieldcn.dev/badge/license-MIT-1f1322.svg?logo=lu:Scale&color=1f1322&labelColor=2e2033&split=true" alt="License: MIT" /></a>
+  <img src="https://shieldcn.dev/badge/Next.js-16-1f1322.svg?logo=nextdotjs&color=1f1322&labelColor=2e2033&split=true" alt="Next.js 16" />
+  <img src="https://shieldcn.dev/badge/React-19-1f1322.svg?logo=react&color=1f1322&labelColor=2e2033&split=true" alt="React 19" />
+  <img src="https://shieldcn.dev/badge/Konva-10-1f1322.svg?logo=lu:PenTool&color=1f1322&labelColor=2e2033&split=true" alt="Konva 10" />
+  <img src="https://shieldcn.dev/badge/Tailwind_CSS-v4-1f1322.svg?logo=tailwindcss&color=1f1322&labelColor=2e2033&split=true" alt="Tailwind CSS v4" />
+  <img src="https://shieldcn.dev/badge/shadcn%2Fui-Base_UI-1f1322.svg?logo=shadcnui&color=1f1322&labelColor=2e2033&split=true" alt="shadcn/ui on Base UI" />
+  <img src="https://shieldcn.dev/badge/Drizzle-ORM-1f1322.svg?logo=drizzle&color=1f1322&labelColor=2e2033&split=true" alt="Drizzle ORM" />
+  <img src="https://shieldcn.dev/badge/Neon-Postgres-1f1322.svg?logo=neon&color=1f1322&labelColor=2e2033&split=true" alt="Neon Postgres" />
+</p>
+
+<p align="center">
+  <a href="#features">Features</a> ·
+  <a href="#setup">Setup</a> ·
+  <a href="#scripts">Scripts</a> ·
+  <a href="#keyboard-shortcuts">Shortcuts</a> ·
+  <a href="#how-it-fits-together">How it fits together</a>
+</p>
+
+<a href="https://www.orcanva.app">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme-hero-dark.webp" />
+    <img src=".github/assets/readme-hero-light.webp" alt="Orcanva's landing page above the editor: layers on the left, a 'Paint a sunset' thumbnail on the canvas, and the text settings on the right" width="100%" />
+  </picture>
+</a>
 
 A free and open-source, Canva-style editor for YouTube thumbnails and social images.
+
+| Any size, any number of pages | AI in your browser | Made for thumbnails |
+| --- | --- | --- |
+| YouTube thumbnail to 4K, square to Story, or custom; up to 30 pages a design, and Magic Resize lays it out again for another shape | Background removal, a magic eraser and 2× or 4× upscaling, by open-source models running in your browser: no API key, no per-image cost | 40 Google Fonts with Canva-style effects, cut-out outlines and glows, 11 filters, and about 6,000 icons, 1,500 emoji and 40 thumbnail stickers |
+| **Live together** | **Preview before you post** | **Download anything** |
+| Everyone's cursors, selections and edits as they happen, comments pinned to the page with @mentions, and version history | See a thumbnail in mock YouTube pages (home, search, Up next, a phone's feed) at its real size, in light or dark | PNG, JPG or WebP at exact pixel size, every page at once as a ZIP, or a PDF |
+
+## Features
+
+### Design
 
 - Pick a canvas size (YouTube thumbnail, Full HD, 4K, square, story, … or custom), and start blank or from one of the **starter templates** made for that size
 - A **Templates** tab in the editor: the templates made for the page's shape come first, then the other sizes. **Replace page** swaps the page you're on for one (it asks first when the page has something on it, and a template of another shape resizes the page, or, in a design of several pages, fits inside it), **Add to page** puts one on top of what's there, and either is a single undo step. Templates use grey frames as photo slots: drop a photo onto one to fill it
@@ -10,11 +59,6 @@ A free and open-source, Canva-style editor for YouTube thumbnails and social ima
 - Upload images (button, drag from the desktop, or paste a screenshot) and move, scale, rotate, and flip them
 - **Crop** photos: drag a side handle to crop that side, or double-click one (or press Crop) to drag the frame's handles, slide the photo under it and zoom; Enter keeps it, Esc puts it back
 - **Frames**: circles, stars, hearts and more from the Shapes tab; drop a photo on one (or drag an image onto it) to fill it, double-click to move or zoom it inside, and resizing keeps the photo covering the frame
-- One-click **Remove background** for any image, run by an open-source model in your browser (no API key, no per-image cost)
-- A **magic eraser** for photos, in your browser: press it in the AI tools of an image or a filled frame, brush over a person, an object or some text, and press Erase (or Enter) to fill it in, as often as it takes. ⌘Z and ⇧⌘Z step through the strokes and erases, Done saves the result once, as a new copy of the photo, in a single undo step, and Esc throws it away. The photo keeps its crop, flips, filters, effects and transparency
-- **Upscale** a photo 2× or 4× (up to 4096px) in your browser, from the AI tools of an image or a filled frame: each choice shows the size it makes, a hint says when a photo has fewer pixels than its size on the page needs, and the sharper copy keeps the photo's crop, filters, effects and transparency
-- Instagram-style **filters** for images: 11 one-tap looks previewed on your own photo, with an intensity slider, plus brightness, contrast, highlights, shadows, saturation, warmth, tint, fade, vignette, sharpen, grain, and blur
-- **Outline, glow and drop shadow** for photos and frames: the classic thumbnail cut-out look, a thick white (or any colour) outline that follows a background-removed photo's edge, an outer glow and a drop shadow, as one-tap looks (Sticker, Outline, Glow, Neon, Shadow) previewed on your own photo or set one by one; they grow with the photo, follow its crop, flips, corners and frame shape, and show while you drag, in downloads and in previews
 - Text with 40 curated Google Fonts, inline editing (select words to change just their font, size, colour, weight, italic, underline or strikethrough), solid or gradient fills, underline and strikethrough, curved text, Canva-style effects (Hollow, Splice, Echo, Glitch, Neon, Lift), outline, drop shadow, and highlight
 - Shapes, lines, arrows, solid or gradient backgrounds, and a drag-to-reorder layers panel
 - **Graphics**: a tab to search about 6,000 icons, 1,500 emoji and 40 stickers drawn for thumbnails (red and hand-drawn arrows, trend arrows, hand-drawn circles, boxes and underlines, ❌ and ✅, NEW, WOW, VS, LIVE, HOT and #1 badges, bursts, sparkles, lightning, speech and thought bubbles), or pick from a set made for thumbnails before searching (arrows, circles, ❌ and ✅, badges, shocked faces, fire), filtered by kind, and add them with a click or by dragging them onto the canvas; eight of the stickers are in the Shapes tab too. Graphics are vector art that stays sharp at any size and in downloads, flip, and keep their shape as they're resized. Each colour in a graphic is a swatch to change (an icon has one, an emoji several, and every part sharing a colour follows it), outline icons and drawn stickers have a line weight, any graphic can get a die-cut outline in any colour, and Reset colors brings back its own
@@ -23,17 +67,36 @@ A free and open-source, Canva-style editor for YouTube thumbnails and social ima
 - **Select several** elements with Shift-click, ⌘A, or a box dragged across empty canvas, then move, scale (from the corners) or rotate them together; align them to each other or to the page, space them evenly, and bring them forward or back as a block
 - **Groups** (⌘G): a group selects, moves, scales, aligns and duplicates as one; click a grouped element again to change just that one
 - **Smart guides**: dragged elements snap their edges and centres to the page and to each other, and to equal spacing with their neighbours; resize handles and line ends snap too
+
+### Photos and AI, in your browser
+
+- One-click **Remove background** for any image, run by an open-source model in your browser (no API key, no per-image cost)
+- A **magic eraser** for photos, in your browser: press it in the AI tools of an image or a filled frame, brush over a person, an object or some text, and press Erase (or Enter) to fill it in, as often as it takes. ⌘Z and ⇧⌘Z step through the strokes and erases, Done saves the result once, as a new copy of the photo, in a single undo step, and Esc throws it away. The photo keeps its crop, flips, filters, effects and transparency
+- **Upscale** a photo 2× or 4× (up to 4096px) in your browser, from the AI tools of an image or a filled frame: each choice shows the size it makes, a hint says when a photo has fewer pixels than its size on the page needs, and the sharper copy keeps the photo's crop, filters, effects and transparency
+- Instagram-style **filters** for images: 11 one-tap looks previewed on your own photo, with an intensity slider, plus brightness, contrast, highlights, shadows, saturation, warmth, tint, fade, vignette, sharpen, grain, and blur
+- **Outline, glow and drop shadow** for photos and frames: the classic thumbnail cut-out look, a thick white (or any colour) outline that follows a background-removed photo's edge, an outer glow and a drop shadow, as one-tap looks (Sticker, Outline, Glow, Neon, Shadow) previewed on your own photo or set one by one; they grow with the photo, follow its crop, flips, corners and frame shape, and show while you drag, in downloads and in previews
+
+### Download and preview
+
 - Undo/redo, autosave, and download as PNG, JPG, or WebP at exact pixel size (1× or 2×): the page you're on, or every page as a ZIP of one file each (`slug-1080x1350-01.png`, …); or as a **PDF** of one page or all of them, each a sharp picture at twice its size
-- **Version history** for a design's owner and the people it's shared with (the clock button): a version is kept before each person's edits, guests' included, and every 10 minutes while someone edits, listed newest first with a picture, who and when. Click one to see it full-size and read-only in place of the canvas while editing carries on underneath, and **Restore this version** to put the design back that way for everyone on it (**Undo restore** puts it back again); **Save version** keeps the design as it is under a name, until its owner deletes it
 - **Preview** a thumbnail the way viewers will see it: Preview (next to Download) draws the design into mock video pages (the home grid, search results, the Up next column and a phone's feed) at its real on-screen size, among other videos, in light or dark, with the title, channel, channel picture and video length you give it, and the length badge over the bottom-right corner; it only shrinks when the window is too narrow, and says so, and designs that aren't 16:9 show between black bars. Compare it with up to three other thumbnails, images from your device (never uploaded) or your other designs, mixed into the feed or side by side. Two switches keep it going while you edit: a live Up next preview in a corner of the canvas, and the length badge drawn on the canvas where it lands. The details stay in this browser, the title per design
+
+### Work together
+
 - **Live collaboration**: open a design in several windows (or on several machines) and see everyone's cursors, selections, and edits as they happen
 - **Comments** pinned to the page: press C (or the speech bubble) and click where a comment belongs; one placed on an element follows it as it moves, turns and resizes. Each comment opens a thread to reply in, edit or delete your own (the owner can delete anyone's), and resolve when it's done (or reopen it). The **Comments** tab lists open or resolved threads with how many are open, and picking one opens it and brings its pin into view; **New** there starts one on the selected element or the middle of the page without a click. Type **@** to mention the design's owner or someone it's shared with: they get an email (through Resend) linking straight to the thread, unless they're on the design right now. Anyone who can open a design reads its comments; writing them takes an account
+- **Version history** for a design's owner and the people it's shared with (the clock button): a version is kept before each person's edits, guests' included, and every 10 minutes while someone edits, listed newest first with a picture, who and when. Click one to see it full-size and read-only in place of the canvas while editing carries on underneath, and **Restore this version** to put the design back that way for everyone on it (**Undo restore** puts it back again); **Save version** keeps the design as it is under a name, until its owner deletes it
 - **Accounts** (Google or email + password): your designs are private unless you make them public, and your uploads form your own library; change your name and avatar under Settings in the account menu, and keep your brand kit there: up to 24 colours, 10 fonts and 12 logos picked from your uploads
 - **Public designs** anyone can open and edit together, signed in or not; only their owner can rename, delete, or make them private
 - **Share with people**: invite anyone by email from a design's Share menu, public or private; they get an email (through Resend) with a link that walks newcomers through creating an account with that address, and the owner sees who joined and can remove them
 - The **studio**: a gallery of your designs, the ones shared with you, and everyone's public ones, with a preview of each one's first page and how many pages it has; **Make a copy** gives you a private copy of any of them to change
+
+### On the site
+
 - A landing page that explains all of the above
 - Pages for what people search for: a free **background remover**, **magic eraser**, **image upscaler**, **AI metadata remover** and **YouTube thumbnail preview** anyone can use without an account, a maker page for every kind of image (YouTube thumbnail, Instagram post and Story, LinkedIn banner, Open Graph, X post), each with templates for its size, a **templates** page listing them all, a social media image sizes cheat sheet, and comparisons with Canva and remove.bg
+
+## Built with
 
 Built with Next.js 16, React 19, Konva, Tailwind v4, shadcn/ui (Base UI), Drizzle, and Neon (Postgres, Auth, Realtime, and Object Storage).
 
