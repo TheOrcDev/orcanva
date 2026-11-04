@@ -80,19 +80,21 @@ export const EraseToolbar = ({ mode }: { mode: EraseMode }) => {
       <label htmlFor={brushId} className="text-sm">
         Brush
       </label>
-      <Slider
-        id={brushId}
-        aria-label="Brush size"
-        className="w-28"
-        value={[brush]}
-        min={MIN_BRUSH}
-        max={MAX_BRUSH}
-        onValueChange={(next) =>
-          mode
-            .getState()
-            .setBrush(Array.isArray(next) ? (next[0] ?? brush) : next)
-        }
-      />
+      {/* The slider fills its parent, so the parent sets its width */}
+      <div className="w-28">
+        <Slider
+          id={brushId}
+          aria-label="Brush size"
+          value={[brush]}
+          min={MIN_BRUSH}
+          max={MAX_BRUSH}
+          onValueChange={(next) =>
+            mode
+              .getState()
+              .setBrush(Array.isArray(next) ? (next[0] ?? brush) : next)
+          }
+        />
+      </div>
       <div className="flex items-center gap-1">
         <Button
           variant="ghost"

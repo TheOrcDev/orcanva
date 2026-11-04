@@ -106,8 +106,11 @@ const reportWork = (percent: number) =>
     type: "progress",
   });
 
+// Each model is one ONNX file, so that file's download is the model's.
+// Transformers.js only adds files up for repos laid out its own way, which
+// LaMa's isn't.
 const onProgress = (info: ProgressInfo) => {
-  if (info.status === "progress_total") {
+  if (info.status === "progress" && info.file.endsWith(".onnx")) {
     reply({
       id: activeJob,
       progress: { percent: info.progress, stage: "download" },
