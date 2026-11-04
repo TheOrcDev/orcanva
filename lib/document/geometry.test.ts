@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { createId, createImageElement } from "@/lib/document/factories";
+import {
+  createBoxElement,
+  createId,
+  createImageElement,
+  createLinearElement,
+  createTextElement,
+} from "@/lib/document/factories";
 import {
   canExportAt,
   clampCanvasSize,
@@ -8,6 +14,7 @@ import {
   fitWithin,
   fitZoom,
   gradientPoints,
+  rotatedBounds,
   slugify,
 } from "@/lib/document/geometry";
 
@@ -104,5 +111,88 @@ describe("createImageElement", () => {
     expect(element.width).toBeCloseTo(576);
     expect(element.height).toBeCloseTo(576);
     expect(element.x).toBeCloseTo(100 - 288);
+  });
+});
+
+describe("rotatedBounds", () => {
+  const page = { height: 720, width: 1280 };
+
+  it("is a box's own box when it isn't turned", () => {
+    const box = { ...createBoxElement("rect", page), x: 10, y: 20 };
+    expect(rotatedBounds({ ...box, height: 50, width: 100 })).toEqual({
+      height: 50,
+      width: 100,
+      x: 10,
+      y: 20,
+    });
+  });
+
+  it("turns a box about its top-left corner", () => {
+    const box = {
+      ...createBoxElement("rect", page),
+      height: 50,
+      rotation: 90,
+      width: 100,
+      x: 200,
+      y: 100,
+    };
+    const bounds = rotatedBounds(box);
+    expect(bounds.x).toBeCloseTo(150);
+    expect(bounds.y).toBeCloseTo(100);
+    expect(bounds.width).toBeCloseTo(50);
+    expect(bounds.height).toBeCloseTo(100);
+  });
+
+  it("reaches half a line's stroke past its points", () => {
+    const line = {
+      ...createLinearElement("line", page),
+      points: [0, 0, 100, -40] as [number, number, number, number],
+      strokeWidth: 10,
+      x: 50,
+      y: 100,
+    };
+    expect(rotatedBounds(line)).toEqual({
+      height: 50,
+      width: 110,
+      x: 45,
+      y: 55,
+    });
+  });
+
+  it("measures text by its laid out size, placing its lines by alignment", () => {
+    const text = {
+      ...createTextElement("heading", page),
+      align: "right" as const,
+      highlight: null,
+      width: 400,
+      x: 100,
+      y: 50,
+    };
+    expect(rotatedBounds(text, { height: 120, width: 400 })).toEqual({
+      height: 120,
+      width: 400,
+      x: 100,
+      y: 50,
+    });
+    // Its longest line, at the right of its box
+    expect(rotatedBounds(text, { height: 120, width: 250 })).toMatchObject({
+      width: 250,
+      x: 250,
+    });
+    // A curve's arc is centred on its width whatever the alignment
+    expect(
+      rotatedBounds({ ...text, curve: 40 }, { height: 200, width: 300 })
+    ).toMatchObject({ height: 200, width: 300, x: 150 });
+    // A highlight reaches past the lines
+    expect(
+      rotatedBounds(
+        {
+          ...text,
+          fontSize: 100,
+          highlight: { color: "#fff", paddingEm: 0.1, radiusEm: 0 },
+        },
+        { height: 120, width: 400 }
+      )
+    ).toEqual({ height: 140, width: 420, x: 90, y: 40 });
   });
 });

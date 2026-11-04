@@ -12,16 +12,8 @@ import type {
   TextElement,
   TextGradient,
 } from "@/lib/document/schema";
-import {
-  FALLBACK_FAMILIES,
-  cssFamily,
-  getFont,
-  nearestWeight,
-} from "@/lib/fonts/catalog";
 import { isFontReady } from "@/lib/fonts/loader";
-import type { FontRequest } from "@/lib/fonts/loader";
 import {
-  canvasFont,
   canvasMeasurer,
   paintCurvedText,
   paintTextLayout,
@@ -31,10 +23,10 @@ import { curveText } from "@/lib/text/curve";
 import type { CurvedLayout } from "@/lib/text/curve";
 import { paintWithEffect } from "@/lib/text/effects";
 import type { DeviceScale } from "@/lib/text/effects";
+import { measureRuns, textRunsOf } from "@/lib/text/element-layout";
+import type { RunStyle } from "@/lib/text/element-layout";
 import { layoutText } from "@/lib/text/layout";
-import type { StyledRun, TextLayout, TextStyle } from "@/lib/text/layout";
-import { styledSegments } from "@/lib/text/marks";
-import type { MarkStyle } from "@/lib/text/marks";
+import type { StyledRun, TextLayout } from "@/lib/text/layout";
 
 export const displayText = (element: TextElement): string =>
   element.uppercase ? element.text.toUpperCase() : element.text;
@@ -52,11 +44,6 @@ const ALIGN_FACTOR: Record<string, number> = { center: 0.5, left: 0, right: 1 };
 
 // What the text shape draws from. It lives on the node, so a side handle
 // can re-wrap the text live by changing only the node's width.
-// A run's style: its own colour when a mark sets one
-export interface RunStyle extends TextStyle {
-  fill: string | null;
-}
-
 export interface TextShapeInput {
   runs: StyledRun<RunStyle>[];
   // The text's own style: every line makes room for it
@@ -256,60 +243,10 @@ export const layoutHighlight = (text: Konva.Node, box: Konva.Node) => {
   });
 };
 
-// How a stretch of text with some marks' style draws, and the font face it
-// needs. Faces still loading draw in a fallback family.
-const styleFor = (
-  element: TextElement,
-  style: MarkStyle,
-  text: string
-): { request: FontRequest; style: RunStyle } => {
-  const font = getFont(style.fontId ?? element.fontId);
-  const weight = nearestWeight(font, style.weight ?? element.weight);
-  const italic = (style.italic ?? element.italic) && font.italic;
-  const fontSize = element.fontSize * (style.sizeEm ?? 1);
-  const request = { fontId: font.id, italic, text, weight };
-  return {
-    request,
-    style: {
-      fill: style.fill ?? null,
-      font: canvasFont({
-        family: isFontReady(request)
-          ? cssFamily(font)
-          : FALLBACK_FAMILIES[font.category],
-        fontSize,
-        italic,
-        weight,
-      }),
-      fontSize,
-      letterSpacing: element.letterSpacingEm * fontSize,
-      strike: style.strike ?? element.strike,
-      underline: style.underline ?? element.underline,
-    },
-  };
-};
-
-// The text cut into runs where its marks change its style, its own style
-// (which every line makes room for), and the faces they all need
-const runsOf = (
-  element: TextElement
-): { fonts: FontRequest[]; runs: StyledRun<RunStyle>[]; strut: RunStyle } => {
-  const own = styleFor(element, {}, "");
-  const fonts: FontRequest[] = [own.request];
-  const runs: StyledRun<RunStyle>[] = [];
-  for (const segment of styledSegments(element.text, element.marks)) {
-    // Per run, since uppercasing can change a string's length
-    const text = element.uppercase ? segment.text.toUpperCase() : segment.text;
-    const { request, style } = styleFor(element, segment.style, text);
-    fonts.push(request);
-    runs.push({ style, text });
-  }
-  return { fonts, runs, strut: own.style };
-};
-
 export const TextNode = ({ element }: { element: TextElement }) => {
   const textRef = useRef<Konva.Shape>(null);
   const highlightRef = useRef<Konva.Rect>(null);
-  const { fonts, runs, strut } = runsOf(element);
+  const { fonts, runs, strut } = textRunsOf(element, isFontReady);
   useFontsReady(fonts);
   // Stands for the runs, so the input only changes when they do
   const runsKey = JSON.stringify({ runs, strut });
@@ -357,23 +294,20 @@ export const TextNode = ({ element }: { element: TextElement }) => {
 
   // Straight text wraps at the element's width; curved text is as big as
   // its arc
-  const size = useMemo(() => {
-    if (input.curve !== 0) {
-      const curved = curveText(input.runs, input.curve, canvasMeasurer);
-      return { height: curved.height, width: curved.width };
-    }
-    const layout = layoutText(
-      input.runs,
-      {
-        align: input.align,
-        lineHeight: input.lineHeight,
-        strut: input.strut,
-        width: element.width,
-      },
-      canvasMeasurer
-    );
-    return { height: layout.height, width: element.width };
-  }, [input, element.width]);
+  const size = useMemo(
+    () =>
+      measureRuns(
+        input,
+        {
+          align: input.align,
+          curve: input.curve,
+          lineHeight: input.lineHeight,
+          width: element.width,
+        },
+        canvasMeasurer
+      ),
+    [input, element.width]
+  );
 
   // Sized after every render because it depends on measured text
   useLayoutEffect(() => {
