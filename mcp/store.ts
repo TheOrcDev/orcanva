@@ -1,0 +1,402 @@
+// The MCP server's reads and writes. Writes go through changesStatement, the
+// same statement the editor's save route runs, so access checks, pages,
+// version history and live updates to open editors all behave exactly as
+// for a person editing.
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+
+import { and, desc, eq, or, sql } from "drizzle-orm";
+import { generateNKeysBetween } from "fractional-indexing";
+import sharp from "sharp";
+
+import { comparePositioned } from "@/lib/collab/positions";
+import { getDb } from "@/lib/db/client";
+import { changesStatement } from "@/lib/db/queries/changes";
+import { getDesignContent, sharedWith } from "@/lib/db/queries/designs";
+import type { DesignContent } from "@/lib/db/queries/designs";
+import { finishSnapshot } from "@/lib/db/queries/versions";
+import { assets, designElements, designPages, designs } from "@/lib/db/schema";
+import type { ChangesWrites } from "@/lib/document/changes-payload";
+import { createDocument } from "@/lib/document/factories";
+import {
+  FIRST_PAGE_POSITION,
+  documentVersionFor,
+  firstPageIdOf,
+} from "@/lib/document/pages";
+import type { Background } from "@/lib/document/schema";
+import { MAX_UPLOAD_BYTES, assetKey } from "@/lib/storage/keys";
+import type { UploadMimeType } from "@/lib/storage/keys";
+import { getObject, putObject } from "@/lib/storage/s3";
+import { templateAssetRow } from "@/lib/templates/assets";
+import { TEMPLATE_FILES } from "@/lib/templates/documents";
+import {
+  initialPositions,
+  instantiateTemplate,
+} from "@/lib/templates/instantiate";
+import { templateSchema } from "@/lib/templates/schema";
+
+export interface Viewer {
+  id: string;
+  name: string;
+}
+
+// One editor session for the server's whole run, as one browser tab is
+export const CLIENT_ID = crypto.randomUUID();
+
+let viewer: Promise<Viewer> | null = null;
+
+const findViewer = async (): Promise<Viewer> => {
+  const email = process.env.ORCANVA_EMAIL?.trim().toLowerCase();
+  if (!email) {
+    throw new Error(
+      "Set ORCANVA_EMAIL to the email of your Orcanva account (in the MCP server's env)"
+    );
+  }
+  const result = await getDb().execute<{ id: string; name: string | null }>(
+    sql`SELECT id, name FROM neon_auth."user" WHERE lower(email) = ${email} LIMIT 1`
+  );
+  const [row] = result.rows;
+  if (!row) {
+    throw new Error(`No Orcanva account for ${email}; sign up with it first`);
+  }
+  return { id: row.id, name: row.name ?? "Agent" };
+};
+
+// The account the agent acts as, looked up once
+export const getViewer = async (): Promise<Viewer> => {
+  viewer ??= findViewer();
+  try {
+    return await viewer;
+  } catch (error) {
+    // Let the next call try again (e.g. after signing up)
+    viewer = null;
+    throw error;
+  }
+};
+
+export const designUrl = (id: string): string => {
+  const base = (process.env.ORCANVA_URL ?? "http://localhost:3000").replace(
+    /\/+$/u,
+    ""
+  );
+  return `${base}/design/${id}`;
+};
+
+export interface DesignListItem {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  visibility: string;
+  updatedAt: Date;
+  url: string;
+}
+
+const LIST_LIMIT = 50;
+
+// The account's own designs and the ones shared with it, newest first
+export const listDesigns = async (): Promise<DesignListItem[]> => {
+  const { id } = await getViewer();
+  const rows = await getDb()
+    .select({
+      height: designs.height,
+      id: designs.id,
+      name: designs.name,
+      updatedAt: designs.updatedAt,
+      visibility: designs.visibility,
+      width: designs.width,
+    })
+    .from(designs)
+    .where(or(eq(designs.ownerId, id), sharedWith(id)))
+    .orderBy(desc(designs.updatedAt))
+    .limit(LIST_LIMIT);
+  return rows.map((row) => ({ ...row, url: designUrl(row.id) }));
+};
+
+const readTemplate = async (id: string) => {
+  const load = Object.hasOwn(TEMPLATE_FILES, id) ? TEMPLATE_FILES[id] : null;
+  if (!load) {
+    throw new Error(`No template "${id}"; see list_templates`);
+  }
+  return templateSchema.parse(await load());
+};
+
+// A private design of the account's own with one page, blank or from a
+// template (as "Start from" does)
+export const createDesign = async (input: {
+  name: string;
+  width: number;
+  height: number;
+  background: Background | null;
+  templateId: string | null;
+}): Promise<{ id: string }> => {
+  const { id: ownerId } = await getViewer();
+  const id = crypto.randomUUID();
+  const pageId = firstPageIdOf(id);
+  const db = getDb();
+
+  let document = createDocument({ height: input.height, width: input.width });
+  let templateAssets: ReturnType<typeof templateAssetRow>[] = [];
+  if (input.templateId) {
+    const template = await readTemplate(input.templateId);
+    // At the size asked for; templates scale to any size
+    document = instantiateTemplate(template.document, {
+      height: input.height,
+      width: input.width,
+    });
+    templateAssets = template.assets.map(templateAssetRow);
+  }
+  const background = input.background ?? document.background;
+  const positions = initialPositions(document.elements.length);
+
+  await db.batch([
+    db.insert(designs).values({
+      background,
+      height: document.height,
+      id,
+      name: input.name,
+      ownerId,
+      version: documentVersionFor(1),
+      visibility: "private",
+      width: document.width,
+    }),
+    db.insert(designPages).values({
+      background,
+      designId: id,
+      id: pageId,
+      position: FIRST_PAGE_POSITION,
+    }),
+    ...(templateAssets.length > 0
+      ? [db.insert(assets).values(templateAssets).onConflictDoNothing()]
+      : []),
+    ...(document.elements.length > 0
+      ? [
+          db.insert(designElements).values(
+            document.elements.map((element, index) => ({
+              data: element,
+              designId: id,
+              id: element.id,
+              pageId,
+              position: positions[index] ?? "a0",
+            }))
+          ),
+        ]
+      : []),
+  ]);
+  return { id };
+};
+
+// A design's content, when the account may open it (as the editor checks)
+export const readDesign = async (id: string): Promise<DesignContent> => {
+  const { id: viewerId } = await getViewer();
+  const [visible] = await getDb()
+    .select({ id: designs.id })
+    .from(designs)
+    .where(
+      and(
+        eq(designs.id, id),
+        or(
+          eq(designs.visibility, "public"),
+          eq(designs.ownerId, viewerId),
+          sharedWith(viewerId)
+        )
+      )
+    )
+    .limit(1);
+  const content = visible ? await getDesignContent(id) : null;
+  if (!content) {
+    throw new Error(`Design ${id} not found (or not yours); see list_designs`);
+  }
+  return content;
+};
+
+export const pageOf = (content: DesignContent, pageId: string | undefined) => {
+  if (!pageId) {
+    const [first] = content.pages;
+    if (!first) {
+      throw new Error("Design has no pages");
+    }
+    return first;
+  }
+  const page = content.pages.find((candidate) => candidate.id === pageId);
+  if (!page) {
+    throw new Error(
+      `No page ${pageId}; pages are ${content.pages.map((p) => p.id).join(", ")}`
+    );
+  }
+  return page;
+};
+
+// Every element on every page with its page and z-order key
+export const allElements = (content: DesignContent) =>
+  content.pages.flatMap((page) =>
+    page.document.elements.map((element) => ({
+      element,
+      pageId: page.id,
+      position: page.positions[element.id] ?? "a0",
+    }))
+  );
+
+// Z-order keys for `count` new elements above (or below) everything
+export const newPositions = (
+  content: DesignContent,
+  count: number,
+  where: "front" | "back" = "front"
+): string[] => {
+  const sorted = allElements(content)
+    .map(({ element, position }) => ({ id: element.id, position }))
+    .toSorted(comparePositioned);
+  if (where === "back") {
+    return generateNKeysBetween(null, sorted[0]?.position ?? null, count);
+  }
+  return generateNKeysBetween(sorted.at(-1)?.position ?? null, null, count);
+};
+
+export const emptyWrites = (): ChangesWrites => ({
+  deletes: [],
+  firstPageBackground: null,
+  name: null,
+  pageDeletes: [],
+  pages: [],
+  size: null,
+  writes: [],
+});
+
+// Saves one batch as the editor's save route does
+export const applyChanges = async (
+  designId: string,
+  changes: Partial<ChangesWrites>
+): Promise<void> => {
+  const current = await getViewer();
+  const result = await getDb().execute<{
+    found: number;
+    snapshot_id: string | null;
+    txid: string;
+  }>(
+    changesStatement({
+      ...emptyWrites(),
+      ...changes,
+      clientId: CLIENT_ID,
+      designId,
+      viewer: current,
+    })
+  );
+  const [row] = result.rows;
+  if (!row?.found) {
+    throw new Error(`Design ${designId} not found (or not editable)`);
+  }
+  if (row.snapshot_id) {
+    await finishSnapshot(designId, row.snapshot_id).catch(() => null);
+  }
+};
+
+// Files sharp reads and Orcanva shows as they are; anything else becomes
+// a PNG
+const KEEP_FORMATS: Record<string, UploadMimeType> = {
+  gif: "image/gif",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+};
+
+const readSource = async (source: string): Promise<Uint8Array> => {
+  if (/^https?:\/\//iu.test(source)) {
+    const response = await fetch(source);
+    if (!response.ok) {
+      throw new Error(`Couldn't download ${source} (${response.status})`);
+    }
+    return new Uint8Array(await response.arrayBuffer());
+  }
+  if (!path.isAbsolute(source)) {
+    throw new Error("Give an absolute file path or an http(s) URL");
+  }
+  return new Uint8Array(await readFile(source));
+};
+
+export interface UploadedImage {
+  id: string;
+  width: number;
+  height: number;
+}
+
+// Puts an image in the account's library, as an upload from the editor
+// would: one copy per file per account, matched by its SHA-256
+export const uploadImage = async (source: string): Promise<UploadedImage> => {
+  const { id: ownerId } = await getViewer();
+  let bytes = await readSource(source);
+  const meta = await sharp(bytes).metadata();
+  let mimeType = meta.format ? KEEP_FORMATS[meta.format] : undefined;
+  if (!mimeType) {
+    bytes = new Uint8Array(await sharp(bytes).png().toBuffer());
+    mimeType = "image/png";
+  }
+  if (bytes.byteLength > MAX_UPLOAD_BYTES) {
+    throw new Error("Image is over 25 MB");
+  }
+  const { width, height } = meta;
+  if (!(width && height)) {
+    throw new Error("Couldn't read the image's size");
+  }
+  // Rotated phone photos: the size as displayed
+  const rotated = (meta.orientation ?? 1) >= 5;
+  const size = rotated ? { height: width, width: height } : { height, width };
+
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  const db = getDb();
+  const [existing] = await db
+    .select({ height: assets.height, id: assets.id, width: assets.width })
+    .from(assets)
+    .where(
+      and(
+        eq(assets.ownerId, ownerId),
+        eq(assets.sha256, sha256),
+        eq(assets.status, "ready")
+      )
+    )
+    .limit(1);
+  if (existing) {
+    return existing;
+  }
+
+  const id = crypto.randomUUID();
+  const key = assetKey(id, mimeType);
+  await putObject(key, bytes, mimeType);
+  await db.insert(assets).values({
+    ...size,
+    id,
+    key,
+    mimeType,
+    originalName:
+      path.basename(new URL(source, "file:///").pathname) || "image",
+    ownerId,
+    sha256,
+    sizeBytes: bytes.byteLength,
+    status: "ready",
+  });
+  return { id, ...size };
+};
+
+// The design's latest gallery picture, which an open editor renders after
+// edits; null when none has been made yet
+export const readThumbnail = async (
+  designId: string
+): Promise<{ data: string; mimeType: string } | null> => {
+  const [row] = await getDb()
+    .select({ key: designs.thumbnailKey })
+    .from(designs)
+    .where(eq(designs.id, designId))
+    .limit(1);
+  if (!row?.key) {
+    return null;
+  }
+  const object = await getObject(row.key);
+  const body = await object.Body?.transformToByteArray();
+  if (!body) {
+    return null;
+  }
+  return {
+    data: Buffer.from(body).toString("base64"),
+    mimeType: object.ContentType ?? "image/jpeg",
+  };
+};
