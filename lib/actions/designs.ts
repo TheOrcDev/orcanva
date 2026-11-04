@@ -13,12 +13,14 @@ import {
   designVisibility,
   designs,
 } from "@/lib/db/schema";
-import { createDocument } from "@/lib/document/factories";
 import {
-  DOCUMENT_VERSION,
-  MAX_CANVAS_SIZE,
-  MIN_CANVAS_SIZE,
-} from "@/lib/document/schema";
+  canvasSize,
+  designName,
+  resizedCopyInput,
+} from "@/lib/document/element-input";
+import type { ResizedCopyInput } from "@/lib/document/element-input";
+import { createDocument } from "@/lib/document/factories";
+import { DOCUMENT_VERSION } from "@/lib/document/schema";
 import { thumbnailKey } from "@/lib/storage/keys";
 import { copyObject, deleteObject } from "@/lib/storage/s3";
 
@@ -26,9 +28,6 @@ import { copyObject, deleteObject } from "@/lib/storage/s3";
 // Every page in the studio's sidebar layout (app/(studio)): a change to a
 // design can move it between the galleries
 const refreshStudio = () => revalidatePath("/(studio)", "layout");
-
-const canvasSize = z.number().int().min(MIN_CANVAS_SIZE).max(MAX_CANVAS_SIZE);
-const designName = z.string().trim().min(1).max(120);
 
 const visibility = z.enum(designVisibility.enumValues);
 
@@ -216,4 +215,54 @@ export const duplicateDesign = async (id: string): Promise<{ id: string }> => {
 
   refreshStudio();
   return { id: copy.id };
+};
+
+// Magic Resize's copies: a new private design of the viewer's own, laid out
+// by the browser (measuring text needs its fonts) from one they can open.
+// The elements are checked as the changes route checks them, so this
+// stores nothing a save couldn't. One batch, so a copy is never half made.
+// It doesn't refresh the studio: from the editor that would load the whole
+// design again, and the studio's pages are fetched afresh on the way back.
+export const createResizedCopy = async (
+  input: ResizedCopyInput
+): Promise<{ id: string }> => {
+  const { background, elements, height, name, sourceId, width } =
+    resizedCopyInput.parse(input);
+  const viewer = await requireViewer();
+  const db = getDb();
+  const [source] = await db
+    .select({ id: designs.id })
+    .from(designs)
+    .where(and(eq(designs.id, sourceId), visibleTo(viewer.id)))
+    .limit(1);
+  if (!source) {
+    throw new Error("Design not found");
+  }
+
+  const id = crypto.randomUUID();
+  await db.batch([
+    db.insert(designs).values({
+      background,
+      height,
+      id,
+      name,
+      ownerId: viewer.id,
+      version: DOCUMENT_VERSION,
+      visibility: "private",
+      width,
+    }),
+    ...(elements.length > 0
+      ? [
+          db.insert(designElements).values(
+            elements.map(({ data, position }) => ({
+              data,
+              designId: id,
+              id: data.id,
+              position,
+            }))
+          ),
+        ]
+      : []),
+  ]);
+  return { id };
 };

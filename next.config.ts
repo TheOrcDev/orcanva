@@ -13,6 +13,12 @@ const VERCEL_HOST = "orcanva.vercel.app";
 const IMMUTABLE_CACHE = "public, max-age=31536000, immutable";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // Magic Resize sends a whole design per copy. The editor refuses one
+    // over MAX_COPY_BYTES (lib/document/element-input.ts) with a message
+    // before sending, so keep the two in step.
+    serverActions: { bodySizeLimit: "4mb" },
+  },
   headers: () => [
     {
       headers: [{ key: "Cache-Control", value: IMMUTABLE_CACHE }],

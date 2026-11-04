@@ -1,3 +1,5 @@
+import { MAX_COPY_BYTES } from "@/lib/document/element-input";
+import type { ResizedCopyInput } from "@/lib/document/element-input";
 import type { Size } from "@/lib/document/geometry";
 import type { TextElement } from "@/lib/document/schema";
 import { resizeWithLayout } from "@/lib/editor/magic-resize";
@@ -52,4 +54,52 @@ export const undoResize = (store: EditorStoreApi, step: object): boolean => {
   store.getState().undo();
   store.getState().zoomToFit();
   return true;
+};
+
+const MAX_NAME_LENGTH = 120;
+
+// "Launch · Story / Shorts"
+export const copyName = (name: string, sizeLabel: string): string => {
+  const suffix = ` · ${sizeLabel}`;
+  return `${name.slice(0, MAX_NAME_LENGTH - suffix.length).trim()}${suffix}`;
+};
+
+export class CopyTooLargeError extends Error {
+  constructor() {
+    super("This design is too big to copy in one go.");
+    this.name = "CopyTooLargeError";
+  }
+}
+
+// The open design laid out at `size`, as the input for a new design: its
+// elements keep their ids and z-order keys. Fonts must have loaded.
+export const resizedCopyOf = (
+  store: EditorStoreApi,
+  size: Size,
+  layout: ResizeLayout,
+  name: string
+): ResizedCopyInput => {
+  const state = store.getState();
+  const document = resizeWithLayout(
+    selectDocument(state),
+    size,
+    layout,
+    measureInBrowser
+  );
+  const { positions } = state.doc;
+  const input = {
+    background: document.background,
+    elements: document.elements.flatMap((element) => {
+      const position = positions.get(element.id);
+      return position ? [{ data: element, position }] : [];
+    }),
+    height: size.height,
+    name,
+    sourceId: state.designId,
+    width: size.width,
+  };
+  if (new TextEncoder().encode(JSON.stringify(input)).length > MAX_COPY_BYTES) {
+    throw new CopyTooLargeError();
+  }
+  return input;
 };

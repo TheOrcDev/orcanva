@@ -7,41 +7,12 @@ import { changesStatement } from "@/lib/db/queries/changes";
 import { isDesignId } from "@/lib/db/queries/designs";
 import { finishSnapshot } from "@/lib/db/queries/versions";
 import {
-  MAX_CANVAS_SIZE,
-  MAX_ELEMENTS,
-  MAX_ELEMENT_JSON_LENGTH,
-  MIN_CANVAS_SIZE,
-  backgroundSchema,
-  elementSchema,
-  keepUnknownFields,
-} from "@/lib/document/schema";
-
-// Fractional-index keys are base-62 digits
-const POSITION_KEY = /^[0-9A-Za-z]{2,200}$/u;
-
-const canvasSize = z.number().int().min(MIN_CANVAS_SIZE).max(MAX_CANVAS_SIZE);
-
-// Validated like any element, but stored with the fields this version
-// doesn't know yet, so a newer editor's additions survive an older one
-const elementData = z
-  .unknown()
-  .refine(
-    (raw) => (JSON.stringify(raw) ?? "").length <= MAX_ELEMENT_JSON_LENGTH,
-    {
-      message: "Element too large",
-    }
-  )
-  .transform((raw, context) => {
-    const parsed = elementSchema.safeParse(raw);
-    if (!parsed.success) {
-      context.addIssue({
-        code: "custom",
-        message: z.prettifyError(parsed.error),
-      });
-      return z.NEVER;
-    }
-    return keepUnknownFields(raw, parsed.data);
-  });
+  canvasSize,
+  designName,
+  elementData,
+  positionKey,
+} from "@/lib/document/element-input";
+import { MAX_ELEMENTS, backgroundSchema } from "@/lib/document/schema";
 
 const changesPayload = z.object({
   clientId: z.uuid(),
@@ -51,11 +22,11 @@ const changesPayload = z.object({
       z.object({
         data: elementData,
         mode: z.enum(["create", "update"]),
-        position: z.string().regex(POSITION_KEY),
+        position: positionKey,
       })
     )
     .max(MAX_ELEMENTS),
-  name: z.string().trim().min(1).max(120).optional(),
+  name: designName.optional(),
   page: z
     .object({
       background: backgroundSchema,
