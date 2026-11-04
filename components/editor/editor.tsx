@@ -31,6 +31,7 @@ import { useOutbox } from "@/hooks/use-outbox";
 import { usePresence } from "@/hooks/use-presence";
 import { useRestoreNotice } from "@/hooks/use-restore-version";
 import { useThumbnail } from "@/hooks/use-thumbnail";
+import { useWebMcp } from "@/hooks/use-webmcp";
 import { createEditorStore } from "@/lib/editor/store";
 import type { EditorInit } from "@/lib/editor/store";
 import type { LiveConfig } from "@/lib/realtime/rows";
@@ -60,6 +61,8 @@ const EditorShell = ({
   useNewerElementsNotice();
   useRestoreNotice();
   useLimitNotice();
+  // Tools for an AI agent in the browser (WebMCP), where it has them
+  useWebMcp();
 
   const flush = useCallback(async () => {
     await Promise.all([flushSave(), flushThumbnail()]);
