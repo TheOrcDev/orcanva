@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 
 import { AccessLostDialog } from "@/components/editor/access-lost-dialog";
 import { PageNodeProvider } from "@/components/editor/canvas-context";
+import { PageRenderHost } from "@/components/editor/canvas/static-page";
 import { WorkspaceStage } from "@/components/editor/canvas/workspace-stage";
 import { LiveSync } from "@/components/editor/collab/live-sync";
 import { EditorSidebar } from "@/components/editor/editor-sidebar";
@@ -102,10 +103,12 @@ export const Editor = ({ init }: { init: EditorInit }) => {
   return (
     <EditorStoreProvider store={store}>
       <PageNodeProvider>
-        <EditorShell
-          hasThumbnail={init.hasThumbnail}
-          live={init.live ?? null}
-        />
+        <PageRenderHost>
+          <EditorShell
+            hasThumbnail={init.hasThumbnail}
+            live={init.live ?? null}
+          />
+        </PageRenderHost>
       </PageNodeProvider>
     </EditorStoreProvider>
   );

@@ -1,14 +1,24 @@
 "use client";
 
 import type Konva from "konva";
-import { useEffect, useRef, useState } from "react";
-import type { Ref } from "react";
+import {
+  createContext,
+  use,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { ReactNode, Ref } from "react";
 import { Group, Layer, Rect, Stage } from "react-konva";
 
 import { BackgroundNode } from "@/components/editor/canvas/background-node";
 import { ElementNode } from "@/components/editor/canvas/element-node";
 import type { ElementNodeProps } from "@/components/editor/canvas/element-node";
-import { EditorStoreProvider } from "@/components/editor/editor-store-context";
+import {
+  EditorStoreProvider,
+  useEditorStoreApi,
+} from "@/components/editor/editor-store-context";
 import { fitZoom } from "@/lib/document/geometry";
 import type { DesignDocument } from "@/lib/document/schema";
 import { createEditorStore } from "@/lib/editor/store";
@@ -16,6 +26,7 @@ import type { EditorAsset, EditorStoreApi } from "@/lib/editor/store";
 import { prepareForRender } from "@/lib/export/prepare";
 import { renderPage } from "@/lib/export/render-page";
 import type { RenderOptions } from "@/lib/export/render-page";
+import { createRenderQueue } from "@/lib/export/render-queue";
 
 // The static page renderer: a document drawn read-only through the
 // editor's own nodes (BackgroundNode, ElementNode), so photos, filters,
@@ -29,10 +40,11 @@ import type { RenderOptions } from "@/lib/export/render-page";
 // Modes:
 // - on screen: StaticPageView fits one page into its box (the version
 //   preview);
-// - off screen (for Magic Resize and multi-page export, not built yet):
-//   mount StaticPage in a hidden Stage, one page at a time, and hand its
-//   node to renderStaticPage, which waits for the render preparers and
-//   returns a blob through renderPage.
+// - off screen: PageRenderHost (mounted once in the editor) draws any
+//   document that isn't on screen, one page at a time from a queue, in a
+//   hidden Stage, and usePageRenderer() hands back its blob from
+//   renderStaticPage. Magic Resize's previews and its copies' thumbnails
+//   use it; multi-page export can too.
 
 // Returns nothing anyone reads
 const ignore = () => null;
@@ -217,4 +229,136 @@ export const StaticPageView = ({
       ) : null}
     </div>
   );
+};
+
+// Off-screen mode: draws a document that isn't on screen and returns it as
+// an image. `signal` drops a job that hasn't started yet.
+export type RenderOffscreen = (
+  document: DesignDocument,
+  options: RenderOptions,
+  signal?: AbortSignal
+) => Promise<Blob>;
+
+const PageRenderContext = createContext<RenderOffscreen | null>(null);
+
+// Longest a page may take to mount before its job fails
+const MOUNT_TIMEOUT_MS = 10_000;
+
+interface OffscreenPage {
+  key: number;
+  document: DesignDocument;
+  store: EditorStoreApi;
+  onPage: (node: Konva.Group | null) => void;
+}
+
+// The page group, once the page and everything on it has mounted
+const waitForPage = (
+  onMounted: (onPage: (node: Konva.Group | null) => void) => void
+): Promise<Konva.Group> => {
+  const { promise, reject, resolve } = Promise.withResolvers<Konva.Group>();
+  const timer = setTimeout(
+    () => reject(new Error("The page didn't draw")),
+    MOUNT_TIMEOUT_MS
+  );
+  onMounted((node) => {
+    if (node) {
+      clearTimeout(timer);
+      resolve(node);
+    }
+  });
+  return promise;
+};
+
+type ShowPage = (
+  update: (current: OffscreenPage | null) => OffscreenPage | null
+) => void;
+
+// The queue behind PageRenderHost: each job mounts its page (through
+// `show`), waits for it, draws it once the render preparers are done, and
+// unmounts it. It draws with the editor's images: their URLs come from the
+// editor's store, which is also where the image preloader looks.
+const createOffscreenRenderer = (
+  editor: EditorStoreApi,
+  show: ShowPage
+): RenderOffscreen => {
+  let count = 0;
+  const queue = createRenderQueue(
+    async ({
+      document,
+      options,
+    }: {
+      document: DesignDocument;
+      options: RenderOptions;
+    }) => {
+      const { assets, designId, missingAssetIds } = editor.getState();
+      const store = createStaticStore({
+        assets,
+        designId,
+        document,
+        missingAssetIds,
+      });
+      count += 1;
+      const key = count;
+      const hide = () =>
+        show((current) => (current?.key === key ? null : current));
+      try {
+        const node = await waitForPage((onPage) =>
+          show(() => ({ document, key, onPage, store }))
+        );
+        const blob = await renderStaticPage(node, document, options);
+        hide();
+        return blob;
+      } catch (error) {
+        hide();
+        throw error;
+      }
+    }
+  );
+  return (document, options, signal) =>
+    queue.render({ document, options }, signal);
+};
+
+// Mounts the page being drawn off screen (laid out, so Konva builds it,
+// but out of sight and out of reach), and offers usePageRenderer() to what
+// it wraps
+export const PageRenderHost = ({ children }: { children: ReactNode }) => {
+  const editor = useEditorStoreApi();
+  const [page, setPage] = useState<OffscreenPage | null>(null);
+  const render = useMemo(
+    () => createOffscreenRenderer(editor, setPage),
+    [editor]
+  );
+
+  return (
+    <PageRenderContext value={render}>
+      {children}
+      {page ? (
+        <div
+          aria-hidden
+          inert
+          className="pointer-events-none fixed top-0 -left-[10000px] size-px overflow-hidden"
+        >
+          <EditorStoreProvider store={page.store}>
+            <Stage width={1} height={1}>
+              <Layer listening={false}>
+                <StaticPage
+                  key={page.key}
+                  document={page.document}
+                  pageRef={page.onPage}
+                />
+              </Layer>
+            </Stage>
+          </EditorStoreProvider>
+        </div>
+      ) : null}
+    </PageRenderContext>
+  );
+};
+
+export const usePageRenderer = (): RenderOffscreen => {
+  const render = use(PageRenderContext);
+  if (!render) {
+    throw new Error("usePageRenderer must be used inside PageRenderHost");
+  }
+  return render;
 };

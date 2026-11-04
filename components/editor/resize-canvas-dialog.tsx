@@ -8,6 +8,8 @@ import {
 import Link from "next/link";
 import { useId, useState } from "react";
 
+import { usePageRenderer } from "@/components/editor/canvas/static-page";
+import type { RenderOffscreen } from "@/components/editor/canvas/static-page";
 import {
   useEditor,
   useEditorStoreApi,
@@ -44,10 +46,13 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
+import { useResizePreviews } from "@/hooks/use-resize-previews";
 import { createResizedCopy } from "@/lib/actions/designs";
 import { signInUrl } from "@/lib/auth/redirect";
+import type { DesignDocument } from "@/lib/document/schema";
 import { RESIZE_LAYOUTS } from "@/lib/editor/magic-resize";
 import type { ResizeLayout } from "@/lib/editor/magic-resize";
 import { stopIfOutdated } from "@/lib/editor/outdated";
@@ -60,11 +65,16 @@ import {
 } from "@/lib/editor/resize-design";
 import { selectDocument } from "@/lib/editor/store";
 import type { EditorStoreApi } from "@/lib/editor/store";
+import { THUMBNAIL_MAX_SIZE } from "@/lib/export/render-page";
+import { uploadThumbnail } from "@/lib/export/thumbnailer";
 import { waitForFonts } from "@/lib/fonts/loader";
 import { formatSize } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 // Sizes one go can make
 const MAX_SIZES = 8;
+// As the editor's own gallery previews
+const THUMBNAIL_QUALITY = 0.8;
 
 const LAYOUTS: Record<ResizeLayout, { title: string; description: string }> = {
   keep: {
@@ -189,6 +199,83 @@ const CopyResults = ({ results }: { results: readonly CopyResult[] }) => (
   </ItemGroup>
 );
 
+// Gives a new copy its gallery preview at once, drawn off screen. A copy
+// without one still gets one when it's first opened.
+const thumbnailOf = async (
+  render: RenderOffscreen,
+  designId: string,
+  document: DesignDocument
+) => {
+  try {
+    const picture = await render(document, {
+      format: "jpeg",
+      pixelRatio: Math.min(
+        1,
+        THUMBNAIL_MAX_SIZE / Math.max(document.width, document.height)
+      ),
+      quality: THUMBNAIL_QUALITY,
+    });
+    await uploadThumbnail(designId, picture);
+  } catch {
+    // The copy is made; only its preview waits
+  }
+};
+
+// The ticked sizes as they'd come out, drawn small off screen
+const Previews = ({
+  layout,
+  sizes,
+}: {
+  layout: ResizeLayout;
+  sizes: readonly SizeChoice[];
+}) => {
+  const urls = useResizePreviews(sizes, layout);
+  return (
+    <FieldSet>
+      <FieldLegend variant="label">Preview</FieldLegend>
+      {sizes.length === 0 ? (
+        <FieldDescription>
+          Tick a size to see how it comes out.
+        </FieldDescription>
+      ) : (
+        <ul className="flex gap-3 overflow-x-auto pb-2">
+          {sizes.map((size) => {
+            const url = urls.get(size.id);
+            return (
+              <li key={size.id} className="flex shrink-0 flex-col gap-1.5">
+                <div className="flex h-40 items-center justify-center">
+                  {url ? (
+                    // oxlint-disable-next-line nextjs/no-img-element -- a blob URL drawn in this tab
+                    <img
+                      src={url}
+                      alt={`${size.label} preview`}
+                      width={size.width}
+                      height={size.height}
+                      className="ring-border max-h-40 w-auto rounded-sm ring-1"
+                    />
+                  ) : (
+                    <Skeleton
+                      className={cn(
+                        "h-40",
+                        size.width >= size.height
+                          ? "aspect-video"
+                          : "aspect-[9/16]"
+                      )}
+                    />
+                  )}
+                </div>
+                <span className="text-muted-foreground text-xs">
+                  {size.label}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </FieldSet>
+  );
+};
+
 const ResizeForm = ({ onDone }: { onDone: () => void }) => {
   const id = useId();
   const store = useEditorStoreApi();
@@ -201,6 +288,7 @@ const ResizeForm = ({ onDone }: { onDone: () => void }) => {
   const [ticked, setTicked] = useState<string[]>([]);
   const [layout, setLayout] = useState<ResizeLayout>("magic");
   const [phase, setPhase] = useState<Phase>({ kind: "choose" });
+  const render = usePageRenderer();
 
   const choices = [...presetChoices, ...customs];
   const sizes = ticked.flatMap((choiceId) => {
@@ -231,9 +319,16 @@ const ResizeForm = ({ onDone }: { onDone: () => void }) => {
       setPhase({ done: index, kind: "busy", total: sizes.length });
       const copy = copyName(name, choice.label);
       try {
-        const input = resizedCopyOf(store, choice, layout, copy);
+        const { document: laid, input } = resizedCopyOf(
+          store,
+          choice,
+          layout,
+          copy
+        );
         // oxlint-disable-next-line no-await-in-loop -- one copy at a time, as actions run, with progress
         const { id: copyId } = await createResizedCopy(input);
+        // oxlint-disable-next-line no-await-in-loop -- one page drawn at a time anyway
+        await thumbnailOf(render, copyId, laid);
         results.push({ choice, error: null, id: copyId, name: copy });
       } catch (error) {
         if (stopIfOutdated(store, error)) {
@@ -310,6 +405,7 @@ const ResizeForm = ({ onDone }: { onDone: () => void }) => {
           value={layout}
           onChange={setLayout}
         />
+        {busy ? null : <Previews layout={layout} sizes={sizes} />}
       </FieldGroup>
       {busy ? (
         <output

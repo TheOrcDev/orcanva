@@ -16,7 +16,7 @@ export interface Thumbnailer {
   dispose: () => void;
 }
 
-const uploadThumbnail = async (designId: string, blob: Blob) => {
+export const uploadThumbnail = async (designId: string, blob: Blob) => {
   const response = await fetch(`/api/designs/${designId}/thumbnail`, {
     body: blob,
     headers: { "Content-Type": "image/jpeg" },

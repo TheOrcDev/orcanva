@@ -1,7 +1,7 @@
 import { MAX_COPY_BYTES } from "@/lib/document/element-input";
 import type { ResizedCopyInput } from "@/lib/document/element-input";
 import type { Size } from "@/lib/document/geometry";
-import type { TextElement } from "@/lib/document/schema";
+import type { DesignDocument, TextElement } from "@/lib/document/schema";
 import { resizeWithLayout } from "@/lib/editor/magic-resize";
 import type { ResizeLayout, TextSize } from "@/lib/editor/magic-resize";
 import { selectDocument } from "@/lib/editor/store";
@@ -71,14 +71,15 @@ export class CopyTooLargeError extends Error {
   }
 }
 
-// The open design laid out at `size`, as the input for a new design: its
-// elements keep their ids and z-order keys. Fonts must have loaded.
+// The open design laid out at `size`, and that as the input for a new
+// design: its elements keep their ids and z-order keys. Fonts must have
+// loaded.
 export const resizedCopyOf = (
   store: EditorStoreApi,
   size: Size,
   layout: ResizeLayout,
   name: string
-): ResizedCopyInput => {
+): { document: DesignDocument; input: ResizedCopyInput } => {
   const state = store.getState();
   const document = resizeWithLayout(
     selectDocument(state),
@@ -101,5 +102,5 @@ export const resizedCopyOf = (
   if (new TextEncoder().encode(JSON.stringify(input)).length > MAX_COPY_BYTES) {
     throw new CopyTooLargeError();
   }
-  return input;
+  return { document, input };
 };
