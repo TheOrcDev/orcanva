@@ -38,6 +38,9 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
 };
 
+// Vercel Analytics only works on Vercel; elsewhere its script is a 404
+const IS_VERCEL = Boolean(process.env.VERCEL);
+
 const RootLayout = ({
   children,
 }: Readonly<{
@@ -60,7 +63,7 @@ const RootLayout = ({
           <Toaster>{children}</Toaster>
         </TooltipProvider>
       </ThemeProvider>
-      <Analytics />
+      {IS_VERCEL && <Analytics />}
     </body>
   </html>
 );

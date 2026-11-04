@@ -1,0 +1,17 @@
+.git
+.github
+.next
+node_modules
+.env*
+.vercel
+coverage
+*.tsbuildinfo
+next-env.d.ts
+Dockerfile
+.dockerignore
+.agents
+.claude
+.cursor
+.ai
+.vscode
+.husky

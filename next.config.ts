@@ -29,6 +29,8 @@ const nextConfig: NextConfig = {
       source: "/template-files/:path*",
     },
   ],
+  // A self-contained server in .next/standalone, which the Docker image runs
+  output: "standalone",
   redirects: () => [
     {
       destination: `${SITE_URL}/:path*`,

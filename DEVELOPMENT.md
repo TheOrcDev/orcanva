@@ -27,6 +27,7 @@ NEON_REALTIME_URL=wss://…              # optional, see "Realtime" below
 NEON_REALTIME_SECRET=…
 RESEND_API_KEY=re_…                    # optional, sends share invites; see "Sharing" below
 EMAIL_FROM="Orcanva <hello@example.com>"  # optional, at a domain verified in Resend
+SITE_URL=https://design.example.org     # optional, self-hosted copies only; see "Self-hosting with Docker"
 ```
 
 The storage endpoint and region come from `neon api /projects/<project>/branches/<branch>/storage`. Object Storage needs a project in `aws-us-east-1`, `aws-us-east-2`, `aws-eu-central-1`, or `aws-ap-southeast-1`.
@@ -95,6 +96,30 @@ pnpm dev
 ```
 
 The landing page is at `/`, the studio at `/studio`, and the editor at `/design/[id]`.
+
+### Self-hosting with Docker
+
+Every push to `main` and every `v*.*.*` tag builds an image for `linux/amd64` and `linux/arm64`, each on its own native runner, and pushes it to GitHub Container Registry (`.github/workflows/docker.yml`). The image is Alpine with only the `node` binary and the standalone server.
+
+| Git ref        | Image tags                    |
+| -------------- | ----------------------------- |
+| Tag `v1.2.3`   | `1.2.3`, `1.2`, `1`, `latest` |
+| Push to `main` | `main`, `sha-<short sha>`     |
+| Pull request   | Built, not pushed             |
+
+To release a version, push a tag: `git tag v1.2.3 && git push origin v1.2.3`.
+
+The image still needs a Neon project (Postgres, Auth, Object Storage, and optionally Realtime), set up as in [Setup](#setup). Put the same variables as `.env.local` in a file, then start it:
+
+```bash
+docker run -d --name orcanva --env-file .env -p 3000:3000 ghcr.io/theorcdev/orcanva:latest
+```
+
+Set `SITE_URL` to the address you serve the app on (for example `https://design.example.org`), so links in invite and mention emails point to your copy. Prerendered pages (canonical URLs, share images, the sitemap and `robots.txt`) take it when the image is built, so the published image keeps `https://www.orcanva.app` there; to change them too, build the image yourself with `--build-arg SITE_URL=…`. Vercel Analytics is only on when the app runs on Vercel.
+
+Each start applies new migrations from `drizzle/` before the server starts (migrations already applied are skipped). They run in one transaction, so if one fails, the database stays as it was and the container stops. Set `SKIP_MIGRATIONS=1` to start without them. Add the address you serve the app on to Neon Auth's domains (`neon neon-auth domain add`), and to the bucket's CORS (`pnpm storage:setup`) if you want direct uploads.
+
+To build it yourself: `docker build --build-arg SITE_URL=https://design.example.org -t orcanva .`
 
 ### AI tools
 
