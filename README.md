@@ -21,7 +21,7 @@
   <img src="https://shieldcn.dev/badge/Tailwind_CSS-v4-1f1322.svg?logo=tailwindcss&color=1f1322&labelColor=2e2033&split=true" alt="Tailwind CSS v4" />
   <img src="https://shieldcn.dev/badge/shadcn%2Fui-Base_UI-1f1322.svg?logo=shadcnui&color=1f1322&labelColor=2e2033&split=true" alt="shadcn/ui on Base UI" />
   <img src="https://shieldcn.dev/badge/Drizzle-ORM-1f1322.svg?logo=drizzle&color=1f1322&labelColor=2e2033&split=true" alt="Drizzle ORM" />
-  <img src="https://shieldcn.dev/badge/Neon-Postgres-1f1322.svg?logo=neon&color=1f1322&labelColor=2e2033&split=true" alt="Neon Postgres" />
+  <img src="https://shieldcn.dev/badge/Neon-Realtime-1f1322.svg?logo=neon&color=1f1322&labelColor=2e2033&split=true" alt="Neon Realtime" />
 </p>
 
 <a href="https://www.orcanva.app">
