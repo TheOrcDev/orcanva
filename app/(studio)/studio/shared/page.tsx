@@ -14,6 +14,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { isAdmin } from "@/lib/auth/admin";
 import { signInUrl } from "@/lib/auth/redirect";
 import { getViewer } from "@/lib/auth/server";
 import { listSharedDesigns } from "@/lib/db/queries/designs";
@@ -64,8 +65,10 @@ const SharedDesignsPage = async () => {
   // Always read fresh from Neon; this page must never be prerendered
   await connection();
   const viewer = await getViewer();
-  const designs = viewer ? await listSharedDesigns(viewer.id) : [];
-  const cards = toDesignCards(designs, viewer?.id ?? null);
+  const [designs, admin] = viewer
+    ? await Promise.all([listSharedDesigns(viewer.id), isAdmin(viewer.id)])
+    : [[], false];
+  const cards = toDesignCards(designs, viewer?.id ?? null, { isAdmin: admin });
 
   return (
     <>

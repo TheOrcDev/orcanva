@@ -13,6 +13,41 @@ import {
   updateElement,
 } from "@/lib/editor/document-ops";
 
+// What an empty frame holds; it keeps its effects for the next photo
+const EMPTY_FRAME = {
+  assetId: null,
+  crop: null,
+  filter: null,
+  flipX: false,
+  flipY: false,
+} as const;
+
+// Takes these photos off the page, as an admin's Delete for everyone does:
+// images showing one go, and frames showing one are emptied
+export const removePhotos = (
+  document: DesignDocument,
+  assetIds: readonly string[]
+): DesignDocument => {
+  const gone = new Set(assetIds);
+  let changed = false;
+  const elements = document.elements.flatMap((element) => {
+    if (element.type === "image" && gone.has(element.assetId)) {
+      changed = true;
+      return [];
+    }
+    if (
+      element.type === "frame" &&
+      element.assetId &&
+      gone.has(element.assetId)
+    ) {
+      changed = true;
+      return [{ ...element, ...EMPTY_FRAME }];
+    }
+    return [element];
+  });
+  return changed ? { ...document, elements } : document;
+};
+
 // Puts a photo in a frame, cropped from the middle to cover it. The photo
 // starts plain: no filter, no flips.
 export const fillFrame = (
@@ -68,13 +103,7 @@ export const detachPhoto = (
     x: frame.x,
     y: frame.y,
   };
-  const emptied = updateElement(document, frameId, {
-    assetId: null,
-    crop: null,
-    filter: null,
-    flipX: false,
-    flipY: false,
-  });
+  const emptied = updateElement(document, frameId, EMPTY_FRAME);
   const index = emptied.elements.findIndex((element) => element.id === frameId);
   return {
     document: insertElement(emptied, photo, index + 1),

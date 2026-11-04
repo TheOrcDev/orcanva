@@ -67,7 +67,7 @@ const PrivateDesigns = ({ cards }: { cards: DesignCardData[] }) =>
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
-        <NewDesignDialog />
+        <NewDesignDialog signedIn />
       </EmptyContent>
     </Empty>
   ) : (

@@ -36,9 +36,12 @@ import { findTemplate } from "@/lib/templates/lookup";
 // Opened by a plain "New design" button unless `render` and `children` give
 // another trigger, like the sidebar's
 export const NewDesignDialog = ({
+  signedIn,
   render,
   children,
 }: {
+  // Guests can only make public designs (ownerOfNewDesign)
+  signedIn: boolean;
   render?: ReactElement;
   children?: ReactNode;
 }) => {
@@ -69,7 +72,7 @@ export const NewDesignDialog = ({
     const template = picked?.presetId === preset?.id ? picked : undefined;
     const designName =
       name.trim() || template?.name || preset?.label || "Untitled design";
-    const visibility = isPublic ? "public" : "private";
+    const visibility = isPublic || !signedIn ? "public" : "private";
 
     startTransition(async () => {
       try {
@@ -88,7 +91,10 @@ export const NewDesignDialog = ({
         router.push(`/design/${design.id}`);
       } catch {
         toast.add({
-          description: "Check your connection and try again.",
+          // Guests may also have hit their hourly limit
+          description: signedIn
+            ? "Check your connection and try again."
+            : "Check your connection and try again, or sign in.",
           title: "Could not create design",
           type: "error",
         });
@@ -113,6 +119,9 @@ export const NewDesignDialog = ({
             <DialogDescription>
               Pick a size, then start blank or from a template. You can resize
               the canvas later.
+              {signedIn
+                ? null
+                : " It'll be public: anyone can find it and edit it with you. Sign in to keep designs private."}
             </DialogDescription>
           </DialogHeader>
 
@@ -127,20 +136,22 @@ export const NewDesignDialog = ({
                 onChange={(event) => setName(event.target.value)}
               />
             </Field>
-            <Field orientation="horizontal">
-              <FieldContent>
-                <FieldLabel htmlFor={`${id}-public`}>Public</FieldLabel>
-                <FieldDescription>
-                  Anyone can find it in the gallery and edit it with you, signed
-                  in or not.
-                </FieldDescription>
-              </FieldContent>
-              <Switch
-                id={`${id}-public`}
-                checked={isPublic}
-                onCheckedChange={setIsPublic}
-              />
-            </Field>
+            {signedIn ? (
+              <Field orientation="horizontal">
+                <FieldContent>
+                  <FieldLabel htmlFor={`${id}-public`}>Public</FieldLabel>
+                  <FieldDescription>
+                    Anyone can find it in the gallery and edit it with you,
+                    signed in or not.
+                  </FieldDescription>
+                </FieldContent>
+                <Switch
+                  id={`${id}-public`}
+                  checked={isPublic}
+                  onCheckedChange={setIsPublic}
+                />
+              </Field>
+            ) : null}
             <SizePicker
               idPrefix={id}
               width={width}

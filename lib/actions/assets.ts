@@ -1,16 +1,17 @@
 "use server";
 
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 
 import { isReusableVariant } from "@/lib/assets/variants";
 import { getDesignAccess } from "@/lib/auth/design-access";
-import { getViewer } from "@/lib/auth/server";
+import { getViewer, requireViewer } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/client";
-import { toEditorAsset } from "@/lib/db/queries/assets";
+import { findImageFamily, toEditorAsset } from "@/lib/db/queries/assets";
 import { assetVariant, assets } from "@/lib/db/schema";
 import type { AssetRow } from "@/lib/db/schema";
 import type { EditorAsset } from "@/lib/editor/store";
+import { purgeStorageCache } from "@/lib/storage/cdn";
 import {
   MAX_UPLOAD_BYTES,
   UPLOAD_MIME_TYPES,
@@ -145,6 +146,35 @@ export const createUpload = async (
     status: "upload",
     uploadUrl: await createPresignedPut(key, data.mimeType),
   };
+};
+
+const deleteImageInput = z.object({ assetId: z.uuid(), designId: z.uuid() });
+
+// An admin's Delete for everyone, from a public design that shows the image
+// (findImageFamily says which): its file and every copy in its family go for
+// good, from every library and brand kit too. Other designs still showing
+// one draw it as missing; the editor that asked takes it off its own pages.
+// Files go first, then the rows: a row left behind lets the admin try again,
+// a file left behind would stay reachable at its URL. Returns the ids.
+export const deleteImageEverywhere = async (
+  input: z.input<typeof deleteImageInput>
+): Promise<string[]> => {
+  const { assetId, designId } = deleteImageInput.parse(input);
+  const viewer = await requireViewer();
+  const family = await findImageFamily({
+    assetId,
+    designId,
+    viewerId: viewer.id,
+  });
+  if (family.length === 0) {
+    throw new Error("Image not found");
+  }
+  const keys = family.map((asset) => asset.key);
+  await Promise.all(keys.map((key) => deleteObject(key)));
+  await purgeStorageCache(keys);
+  const ids = family.map((asset) => asset.id);
+  await getDb().delete(assets).where(inArray(assets.id, ids));
+  return ids;
 };
 
 // Step 3 of 3: verify the object actually landed (presigned PUTs can't

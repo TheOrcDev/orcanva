@@ -1,9 +1,11 @@
 "use server";
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { isAdminSql } from "@/lib/auth/admin";
+import { ownerOfNewDesign } from "@/lib/auth/new-design";
 import { requireViewer } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/client";
 import { pagesOrLegacy, visibleTo } from "@/lib/db/queries/designs";
@@ -27,6 +29,7 @@ import {
   firstPageIdOf,
   sortPages,
 } from "@/lib/document/pages";
+import { purgeStorageCache } from "@/lib/storage/cdn";
 import { thumbnailKey } from "@/lib/storage/keys";
 import { copyObject, deleteObject } from "@/lib/storage/s3";
 
@@ -44,7 +47,8 @@ const createDesignInput = z.object({
   width: canvasSize,
 });
 
-// A design and its one page, whose id is the design's own
+// A design and its one page, whose id is the design's own. Guests make
+// public ones, which nobody owns (ownerOfNewDesign).
 export const createDesign = async (
   input: z.input<typeof createDesignInput>
 ): Promise<{ id: string }> => {
@@ -54,7 +58,7 @@ export const createDesign = async (
     visibility: chosen,
     width,
   } = createDesignInput.parse(input);
-  const viewer = await requireViewer();
+  const ownerId = await ownerOfNewDesign(chosen);
   const id = crypto.randomUUID();
   const { background } = createDocument({ height, width });
   const db = getDb();
@@ -64,7 +68,7 @@ export const createDesign = async (
       height,
       id,
       name,
-      ownerId: viewer.id,
+      ownerId,
       version: documentVersionFor(1),
       visibility: chosen,
       width,
@@ -98,14 +102,23 @@ export const renameDesign = async (
   refreshStudio();
 };
 
-// Its versions go with it (the foreign key cascades), and so do their
-// pictures. RETURNING runs before the cascade, so it still sees them.
+// Its owner's, or any public one for an admin (canDeleteDesign). Its
+// versions go with it (the foreign key cascades), and so do their pictures.
+// RETURNING runs before the cascade, so it still sees them.
 export const deleteDesign = async (id: string): Promise<void> => {
   const designId = z.uuid().parse(id);
   const viewer = await requireViewer();
   const [row] = await getDb()
     .delete(designs)
-    .where(and(eq(designs.id, designId), eq(designs.ownerId, viewer.id)))
+    .where(
+      and(
+        eq(designs.id, designId),
+        or(
+          eq(designs.ownerId, viewer.id),
+          and(eq(designs.visibility, "public"), isAdminSql(viewer.id))
+        )
+      )
+    )
     .returning({
       thumbnailKey: designs.thumbnailKey,
       versionKeys: sql<string[] | null>`(
@@ -122,9 +135,13 @@ export const deleteDesign = async (id: string): Promise<void> => {
   if (row.thumbnailKey) {
     await deleteObject(row.thumbnailKey);
   }
-  await Promise.allSettled(
-    (row.versionKeys ?? []).map((key) => deleteObject(key))
-  );
+  const versionKeys = row.versionKeys ?? [];
+  await Promise.allSettled(versionKeys.map((key) => deleteObject(key)));
+  // An admin may be taking it down for what it shows
+  await purgeStorageCache([
+    ...(row.thumbnailKey ? [row.thumbnailKey] : []),
+    ...versionKeys,
+  ]).catch(() => null);
   refreshStudio();
 };
 

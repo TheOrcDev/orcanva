@@ -1,11 +1,16 @@
 // Gives every design and upload made before accounts existed to one account.
 // Usage: pnpm claim-designs <email>   (sign up with that email first)
 //
-// Visibility is left alone, so the old designs stay public.
+// Visibility is left alone, so the old designs stay public. Designs guests
+// made since they could (GUEST_DESIGNS_SINCE) have no owner either, and stay
+// that way.
 import { neon } from "@neondatabase/serverless";
 import { config } from "dotenv";
 
 config({ path: ".env.local", quiet: true });
+
+// When guests started making public designs of their own
+const GUEST_DESIGNS_SINCE = "2026-11-04T10:00:00Z";
 
 const log = (message: string) => {
   process.stdout.write(`${message}\n`);
@@ -30,7 +35,7 @@ const main = async () => {
   }
 
   const [designs, assets] = await sql.transaction([
-    sql`UPDATE designs SET owner_id = ${user.id} WHERE owner_id IS NULL RETURNING id`,
+    sql`UPDATE designs SET owner_id = ${user.id} WHERE owner_id IS NULL AND created_at < ${GUEST_DESIGNS_SINCE} RETURNING id`,
     // Uploads only: template images have no owner and must stay that way
     sql`UPDATE assets SET owner_id = ${user.id} WHERE owner_id IS NULL AND origin = 'upload' RETURNING id`,
   ]);

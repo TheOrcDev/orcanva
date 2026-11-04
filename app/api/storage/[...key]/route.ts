@@ -1,3 +1,4 @@
+import { storageCacheTag } from "@/lib/storage/cdn";
 import { isServableKey } from "@/lib/storage/keys";
 import { IMMUTABLE_CACHE_CONTROL, getObject } from "@/lib/storage/s3";
 
@@ -28,6 +29,11 @@ export const GET = async (
     }
     if (object.ETag) {
       headers.set("ETag", object.ETag);
+    }
+    // So deleting the file can drop the CDN's copy (lib/storage/cdn.ts)
+    const tag = storageCacheTag(key);
+    if (tag) {
+      headers.set("Vercel-Cache-Tag", tag);
     }
     return new Response(object.Body.transformToWebStream(), { headers });
   } catch (error) {

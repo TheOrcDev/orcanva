@@ -1,10 +1,11 @@
-import { RiGlobalLine, RiLockLine, RiUserLine } from "@remixicon/react";
+import { RiGlobalLine, RiLockLine } from "@remixicon/react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 
 import { DesignGrid, toDesignCards } from "@/components/gallery/design-grid";
 import type { DesignCardData } from "@/components/gallery/design-grid";
+import { NewDesignDialog } from "@/components/gallery/new-design-dialog";
 import { PageBody, PageHeader } from "@/components/studio/page-header";
 import { PublicFilter } from "@/components/studio/public-filter";
 import { Button } from "@/components/ui/button";
@@ -16,14 +17,10 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { signInUrl } from "@/lib/auth/redirect";
+import { isAdmin } from "@/lib/auth/admin";
 import { getViewer } from "@/lib/auth/server";
 import { listPublicDesigns } from "@/lib/db/queries/designs";
-import {
-  OWNER_MINE,
-  PRIVATE_DESIGNS_PATH,
-  PUBLIC_DESIGNS_PATH,
-} from "@/lib/routes";
+import { OWNER_MINE, PRIVATE_DESIGNS_PATH } from "@/lib/routes";
 
 export const metadata: Metadata = { title: "Public designs" };
 
@@ -35,15 +32,14 @@ const NoPublicDesigns = ({ signedIn }: { signedIn: boolean }) => (
       </EmptyMedia>
       <EmptyTitle>No public designs yet</EmptyTitle>
       <EmptyDescription>
-        Make one of yours public and it shows up here for everyone.
+        {signedIn
+          ? "Make one of yours public and it shows up here for everyone."
+          : "Make the first one: anyone can open it and edit it with you."}
       </EmptyDescription>
     </EmptyHeader>
     {signedIn ? null : (
       <EmptyContent>
-        <Button render={<Link href={signInUrl(PUBLIC_DESIGNS_PATH)} />}>
-          <RiUserLine data-icon="inline-start" />
-          Sign in to create
-        </Button>
+        <NewDesignDialog signedIn={false} />
       </EmptyContent>
     )}
   </Empty>
@@ -99,10 +95,11 @@ const PublicDesignsPage = async ({
   const signedIn = viewer !== null;
   // Guests own nothing, so they always see everyone's
   const onlyMine = viewer !== null && owner === OWNER_MINE;
-  const designs = await listPublicDesigns(
-    onlyMine ? { ownerId: viewer.id } : {}
-  );
-  const cards = toDesignCards(designs, viewer?.id ?? null);
+  const [designs, admin] = await Promise.all([
+    listPublicDesigns(onlyMine ? { ownerId: viewer.id } : {}),
+    isAdmin(viewer?.id ?? null),
+  ]);
+  const cards = toDesignCards(designs, viewer?.id ?? null, { isAdmin: admin });
 
   return (
     <>
@@ -114,7 +111,7 @@ const PublicDesignsPage = async ({
         <p className="text-muted-foreground text-sm">
           {signedIn
             ? "Anyone can open these and edit them together, live."
-            : "Open one to edit it together with others, live. Sign in to keep private designs of your own."}
+            : "Open one, or make a new one, to edit it together with others, live. Sign in to keep private designs of your own."}
         </p>
         <PublicDesigns cards={cards} onlyMine={onlyMine} signedIn={signedIn} />
       </PageBody>

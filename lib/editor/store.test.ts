@@ -398,7 +398,7 @@ describe("editor store", () => {
       libraryIds: [],
       name: "Test",
       role: "owner",
-      viewer: { id: "u", image: null, name: "Orc" },
+      viewer: { id: "u", image: null, isAdmin: false, name: "Orc" },
       visibility: "public",
     };
     const store = createEditorStore(init);

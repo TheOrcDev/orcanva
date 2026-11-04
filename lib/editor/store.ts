@@ -129,6 +129,9 @@ export interface EditorViewer {
   id: string;
   name: string;
   image: string | null;
+  // An admin (lib/auth/admin.ts), who can delete images on public designs
+  // for everyone
+  isAdmin: boolean;
 }
 
 export interface EditorState {

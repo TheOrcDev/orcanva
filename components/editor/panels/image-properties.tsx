@@ -13,6 +13,7 @@ import {
   useEditorStoreApi,
 } from "@/components/editor/editor-store-context";
 import { AiImageTools } from "@/components/editor/panels/ai-image-tools";
+import { DeleteImageEverywhere } from "@/components/editor/panels/delete-image-everywhere";
 import { ImageAdjustments } from "@/components/editor/panels/image-adjustments";
 import { ImageFilters } from "@/components/editor/panels/image-filters";
 import { PanelSection } from "@/components/editor/panels/panel-section";
@@ -115,6 +116,7 @@ export const ImageProperties = ({ element }: { element: ImageElement }) => {
       <ImageAdjustments element={element} />
       <PhotoEffectsProperties element={element} />
       <AiImageTools element={element} />
+      <DeleteImageEverywhere assetId={element.assetId} />
       <PanelSection title="Corners">
         <TransactionSlider
           label="Radius"

@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   canComment,
   canDeleteComment,
+  canDeleteDesign,
+  canDeleteImageEverywhere,
   canEditComment,
   canManageHistory,
   canMention,
@@ -73,6 +75,37 @@ describe("roleFor", () => {
     expect(
       roleFor({ ownerId: null, visibility: "public" }, SOMEONE, false)
     ).toBe("editor");
+  });
+});
+
+describe("canDeleteDesign", () => {
+  it("lets the owner delete their design, public or private", () => {
+    expect(canDeleteDesign("owner", "private", false)).toBe(true);
+    expect(canDeleteDesign("owner", "public", false)).toBe(true);
+  });
+
+  it("lets an admin delete any public design, ownerless ones too", () => {
+    expect(canDeleteDesign("editor", "public", true)).toBe(true);
+    expect(canDeleteDesign("member", "public", true)).toBe(true);
+  });
+
+  it("keeps admins out of private designs that aren't theirs", () => {
+    expect(canDeleteDesign("member", "private", true)).toBe(false);
+    expect(canDeleteDesign(null, "private", true)).toBe(false);
+  });
+
+  it("never lets editors or people it's shared with delete it", () => {
+    expect(canDeleteDesign("editor", "public", false)).toBe(false);
+    expect(canDeleteDesign("member", "private", false)).toBe(false);
+    expect(canDeleteDesign(null, "public", false)).toBe(false);
+  });
+});
+
+describe("canDeleteImageEverywhere", () => {
+  it("is for admins on a public design only", () => {
+    expect(canDeleteImageEverywhere("public", true)).toBe(true);
+    expect(canDeleteImageEverywhere("private", true)).toBe(false);
+    expect(canDeleteImageEverywhere("public", false)).toBe(false);
   });
 });
 

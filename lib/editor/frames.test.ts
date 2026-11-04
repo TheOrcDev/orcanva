@@ -7,7 +7,12 @@ import {
 } from "@/lib/document/factories";
 import { FRAME_SHAPES } from "@/lib/document/frame-shapes";
 import type { PhotoEffects } from "@/lib/document/schema";
-import { detachPhoto, fillFrame, photoIntoFrame } from "@/lib/editor/frames";
+import {
+  detachPhoto,
+  fillFrame,
+  photoIntoFrame,
+  removePhotos,
+} from "@/lib/editor/frames";
 import { photoClip } from "@/lib/photo-effects/mask";
 
 const PAGE = { height: 720, width: 1280 };
@@ -150,5 +155,41 @@ describe("fillFrame", () => {
     expect(moved.elements).toHaveLength(1);
     expect(moved.elements[0]).toMatchObject({ assetId: PHOTO.id, flipX: true });
     expect(photoIntoFrame(document, frame.id, frame.id, PHOTO)).toBe(document);
+  });
+});
+
+describe("removePhotos", () => {
+  const OTHER = { ...PHOTO, id: "1f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b" };
+
+  it("removes images and empties frames showing the deleted photos", () => {
+    const image = createImageElement(PHOTO, PAGE);
+    const kept = createImageElement(OTHER, PAGE);
+    const filled = {
+      ...createFrameElement(PAGE),
+      assetId: PHOTO.id,
+      flipX: true,
+      ...STICKER,
+    };
+    const document = {
+      ...createDocument(PAGE),
+      elements: [image, kept, filled],
+    };
+    const { elements } = removePhotos(document, [PHOTO.id]);
+    expect(elements.map((element) => element.id)).toEqual([kept.id, filled.id]);
+    // The frame stays, empty, with its effects for the next photo
+    expect(elements[1]).toMatchObject({
+      assetId: null,
+      crop: null,
+      flipX: false,
+      ...STICKER,
+    });
+  });
+
+  it("leaves a page without them as it was", () => {
+    const document = {
+      ...createDocument(PAGE),
+      elements: [createImageElement(OTHER, PAGE), createFrameElement(PAGE)],
+    };
+    expect(removePhotos(document, [PHOTO.id])).toBe(document);
   });
 });

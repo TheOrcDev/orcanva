@@ -31,6 +31,22 @@ export const roleFor = (
   return visibility === "public" ? "editor" : null;
 };
 
+// Deleting a design: its owner, or an admin (lib/auth/admin.ts) when it's
+// public, since anyone can put anything on one; designs guests made have no
+// owner, so only an admin can. deleteDesign mirrors it in its SQL.
+export const canDeleteDesign = (
+  role: DesignRole | null,
+  visibility: Visibility,
+  isAdmin: boolean
+): boolean => role === "owner" || (isAdmin && visibility === "public");
+
+// Deleting an image everywhere (its file and every copy made from it):
+// admins, from a public design that shows it
+export const canDeleteImageEverywhere = (
+  visibility: Visibility,
+  isAdmin: boolean
+): boolean => isAdmin && visibility === "public";
+
 // People it's shared with keep it when it goes private; everyone else who
 // isn't the owner loses it
 export const keepsPrivateAccess = (role: DesignRole): boolean =>

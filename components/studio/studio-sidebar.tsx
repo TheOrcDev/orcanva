@@ -32,19 +32,18 @@ export const StudioSidebar = ({
             </span>
           </SidebarMenuButton>
         </SidebarMenuItem>
-        {/* Creating a design needs an account: guests sign in from the footer */}
-        {viewer ? (
-          <SidebarMenuItem>
-            <NewDesignDialog
-              render={
-                <SidebarMenuButton variant="primary" tooltip="New design" />
-              }
-            >
-              <RiAddLine />
-              <span>New design</span>
-            </NewDesignDialog>
-          </SidebarMenuItem>
-        ) : null}
+        {/* Guests make public designs; private ones need an account */}
+        <SidebarMenuItem>
+          <NewDesignDialog
+            signedIn={viewer !== null}
+            render={
+              <SidebarMenuButton variant="primary" tooltip="New design" />
+            }
+          >
+            <RiAddLine />
+            <span>New design</span>
+          </NewDesignDialog>
+        </SidebarMenuItem>
       </SidebarMenu>
     </SidebarHeader>
     <SidebarContent>

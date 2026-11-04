@@ -78,6 +78,8 @@ export interface DesignCardProps {
   ownerName: string | null;
   // The viewer owns it: rename, delete, and change visibility
   canManage: boolean;
+  // The owner, or an admin on a public design (canDeleteDesign)
+  canDelete: boolean;
   // Copies belong to an account, so guests are sent to sign in first
   signedIn: boolean;
 }
@@ -92,6 +94,7 @@ export const DesignCard = ({
   visibility,
   ownerName,
   canManage,
+  canDelete,
   signedIn,
 }: DesignCardProps) => {
   const router = useRouter();
@@ -268,7 +271,7 @@ export const DesignCard = ({
                   </>
                 ) : null}
               </DropdownMenuGroup>
-              {canManage ? (
+              {canDelete ? (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
@@ -319,8 +322,9 @@ export const DesignCard = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete “{name}”?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the design and its preview. Uploaded images stay in
-              your library.
+              {canManage
+                ? "This removes the design and its preview. Uploaded images stay in your library."
+                : "You're deleting it as an admin: it's gone for everyone, its owner too, with its preview and version history. Images uploaded to it stay."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getDesignAccess } from "@/lib/auth/design-access";
-import { requireViewer } from "@/lib/auth/server";
+import { ownerOfNewDesign } from "@/lib/auth/new-design";
 import { getDb } from "@/lib/db/client";
 import { upsertTemplateAssets } from "@/lib/db/queries/assets";
 import {
@@ -48,13 +48,14 @@ const createInput = z.object({
   visibility: z.enum(designVisibility.enumValues).default("private"),
 });
 
-// A new design of the viewer's own, made from a template at its size
+// A new design of the viewer's own, made from a template at its size; a
+// guest's is public and nobody's (ownerOfNewDesign)
 export const createDesignFromTemplate = async (
   input: z.input<typeof createInput>
 ): Promise<{ id: string }> => {
   const { name, templateId, visibility } = createInput.parse(input);
-  const viewer = await requireViewer();
   const template = await readTemplate(templateId);
+  const ownerId = await ownerOfNewDesign(visibility);
   const preset = findPresetById(template.presetId);
   if (!preset) {
     throw new Error("Template not found");
@@ -71,7 +72,7 @@ export const createDesignFromTemplate = async (
     height: document.height,
     id,
     name: name ?? template.name,
-    ownerId: viewer.id,
+    ownerId,
     version: documentVersionFor(1),
     visibility,
     width: document.width,

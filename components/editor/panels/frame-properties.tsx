@@ -10,6 +10,7 @@ import {
 
 import { useEditorStoreApi } from "@/components/editor/editor-store-context";
 import { AiImageTools } from "@/components/editor/panels/ai-image-tools";
+import { DeleteImageEverywhere } from "@/components/editor/panels/delete-image-everywhere";
 import { ImageAdjustments } from "@/components/editor/panels/image-adjustments";
 import { ImageFilters } from "@/components/editor/panels/image-filters";
 import { PanelSection } from "@/components/editor/panels/panel-section";
@@ -125,12 +126,13 @@ export const FrameProperties = ({ element }: { element: FrameElement }) => {
             : "Drop a photo from Uploads or your computer onto the frame to fill it."}
         </p>
       </PanelSection>
-      {filled ? (
+      {element.assetId ? (
         <>
           <ImageFilters element={element} />
           <ImageAdjustments element={element} />
           <PhotoEffectsProperties element={element} />
           <AiImageTools element={element} />
+          <DeleteImageEverywhere assetId={element.assetId} />
         </>
       ) : null}
     </>

@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { EditorLoader } from "@/components/editor/editor-loader";
 import { roleFor } from "@/lib/auth/access";
+import { isAdmin } from "@/lib/auth/admin";
 import { getViewer } from "@/lib/auth/server";
 import { COMMENT_PARAM } from "@/lib/comments/link";
 import { threadIdOf } from "@/lib/comments/threads";
@@ -46,6 +47,7 @@ const loadDesign = async (id: string, commentParam?: string | string[]) => {
     isShared,
     brandKit,
     comments,
+    admin,
   ] = await Promise.all([
     viewerLoad,
     getDesignContent(id),
@@ -55,6 +57,7 @@ const loadDesign = async (id: string, commentParam?: string | string[]) => {
     viewerLoad.then((found) => isDesignSharedWith(id, found?.id ?? null)),
     viewerLoad.then((found) => (found ? getBrandKit(found.id) : null)),
     isDesignId(id) ? listDesignComments(id) : [],
+    viewerLoad.then((found) => isAdmin(found?.id ?? null)),
   ]);
   const role = content
     ? roleFor(content.row, viewer?.id ?? null, isShared)
@@ -87,7 +90,12 @@ const loadDesign = async (id: string, commentParam?: string | string[]) => {
     restoreSeq: content.row.restoreSeq,
     role,
     viewer: viewer
-      ? { id: viewer.id, image: viewer.image, name: viewer.name }
+      ? {
+          id: viewer.id,
+          image: viewer.image,
+          isAdmin: admin,
+          name: viewer.name,
+        }
       : null,
     visibility: content.row.visibility,
   };
