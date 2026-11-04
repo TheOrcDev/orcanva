@@ -23,7 +23,7 @@ import type {
   DesignElement,
 } from "@/lib/document/schema";
 import { VERSION_KINDS } from "@/lib/versions/schema";
-import type { VersionElement } from "@/lib/versions/schema";
+import type { VersionElement, VersionPage } from "@/lib/versions/schema";
 
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -87,6 +87,29 @@ export const designs = pgTable(
   ]
 );
 
+// A design's pages, one row each, so two people adding or reordering pages
+// never overwrite each other. Every page has the design's size and its own
+// background; position is a fractional index, as for elements. A design's
+// first page has the design's own id, which is also the page that rows
+// written without one (page_id null, before pages existed) belong to.
+export const designPages = pgTable(
+  "design_pages",
+  {
+    background: jsonb("background").$type<Background>().notNull(),
+    designId: uuid("design_id")
+      .notNull()
+      .references(() => designs.id, { onDelete: "cascade" }),
+    id: text("id").notNull(),
+    position: text("position").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    // The editor session that wrote the row last
+    updatedBy: uuid("updated_by"),
+  },
+  (table) => [primaryKey({ columns: [table.designId, table.id] })]
+);
+
 // One row per element, so people editing different elements never clash.
 // position is a fractional index: sorting by (position, id) gives z-order.
 export const designElements = pgTable(
@@ -97,6 +120,9 @@ export const designElements = pgTable(
       .notNull()
       .references(() => designs.id, { onDelete: "cascade" }),
     id: text("id").notNull(),
+    // The page it's on (design_pages.id). Null only for rows written by code
+    // from before pages, which are on the first page.
+    pageId: text("page_id"),
     position: text("position").notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
@@ -122,6 +148,9 @@ export const designPresence = pgTable(
     // Avatar of a signed-in person; guests have none
     image: text("image"),
     name: text("name").notNull(),
+    // The page they're on; null is the first page (and editors from before
+    // pages, which only show that one)
+    pageId: text("page_id"),
     seenAt: timestamp("seen_at", { withTimezone: true }).notNull().defaultNow(),
     selection: jsonb("selection").$type<string[]>().notNull().default([]),
     // The signed-in person behind the session; null for guests
@@ -202,6 +231,10 @@ export const designVersions = pgTable(
     kind: designVersionKind("kind").notNull(),
     // Named versions only
     name: text("name"),
+    // The design's pages then, in order ({ id, position, background }); null
+    // for versions taken before pages, which hold one page: the design's own
+    // id with `background`
+    pages: jsonb("pages").$type<VersionPage[]>(),
     // Restore versions: the version that was restored over this one
     restoredFromId: uuid("restored_from_id").references(
       (): AnyPgColumn => designVersions.id,
@@ -406,6 +439,7 @@ export const brandKitItems = pgTable(
 
 export type DesignRow = typeof designs.$inferSelect;
 export type DesignElementRow = typeof designElements.$inferSelect;
+export type DesignPageRow = typeof designPages.$inferSelect;
 export type AssetRow = typeof assets.$inferSelect;
 export type DesignShareRow = typeof designShares.$inferSelect;
 export type BrandKitItemRow = typeof brandKitItems.$inferSelect;

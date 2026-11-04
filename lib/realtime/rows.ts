@@ -23,6 +23,9 @@ export interface LiveElementRow {
   id: string;
   position: string;
   data: unknown;
+  // The page it's on; null for rows written by code from before pages
+  // (the first page), and missing from queries sealed for such editors
+  page_id?: string | null;
 }
 
 // Every live query an editor subscribes to

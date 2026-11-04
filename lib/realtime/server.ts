@@ -22,11 +22,19 @@ const pageQuery = (designId: string) =>
     [designId]
   );
 
-const elementsQuery = (designId: string) =>
-  rawSql<LiveElementRow>(
-    "SELECT id, position, data FROM design_elements WHERE design_id = $1",
-    [designId]
-  );
+// Every page's elements, for editors that know pages; editors from before
+// pages show one page, so theirs holds only the first page's (rows written
+// without a page are on it too)
+const elementsQuery = (designId: string, onlyPage: string | null) =>
+  onlyPage === null
+    ? rawSql<LiveElementRow>(
+        "SELECT id, position, data, page_id FROM design_elements WHERE design_id = $1",
+        [designId]
+      )
+    : rawSql<LiveElementRow>(
+        "SELECT id, position, data FROM design_elements WHERE design_id = $1 AND (page_id = $2 OR page_id IS NULL)",
+        [designId, onlyPage]
+      );
 
 const presenceQuery = (designId: string) =>
   rawSql<LivePresenceRow>(
@@ -66,10 +74,13 @@ export const sealPageQuery = (
 ): Promise<SealedLiveQuery<LivePageRow>> | null =>
   getRealtime()?.seal({ query: pageQuery(designId) }) ?? null;
 
+// `onlyPage`: the first page's id, for an editor from before pages; null
+// for every page
 export const sealElementsQuery = (
-  designId: string
+  designId: string,
+  onlyPage: string | null
 ): Promise<SealedLiveQuery<LiveElementRow>> | null =>
-  getRealtime()?.seal({ query: elementsQuery(designId) }) ?? null;
+  getRealtime()?.seal({ query: elementsQuery(designId, onlyPage) }) ?? null;
 
 export const sealPresenceQuery = (
   designId: string
@@ -81,12 +92,14 @@ export const sealCommentsQuery = (
 ): Promise<SealedLiveQuery<LiveCommentRow>> | null =>
   getRealtime()?.seal({ query: commentsQuery(designId) }) ?? null;
 
+// `onlyPage` as for sealElementsQuery
 export const getLiveConfig = async (
-  designId: string
+  designId: string,
+  onlyPage: string | null
 ): Promise<LiveConfig | null> => {
   const url = getEnv().NEON_REALTIME_URL;
   const page = sealPageQuery(designId);
-  const elements = sealElementsQuery(designId);
+  const elements = sealElementsQuery(designId, onlyPage);
   const presence = sealPresenceQuery(designId);
   const comments = sealCommentsQuery(designId);
   if (!(url && page && elements && presence && comments)) {

@@ -10,10 +10,12 @@ import { upsertTemplateAssets } from "@/lib/db/queries/assets";
 import {
   assets,
   designElements,
+  designPages,
   designVisibility,
   designs,
 } from "@/lib/db/schema";
 import { migrateDocument } from "@/lib/document/migrate";
+import { FIRST_PAGE_POSITION, firstPageIdOf } from "@/lib/document/pages";
 import { findPresetById } from "@/lib/document/presets";
 import { DOCUMENT_VERSION } from "@/lib/document/schema";
 import type { DesignDocument } from "@/lib/document/schema";
@@ -58,6 +60,8 @@ export const createDesignFromTemplate = async (
   const positions = initialPositions(document.elements.length);
 
   const id = crypto.randomUUID();
+  // Templates are one page, so the design is too
+  const pageId = firstPageIdOf(id);
   const db = getDb();
   const design = db.insert(designs).values({
     background: document.background,
@@ -69,15 +73,23 @@ export const createDesignFromTemplate = async (
     visibility,
     width: document.width,
   });
+  const page = db.insert(designPages).values({
+    background: document.background,
+    designId: id,
+    id: pageId,
+    position: FIRST_PAGE_POSITION,
+  });
   const elements = document.elements.map((element, index) => ({
     data: element,
     designId: id,
     id: element.id,
+    pageId,
     position: positions[index] ?? "",
   }));
   // With rows for its images, which its photos point at
   await db.batch([
     design,
+    page,
     ...(template.assets.length > 0
       ? [
           db

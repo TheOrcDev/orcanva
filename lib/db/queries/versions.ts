@@ -5,17 +5,17 @@ import type { SQL } from "drizzle-orm";
 import { authUsers } from "@/lib/db/auth-schema";
 import { getDb } from "@/lib/db/client";
 import { managesHistory } from "@/lib/db/queries/designs";
+import { PAGE_ORDER, WHITE_BACKGROUND, pagesOf } from "@/lib/db/queries/pages";
 import { designVersions, designs } from "@/lib/db/schema";
 import type { DesignVersionRow } from "@/lib/db/schema";
+import { FIRST_PAGE_POSITION } from "@/lib/document/pages";
+import { DOCUMENT_VERSION } from "@/lib/document/schema";
 import { storageUrl, versionThumbnailKey } from "@/lib/storage/keys";
 import { copyObject, deleteObject } from "@/lib/storage/s3";
 import type { VersionContent } from "@/lib/versions/content";
 import { versionsToPrune } from "@/lib/versions/retention";
 import { MAX_NAMED_VERSIONS, VERSION_PAGE_SIZE } from "@/lib/versions/schema";
 import type { VersionKind, VersionSummary } from "@/lib/versions/schema";
-
-// What a design without a stored background shows (see migrateDocument)
-const WHITE = JSON.stringify({ color: "#ffffff", type: "solid" });
 
 // Only ids shaped like a uuid become asset ids: a cast that failed would
 // fail the whole statement, and with it the edit that took the snapshot
@@ -39,10 +39,11 @@ export interface VersionSource {
 // INSERT … SELECT of a version holding the design as the statement sees it,
 // which is the state before any of the statement's own writes: every CTE in
 // a statement reads the same snapshot. Element data never passes through
-// Node. The design's row and elements are read in LATERAL subqueries, so
-// when `when` is false or `from` is empty they never run. Each element's
-// page is null (the first page) until designs have pages (plan 10).
-// Returns the new version's id.
+// Node. The design's row, pages and elements are read in LATERAL
+// subqueries, so when `when` is false or `from` is empty they never run.
+// Each element keeps its page; one stored without (by code from before
+// pages) is on the first page. `background` is the first page's, for code
+// that reads one page. Returns the new version's id.
 //
 // Nothing in it can fail for a design that exists: the background falls
 // back to white, the creator is looked up rather than trusted (an account
@@ -61,14 +62,15 @@ export const insertVersion = ({
   return sql`
   INSERT INTO design_versions (
     design_id, kind, name, content_at, created_by, created_by_name,
-    restored_from_id, width, height, background, doc_version, elements,
-    element_count, size_bytes, asset_ids
+    restored_from_id, width, height, background, pages, doc_version,
+    elements, element_count, size_bytes, asset_ids
   )
   SELECT page.id, ${kind}::design_version_kind, ${name}::text,
     page.updated_at,
     (SELECT ${authUsers.id} FROM ${authUsers} WHERE ${authUsers.id} = ${viewerId}::uuid),
     ${byName}, ${restoredFromId}, page.width, page.height,
-    COALESCE(page.background, ${WHITE}::jsonb), page.version,
+    COALESCE(sheets.first_background, page.background, ${WHITE_BACKGROUND}::jsonb),
+    sheets.pages, page.version,
     content.elements, content.element_count,
     octet_length(content.elements::text), content.asset_ids
   FROM ${source}
@@ -78,8 +80,18 @@ export const insertVersion = ({
   ) AS page
   CROSS JOIN LATERAL (
     SELECT
+      jsonb_agg(jsonb_build_object(
+        'id', id, 'position', position, 'background', background
+      ) ORDER BY ${PAGE_ORDER}) AS pages,
+      (array_agg(background ORDER BY ${PAGE_ORDER}))[1] AS first_background,
+      (array_agg(id ORDER BY ${PAGE_ORDER}))[1] AS first_id
+    FROM ${pagesOf(sql`${source}.id`)} AS sheet
+  ) AS sheets
+  CROSS JOIN LATERAL (
+    SELECT
       COALESCE(jsonb_agg(jsonb_build_object(
-        'id', id, 'position', position, 'pageId', NULL, 'data', data
+        'id', id, 'position', position,
+        'pageId', COALESCE(page_id, sheets.first_id), 'data', data
       )), '[]'::jsonb) AS elements,
       count(*)::int AS element_count,
       COALESCE(array_remove(array_agg(DISTINCT CASE
@@ -209,6 +221,7 @@ export const getVersion = async (
       docVersion: row.docVersion,
       elements: row.elements,
       height: row.height,
+      pages: row.pages,
       width: row.width,
     },
     summary: summaryOf(row),
@@ -286,22 +299,25 @@ export type RestoreOutcome =
 
 // Puts a design back to one of its versions, in one statement, for the
 // owner and people it's shared with:
-// - the page settings come back, restore_seq goes up (every open editor
-//   clears its undo history when it sees that on the live page query) and
-//   the auto version timer restarts;
+// - the size comes back, restore_seq goes up (every open editor clears its
+//   undo history when it sees that on the live page query) and the auto
+//   version timer restarts;
 // - a `restore` version keeps the state being replaced, so it can be undone
 //   (which restores that version in turn);
-// - the version's element rows are upserted with their stored z-order keys
-//   and data, unknown fields and element types included, and every other
-//   row is deleted. The two touch different rows, and afterwards the rows
-//   are exactly the version's, so z-order comes back exactly. Anyone's
+// - the version's pages are upserted with their stored order and
+//   backgrounds, and every other page is deleted: pages added since go,
+//   deleted ones come back with their ids, so comments pinned to them show
+//   again. A version from before pages holds one page, the design's own id;
+// - the version's element rows are upserted with their stored z-order keys,
+//   pages and data, unknown fields and element types included, and every
+//   other row is deleted. The two touch different rows, and afterwards the
+//   rows are exactly the version's, so z-order comes back exactly. Anyone's
 //   update in flight to a deleted element finds nothing (a delete wins), and
 //   their new elements arriving after it stay.
-// Only a version with the design's own document version is restored.
-//
-// Multi-page (plan 10) will restore each row onto its stored page
-// (`pageId`, null meaning the first page, whose id is the design's) and the
-// version's pages; versions taken before then come back as one page.
+// A version is restored when this code can read its document version and
+// it's no newer than the design's (every upgrade so far keeps elements as
+// they are, so a version from before pages restores into a design with
+// pages).
 export const restoreVersion = async ({
   clientId,
   designId,
@@ -321,15 +337,27 @@ export const restoreVersion = async ({
     txid: string;
   }>(sql`
     WITH version AS (
-      SELECT id, width, height, background, doc_version, elements
+      SELECT id, width, height, background, pages, doc_version, elements
       FROM design_versions
       WHERE id = ${versionId}::uuid AND design_id = ${designId}::uuid
+    ),
+    version_pages AS (
+      SELECT sheet.id, sheet.position, sheet.background
+      FROM version,
+        jsonb_to_recordset(version.pages) AS sheet(id text, position text, background jsonb)
+      WHERE version.pages IS NOT NULL
+      UNION ALL
+      SELECT ${designId}::text, ${FIRST_PAGE_POSITION}::text, version.background
+      FROM version WHERE version.pages IS NULL
+    ),
+    first_page AS (
+      SELECT id, background FROM version_pages ORDER BY ${PAGE_ORDER} LIMIT 1
     ),
     design AS (
       UPDATE designs SET
         width = version.width,
         height = version.height,
-        background = version.background,
+        background = COALESCE((SELECT background FROM first_page), version.background),
         updated_at = now(),
         last_version_at = now(),
         last_writer = ${`u:${viewer.id}`},
@@ -338,7 +366,8 @@ export const restoreVersion = async ({
       FROM version
       WHERE designs.id = ${designId}::uuid
         AND ${managesHistory(viewer.id)}
-        AND version.doc_version = designs.version
+        AND version.doc_version <= designs.version
+        AND version.doc_version <= ${DOCUMENT_VERSION}
       RETURNING designs.id
     ),
     saved AS (${insertVersion({
@@ -348,18 +377,43 @@ export const restoreVersion = async ({
       restoredFromId: sql`(SELECT id FROM version)`,
       viewerId: viewer.id,
     })}),
+    pages_upserted AS (
+      INSERT INTO design_pages (design_id, id, position, background, updated_by)
+      SELECT design.id, version_pages.id, version_pages.position,
+        version_pages.background, ${clientId}::uuid
+      FROM design, version_pages
+      ON CONFLICT (design_id, id) DO UPDATE SET
+        position = excluded.position,
+        background = excluded.background,
+        updated_by = excluded.updated_by,
+        updated_at = now()
+      RETURNING 1
+    ),
+    pages_removed AS (
+      DELETE FROM design_pages AS page
+      USING design
+      WHERE page.design_id = design.id
+        AND page.id NOT IN (SELECT id FROM version_pages)
+      RETURNING 1
+    ),
     input AS (
-      SELECT entry.id, entry.position, entry.data
+      SELECT entry.id, entry.position, entry.data,
+        CASE
+          WHEN entry."pageId" IN (SELECT id FROM version_pages) THEN entry."pageId"
+          ELSE (SELECT id FROM first_page)
+        END AS page_id
       FROM version,
-        jsonb_to_recordset(version.elements) AS entry(id text, position text, data jsonb)
+        jsonb_to_recordset(version.elements)
+          AS entry(id text, position text, "pageId" text, data jsonb)
     ),
     upserted AS (
-      INSERT INTO design_elements (design_id, id, position, data, updated_by)
-      SELECT design.id, input.id, input.position, input.data, ${clientId}::uuid
+      INSERT INTO design_elements (design_id, id, position, data, page_id, updated_by)
+      SELECT design.id, input.id, input.position, input.data, input.page_id, ${clientId}::uuid
       FROM design, input
       ON CONFLICT (design_id, id) DO UPDATE SET
         position = excluded.position,
         data = excluded.data,
+        page_id = excluded.page_id,
         updated_by = excluded.updated_by,
         updated_at = now()
       RETURNING 1

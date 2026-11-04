@@ -9,6 +9,7 @@ import path from "node:path";
 import { neon } from "@neondatabase/serverless";
 import { config } from "dotenv";
 
+import { FIRST_PAGE_POSITION } from "@/lib/document/pages";
 import { findPresetById } from "@/lib/document/presets";
 import { DOCUMENT_VERSION } from "@/lib/document/schema";
 import { templateAssetRow } from "@/lib/templates/assets";
@@ -69,10 +70,14 @@ const main = async () => {
     sql`
       INSERT INTO designs (id, name, width, height, background, owner_id, version, visibility)
       VALUES (${designId}, ${template.name}, ${document.width}, ${document.height}, ${JSON.stringify(document.background)}::jsonb, ${user.id}, ${DOCUMENT_VERSION}, 'private')`,
+    // One page, whose id is the design's own
+    sql`
+      INSERT INTO design_pages (design_id, id, position, background)
+      VALUES (${designId}, ${designId}, ${FIRST_PAGE_POSITION}, ${JSON.stringify(document.background)}::jsonb)`,
     ...document.elements.map(
       (element, index) => sql`
-        INSERT INTO design_elements (design_id, id, data, position)
-        VALUES (${designId}, ${element.id}, ${JSON.stringify(element)}::jsonb, ${positions[index] ?? ""})`
+        INSERT INTO design_elements (design_id, id, data, position, page_id)
+        VALUES (${designId}, ${element.id}, ${JSON.stringify(element)}::jsonb, ${positions[index] ?? ""}, ${designId})`
     ),
   ]);
   log(`Opened ${id} for ${email}: /design/${designId}`);

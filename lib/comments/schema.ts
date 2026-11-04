@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { MAX_COMMENT_LENGTH } from "@/lib/comments/limits";
+import { pageIdSchema } from "@/lib/document/schema";
 
 // A comment as the editor holds it: a row of design_comments, timestamps as
 // ISO strings. A thread is its root (threadId null), which holds the pin.
@@ -39,9 +40,6 @@ export interface MentionPerson {
 
 const coordinate = z.number().finite().min(-100_000).max(100_000);
 const size = z.number().finite().positive().max(100_000);
-
-// Plan 10's page ids
-export const pageIdSchema = z.string().min(1).max(64);
 
 // Where a new thread's pin goes on its element (see ./anchor)
 export const commentAnchorSchema = z.object({

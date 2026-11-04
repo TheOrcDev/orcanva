@@ -8,9 +8,21 @@ import type { DesignRole, Visibility } from "@/lib/auth/access";
 import { comparePositioned } from "@/lib/collab/positions";
 import { authUsers } from "@/lib/db/auth-schema";
 import { getDb } from "@/lib/db/client";
-import { designElements, designShares, designs } from "@/lib/db/schema";
+import {
+  designElements,
+  designPages,
+  designShares,
+  designs,
+} from "@/lib/db/schema";
 import type { DesignRow } from "@/lib/db/schema";
 import { migrateDocument } from "@/lib/document/migrate";
+import {
+  FIRST_PAGE_POSITION,
+  WHITE_PAGE_BACKGROUND,
+  firstPageIdOf,
+  sortPages,
+} from "@/lib/document/pages";
+import type { DesignPage } from "@/lib/document/pages";
 import type { DesignDocument } from "@/lib/document/schema";
 
 export interface DesignSummary {
@@ -149,14 +161,56 @@ export const isDesignSharedWith = async (
   return row !== undefined;
 };
 
-export interface DesignContent {
-  row: DesignRow;
+// The id of a design's first page: the first in page order, or the
+// design's own when it has no page rows (code from before pages made it)
+export const getFirstPageId = async (id: string): Promise<string> => {
+  const [first] = await getDb()
+    .select({ id: designPages.id })
+    .from(designPages)
+    .where(eq(designPages.designId, id))
+    .orderBy(
+      sql`${designPages.position} COLLATE "C"`,
+      sql`${designPages.id} COLLATE "C"`
+    )
+    .limit(1);
+  return first?.id ?? firstPageIdOf(id);
+};
+
+export interface DesignPageContent {
+  id: string;
+  position: string;
+  // The page as a document: the design's size, the page's background and
+  // elements
   document: DesignDocument;
   // Each element's z-order key, by element id
   positions: Record<string, string>;
 }
 
-// The design row and its element rows, assembled into a document
+export interface DesignContent {
+  row: DesignRow;
+  // Every page, in order; always at least one
+  pages: DesignPageContent[];
+}
+
+// A design's pages as stored, or the one page of a design that code from
+// before pages made: the design's id, with the background the row holds
+export const pagesOrLegacy = (
+  row: Pick<DesignRow, "background" | "id">,
+  stored: readonly DesignPage[]
+): DesignPage[] =>
+  stored.length > 0
+    ? sortPages(stored)
+    : [
+        {
+          background: row.background ?? WHITE_PAGE_BACKGROUND,
+          id: firstPageIdOf(row.id),
+          position: FIRST_PAGE_POSITION,
+        },
+      ];
+
+// The design row, its pages and its element rows, assembled into a
+// document per page. An element without a page (written by code from
+// before pages), or on a page that isn't there, is on the first page.
 export const getDesignContent = async (
   id: string
 ): Promise<DesignContent | null> => {
@@ -164,12 +218,21 @@ export const getDesignContent = async (
     return null;
   }
   const db = getDb();
-  const [rows, elementRows] = await db.batch([
+  const [rows, pageRows, elementRows] = await db.batch([
     db.select().from(designs).where(eq(designs.id, id)).limit(1),
+    db
+      .select({
+        background: designPages.background,
+        id: designPages.id,
+        position: designPages.position,
+      })
+      .from(designPages)
+      .where(eq(designPages.designId, id)),
     db
       .select({
         data: designElements.data,
         id: designElements.id,
+        pageId: designElements.pageId,
         position: designElements.position,
       })
       .from(designElements)
@@ -180,19 +243,30 @@ export const getDesignContent = async (
     return null;
   }
 
+  const sheets = pagesOrLegacy(row, pageRows);
+  const ids = new Set(sheets.map((sheet) => sheet.id));
+  const firstId = sheets[0]?.id ?? firstPageIdOf(row.id);
+  const pageOf = (pageId: string | null) =>
+    pageId !== null && ids.has(pageId) ? pageId : firstId;
   const sorted = elementRows.toSorted(comparePositioned);
-  const document = migrateDocument({
-    background: row.background,
-    elements: sorted.map((element) => element.data),
-    height: row.height,
-    version: row.version,
-    width: row.width,
+  const pages = sheets.map((sheet) => {
+    const elements = sorted.filter(
+      (element) => pageOf(element.pageId) === sheet.id
+    );
+    return {
+      document: migrateDocument({
+        background: sheet.background,
+        elements: elements.map((element) => element.data),
+        height: row.height,
+        version: row.version,
+        width: row.width,
+      }),
+      id: sheet.id,
+      position: sheet.position,
+      positions: Object.fromEntries(
+        elements.map((element) => [element.id, element.position])
+      ),
+    };
   });
-  return {
-    document,
-    positions: Object.fromEntries(
-      sorted.map((element) => [element.id, element.position])
-    ),
-    row,
-  };
+  return { pages, row };
 };

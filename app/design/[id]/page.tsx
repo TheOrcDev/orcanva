@@ -37,6 +37,7 @@ const loadDesign = async (id: string, commentParam?: string | string[]) => {
   // Everything loads alongside the access check (sealing is local crypto),
   // but only leaves the server once the check has passed
   const viewerLoad = getViewer();
+  const contentLoad = getDesignContent(id);
   const [
     viewer,
     content,
@@ -48,8 +49,11 @@ const loadDesign = async (id: string, commentParam?: string | string[]) => {
     comments,
   ] = await Promise.all([
     viewerLoad,
-    getDesignContent(id),
-    getLiveConfig(id),
+    contentLoad,
+    // The editor shows the first page
+    contentLoad.then((found) =>
+      found ? getLiveConfig(id, found.pages[0]?.id ?? id) : null
+    ),
     listDesignAssets(id),
     viewerLoad.then((found) => (found ? listLibrary(found.id) : [])),
     viewerLoad.then((found) => isDesignSharedWith(id, found?.id ?? null)),
@@ -62,6 +66,10 @@ const loadDesign = async (id: string, commentParam?: string | string[]) => {
   if (!(content && role)) {
     notFound();
   }
+  const [firstPage] = content.pages;
+  if (!firstPage) {
+    notFound();
+  }
   // The viewer's library first, then what the design shows from others
   const libraryIds = new Set(library.map((asset) => asset.id));
   return {
@@ -72,13 +80,13 @@ const loadDesign = async (id: string, commentParam?: string | string[]) => {
     brandKit,
     comments,
     designId: content.row.id,
-    document: content.document,
+    document: firstPage.document,
     hasThumbnail: content.row.thumbnailKey !== null,
     libraryIds: [...libraryIds],
     live,
     name: content.row.name,
     openThreadId: linkedThread(comments, commentParam),
-    positions: content.positions,
+    positions: firstPage.positions,
     restoreSeq: content.row.restoreSeq,
     role,
     viewer: viewer

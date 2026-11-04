@@ -3,6 +3,8 @@
 import {
   RiArrowGoBackLine,
   RiArrowLeftLine,
+  RiArrowLeftSLine,
+  RiArrowRightSLine,
   RiHistoryLine,
 } from "@remixicon/react";
 import { useCallback, useEffect, useState } from "react";
@@ -67,15 +69,19 @@ const loadVersion = async (
   store.getState().addAssets(data.assets);
   const { assets } = store.getState();
   const known = new Set(assets.map((asset) => asset.id));
+  const [first] = built.pages;
+  if (!first) {
+    throw new Error("A version has a page");
+  }
   return {
     built,
     loadedAt: new Date(),
     preview: createStaticStore({
       assets,
       designId,
-      document: built.document,
+      document: first.document,
       missingAssetIds: data.content.assetIds.filter((id) => !known.has(id)),
-      positions: built.positions,
+      positions: first.positions,
     }),
     status: "ready",
     version: data.version,
@@ -145,10 +151,49 @@ const PreviewHeader = ({
   );
 };
 
+// Flips through a version's pages: "Page 2 of 5" between previous and next
+const PagePager = ({
+  count,
+  index,
+  onChange,
+}: {
+  count: number;
+  index: number;
+  onChange: (index: number) => void;
+}) => (
+  <nav
+    aria-label="Pages of this version"
+    className="bg-background absolute top-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full p-1 shadow-md"
+  >
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label="Previous page"
+      disabled={index === 0}
+      onClick={() => onChange(index - 1)}
+    >
+      <RiArrowLeftSLine />
+    </Button>
+    <output aria-live="polite" className="px-1 text-sm tabular-nums">
+      Page {index + 1} of {count}
+    </output>
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label="Next page"
+      disabled={index === count - 1}
+      onClick={() => onChange(index + 1)}
+    >
+      <RiArrowRightSLine />
+    </Button>
+  </nav>
+);
+
 const PreviewPanel = ({ versionId }: { versionId: string }) => {
   const store = useEditorStoreApi();
   const { restore, restoring } = useRestoreVersion();
   const [loaded, setLoaded] = useState<Loaded>({ status: "loading" });
+  const [pageIndex, setPageIndex] = useState(0);
   const close = useCallback(
     () => store.getState().previewVersion(null),
     [store]
@@ -188,12 +233,14 @@ const PreviewPanel = ({ versionId }: { versionId: string }) => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [close]);
 
-  // A version without a picture gets one from the preview, unless parts of
-  // it are missing from this tab's drawing
+  // A version without a picture gets one from the preview of its first
+  // page, unless parts of it are missing from this tab's drawing
   const needsPicture =
     loaded.status === "ready" &&
     loaded.version.thumbnailUrl === null &&
     loaded.built.skipped.length === 0;
+  const pages = loaded.status === "ready" ? loaded.built.pages : [];
+  const shown = pages[Math.min(pageIndex, pages.length - 1)];
   const uploadPicture = useCallback(
     async (picture: Blob) => {
       await uploadVersionThumbnail(
@@ -231,13 +278,23 @@ const PreviewPanel = ({ versionId }: { versionId: string }) => {
             </EmptyHeader>
           </Empty>
         ) : null}
-        {loaded.status === "ready" ? (
+        {loaded.status === "ready" && shown ? (
           <>
             <PreviewStage
-              document={loaded.built.document}
+              key={pageIndex}
+              document={shown.document}
               store={loaded.preview}
-              onPicture={needsPicture ? uploadPicture : undefined}
+              onPicture={
+                needsPicture && pageIndex === 0 ? uploadPicture : undefined
+              }
             />
+            {pages.length > 1 ? (
+              <PagePager
+                count={pages.length}
+                index={pageIndex}
+                onChange={setPageIndex}
+              />
+            ) : null}
             {loaded.built.skipped.length > 0 ? (
               <p className="bg-background text-muted-foreground absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full px-4 py-2 text-sm shadow-md">
                 Parts of this version were made with a newer Orcanva. Reload to

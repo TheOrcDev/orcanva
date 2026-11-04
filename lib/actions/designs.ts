@@ -6,9 +6,10 @@ import { z } from "zod";
 
 import { requireViewer } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/client";
-import { visibleTo } from "@/lib/db/queries/designs";
+import { pagesOrLegacy, visibleTo } from "@/lib/db/queries/designs";
 import {
   designElements,
+  designPages,
   designVersions,
   designVisibility,
   designs,
@@ -20,6 +21,7 @@ import {
 } from "@/lib/document/element-input";
 import type { ResizedCopyInput } from "@/lib/document/element-input";
 import { createDocument } from "@/lib/document/factories";
+import { FIRST_PAGE_POSITION, firstPageIdOf } from "@/lib/document/pages";
 import { DOCUMENT_VERSION } from "@/lib/document/schema";
 import { thumbnailKey } from "@/lib/storage/keys";
 import { copyObject, deleteObject } from "@/lib/storage/s3";
@@ -38,6 +40,7 @@ const createDesignInput = z.object({
   width: canvasSize,
 });
 
+// A design and its one page, whose id is the design's own
 export const createDesign = async (
   input: z.input<typeof createDesignInput>
 ): Promise<{ id: string }> => {
@@ -48,24 +51,29 @@ export const createDesign = async (
     width,
   } = createDesignInput.parse(input);
   const viewer = await requireViewer();
-  const [row] = await getDb()
-    .insert(designs)
-    .values({
-      background: createDocument({ height, width }).background,
+  const id = crypto.randomUUID();
+  const { background } = createDocument({ height, width });
+  const db = getDb();
+  await db.batch([
+    db.insert(designs).values({
+      background,
       height,
+      id,
       name,
       ownerId: viewer.id,
       version: DOCUMENT_VERSION,
       visibility: chosen,
       width,
-    })
-    .returning({ id: designs.id });
-
-  if (!row) {
-    throw new Error("Could not create design");
-  }
+    }),
+    db.insert(designPages).values({
+      background,
+      designId: id,
+      id: firstPageIdOf(id),
+      position: FIRST_PAGE_POSITION,
+    }),
+  ]);
   refreshStudio();
-  return { id: row.id };
+  return { id };
 };
 
 const renameDesignInput = z.object({ id: z.uuid(), name: designName });
@@ -153,11 +161,12 @@ export const setDesignVisibility = async (
 
 const COPY_SUFFIX = " copy";
 
-// "Make a copy": a full copy (elements + preview) of any design the viewer
-// can open, owned by them, to rework without touching the original. Its
-// version history stays with the original.
-// Assets are shared, so no files are copied. Element ids only need to be
-// unique within a design, so rows copy as-is.
+// "Make a copy": a full copy (pages, elements, preview) of any design the
+// viewer can open, owned by them, to rework without touching the original.
+// Its version history stays with the original.
+// Assets are shared, so no files are copied. Page and element ids only need
+// to be unique within a design, so rows copy as-is; elements stored without
+// a page (by code from before pages) go on the first.
 export const duplicateDesign = async (id: string): Promise<{ id: string }> => {
   const sourceId = z.uuid().parse(id);
   const viewer = await requireViewer();
@@ -170,6 +179,19 @@ export const duplicateDesign = async (id: string): Promise<{ id: string }> => {
   if (!source) {
     throw new Error("Design not found");
   }
+
+  const pages = pagesOrLegacy(
+    source,
+    await db
+      .select({
+        background: designPages.background,
+        id: designPages.id,
+        position: designPages.position,
+      })
+      .from(designPages)
+      .where(eq(designPages.designId, sourceId))
+  );
+  const firstId = pages[0]?.id ?? firstPageIdOf(sourceId);
 
   const copy = { id: crypto.randomUUID() };
   const name = `${source.name.slice(0, 120 - COPY_SUFFIX.length)}${COPY_SUFFIX}`;
@@ -185,12 +207,24 @@ export const duplicateDesign = async (id: string): Promise<{ id: string }> => {
       visibility: "private",
       width: source.width,
     }),
+    db.insert(designPages).values(
+      pages.map((page) => ({
+        background: page.background,
+        designId: copy.id,
+        id: page.id,
+        position: page.position,
+      }))
+    ),
     db.insert(designElements).select(
       db
         .select({
           data: designElements.data,
           designId: sql<string>`${copy.id}::uuid`.as("design_id"),
           id: designElements.id,
+          pageId:
+            sql<string>`COALESCE(${designElements.pageId}, ${firstId})`.as(
+              "page_id"
+            ),
           position: designElements.position,
           updatedAt: designElements.updatedAt,
           updatedBy: sql<string | null>`null`.as("updated_by"),
@@ -240,6 +274,7 @@ export const createResizedCopy = async (
   }
 
   const id = crypto.randomUUID();
+  const pageId = firstPageIdOf(id);
   await db.batch([
     db.insert(designs).values({
       background,
@@ -251,6 +286,12 @@ export const createResizedCopy = async (
       visibility: "private",
       width,
     }),
+    db.insert(designPages).values({
+      background,
+      designId: id,
+      id: pageId,
+      position: FIRST_PAGE_POSITION,
+    }),
     ...(elements.length > 0
       ? [
           db.insert(designElements).values(
@@ -258,6 +299,7 @@ export const createResizedCopy = async (
               data,
               designId: id,
               id: data.id,
+              pageId,
               position,
             }))
           ),

@@ -156,7 +156,8 @@ const storage = (): Download => {
   };
 };
 
-// Raw SQL: the app's queries are server-only modules
+// Raw SQL: the app's queries are server-only modules. Templates are one
+// page, so a design with more is refused.
 const loadDesign = async (sql: Sql, designId: string) => {
   const [design] = await sql`
     SELECT name, width, height, background, version, thumbnail_key
@@ -164,11 +165,18 @@ const loadDesign = async (sql: Sql, designId: string) => {
   if (!design) {
     throw new Error(`No design ${designId}`);
   }
+  const pages = await sql`
+    SELECT id, background FROM design_pages WHERE design_id = ${designId}`;
+  if (pages.length > 1) {
+    throw new Error(
+      "A template is one page: copy the page you want into a design of its own"
+    );
+  }
   const rows = await sql`
     SELECT data FROM design_elements WHERE design_id = ${designId}
     ORDER BY position COLLATE "C", id COLLATE "C"`;
   const document = migrateDocument({
-    background: design.background,
+    background: pages[0]?.background ?? design.background,
     elements: rows.map((row) => row.data),
     height: design.height,
     version: design.version,

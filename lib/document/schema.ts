@@ -3,7 +3,14 @@ import { z } from "zod";
 export const DOCUMENT_VERSION = 1;
 export const MIN_CANVAS_SIZE = 16;
 export const MAX_CANVAS_SIZE = 4096;
+// Per design, across all its pages
 export const MAX_ELEMENTS = 500;
+// Pages per design (Instagram carousels allow 20)
+export const MAX_PAGES = 30;
+
+// A page's id: the design's own id for its first page, a fresh one for
+// every page added after
+export const pageIdSchema = z.string().min(1).max(64);
 
 const color = z.string().min(1).max(64);
 const canvasSize = z.number().int().min(MIN_CANVAS_SIZE).max(MAX_CANVAS_SIZE);

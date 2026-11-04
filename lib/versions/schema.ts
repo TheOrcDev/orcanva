@@ -7,14 +7,22 @@
 export const VERSION_KINDS = ["auto", "named", "restore"] as const;
 export type VersionKind = (typeof VERSION_KINDS)[number];
 
-// One element as a version stores it: the row's id, z-order key and data,
-// exactly as design_elements had them. pageId is null until designs have
-// pages (plan 10); null means the first page.
+// One element as a version stores it: the row's id, z-order key, page and
+// data, exactly as design_elements had them. pageId is null in versions
+// taken before designs had pages; null means the first page.
 export interface VersionElement {
   id: string;
   position: string;
   pageId: string | null;
   data: unknown;
+}
+
+// One page as a version stores it (design_versions.pages), exactly as
+// design_pages had it. The background is unvalidated jsonb.
+export interface VersionPage {
+  id: string;
+  position: string;
+  background: unknown;
 }
 
 // Named versions are never pruned, so each design keeps at most this many
