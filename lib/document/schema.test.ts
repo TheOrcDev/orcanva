@@ -11,6 +11,7 @@ import {
 } from "@/lib/document/factories";
 import { migrateDocument } from "@/lib/document/migrate";
 import {
+  DOCUMENT_VERSION,
   designDocumentSchema,
   elementSchema,
   parseElement,
@@ -210,6 +211,16 @@ describe("migrateDocument", () => {
   it("returns a valid current-version document unchanged", () => {
     const document = createDocument(PAGE);
     expect(migrateDocument(document)).toEqual(document);
+  });
+
+  it("upgrades a version 1 document (from before pages) as it is", () => {
+    const rect = createBoxElement("rect", PAGE);
+    const old = { ...createDocument(PAGE), elements: [rect], version: 1 };
+    expect(migrateDocument(old)).toEqual({
+      ...old,
+      version: DOCUMENT_VERSION,
+    });
+    expect(DOCUMENT_VERSION).toBe(2);
   });
 
   it("rejects non-objects and future versions", () => {

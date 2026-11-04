@@ -9,6 +9,7 @@ import {
   composePages,
   contentOf,
   diffDocument,
+  isEmptyChangeSet,
   pagesOfStep,
   writesFor,
   writesOf,
@@ -69,6 +70,7 @@ import {
   WHITE_PAGE_BACKGROUND,
   sortPages,
 } from "@/lib/document/pages";
+import { MAX_ELEMENTS, MAX_PAGES } from "@/lib/document/schema";
 import type { Background, DesignDocument } from "@/lib/document/schema";
 import { cropDocument } from "@/lib/editor/document-ops";
 import {
@@ -81,6 +83,14 @@ import {
   undo,
 } from "@/lib/editor/history";
 import type { History } from "@/lib/editor/history";
+import {
+  addPageChanges,
+  allPagesChanges,
+  deletePageChanges,
+  duplicatePageChanges,
+  movePageChanges,
+  neighbourOf,
+} from "@/lib/editor/page-actions";
 import { fitRatio, fullPage, ratioValue } from "@/lib/editor/page-crop";
 import type { PageCropRatio } from "@/lib/editor/page-crop";
 import type { SnapGuide } from "@/lib/editor/snapping";
@@ -107,6 +117,9 @@ export interface EditorAsset {
   sourceAssetId: string | null;
   variant: AssetVariant | null;
 }
+
+// What a design holds at most: pages, and elements across all its pages
+export type LimitKind = "pages" | "elements";
 
 // What an AI tool is doing to an image (see imageJobs)
 export type ImageJob = "background" | "erase" | "upscale";
@@ -145,6 +158,9 @@ export interface EditorState {
   // The page on screen as a document (the active page's), which the canvas
   // and panels work on
   doc: EditorDocument;
+  // The last edit refused for a limit (MAX_PAGES pages, MAX_ELEMENTS
+  // elements across them); `seq` counts refusals so each one is told
+  limitNotice: { kind: LimitKind; seq: number } | null;
   synced: SyncedState;
   // Whether the design has page rows. Designs made by code from before
   // pages may have none: their one page is the design's id, with the
@@ -273,6 +289,17 @@ export interface EditorActions {
   applyLivePages: (rows: readonly LivePagesRow[]) => void;
   // Shows another page (finishing crops and typing, dropping the selection)
   setActivePage: (id: string) => void;
+  // Page actions, each one undo step. They return the page they made, or
+  // false/null when refused (the page limit, the element limit, the last
+  // page).
+  addPage: () => string | null;
+  duplicatePage: (id: string) => string | null;
+  deletePage: (id: string) => boolean;
+  movePage: (id: string, index: number) => void;
+  // One change to every page (resize, page crop, Magic Resize): one step
+  changeAllPages: (
+    recipe: (document: DesignDocument) => DesignDocument
+  ) => void;
   applyLiveComments: (rows: readonly LiveCommentRow[]) => void;
   setLiveStatus: (status: LiveStatus) => void;
   setReconnectLive: (reconnect: (() => void) | null) => void;
@@ -475,6 +502,18 @@ const activePage = (state: EditorState): PageView =>
   state.pages.find((page) => page.id === state.activePageId) ??
   legacyPage(state);
 
+// The page a thread's pin is on, when it's one of `pages` (a thread
+// without a page is on the first)
+const threadPage = (
+  comments: readonly DesignComment[],
+  threadId: string,
+  pages: readonly PageView[]
+): string | null => {
+  const root = comments.find((comment) => comment.id === threadId);
+  const pageId = root ? (root.pageId ?? pages[0]?.id) : undefined;
+  return pages.some((page) => page.id === pageId) ? (pageId ?? null) : null;
+};
+
 // The first page's id, where rows without a page are
 const firstSyncedPage = (state: EditorState): string =>
   sortPages([...state.synced.pages].map(([id, page]) => ({ ...page, id })))[0]
@@ -541,6 +580,44 @@ const initialProfile = (viewer: EditorViewer | null): Profile => {
   return name ? { ...stored, name } : stored;
 };
 
+// What belongs to the page being left: what's selected, typed, pointed at,
+// dragged or being written there
+const LEAVE_PAGE = {
+  draftPin: null,
+  dragPreview: null,
+  editingTextId: null,
+  openThreadId: null,
+  pointer: null,
+  selectedIds: [],
+  textSelection: null,
+} satisfies Partial<EditorState>;
+
+const elementCount = (state: EditorState): number =>
+  state.pages.reduce(
+    (total, page) => total + page.doc.document.elements.length,
+    0
+  );
+
+// How many elements a change set adds, less those it deletes
+const elementsAdded = (changes: ChangeSet): number => {
+  let added = 0;
+  for (const change of changes.elements.values()) {
+    if (change.before === null && change.after !== null) {
+      added += 1;
+    } else if (change.before !== null && change.after === null) {
+      added -= 1;
+    }
+  }
+  return added;
+};
+
+const refuse = (
+  state: EditorState,
+  kind: LimitKind
+): Pick<EditorState, "limitNotice"> => ({
+  limitNotice: { kind, seq: (state.limitNotice?.seq ?? 0) + 1 },
+});
+
 // Queues a local edit's writes for the outbox
 const queueWrites = (
   state: EditorState,
@@ -561,10 +638,7 @@ const applyLocal = (
   state: EditorState,
   writes: Writes,
   wanted?: (pages: readonly PageView[]) => string
-): Pick<
-  EditorState,
-  "activePageId" | "doc" | "pages" | "pending" | "seq" | "selectedIds"
-> => {
+): Partial<EditorState> => {
   const pages = composePages(
     applyWrites(contentOf(state.pages), writes),
     state.pages
@@ -573,12 +647,22 @@ const applyLocal = (
   return {
     ...queueWrites(state, writes),
     ...shown,
-    selectedIds:
-      shown.activePageId === state.activePageId
-        ? keepExisting(state.selectedIds, shown.doc.document)
-        : [],
+    ...(shown.activePageId === state.activePageId
+      ? { selectedIds: keepExisting(state.selectedIds, shown.doc.document) }
+      : LEAVE_PAGE),
   };
 };
+
+// Records a page action as one undo step and shows `wanted` (the page on
+// screen by default)
+const commitStep = (
+  state: EditorState,
+  changes: ChangeSet,
+  wanted?: string
+): Partial<EditorState> => ({
+  ...applyLocal(state, writesOf(changes), wanted ? () => wanted : undefined),
+  history: recordChange(state.history, changes),
+});
 
 // Recomputes what's shown after the synced or pending state changed
 const reconcile = (
@@ -613,9 +697,21 @@ const reconcile = (
   };
 };
 
+// Page actions finish what's under way on the page first, as switching
+// pages does
+const leavePage = (state: EditorActions) => {
+  state.finishCrop(true);
+  state.finishPageCrop(false);
+  state.finishErase();
+};
+
 export const createEditorStore = (init: EditorInit) => {
   const opened = initialPages(init);
-  const [first] = opened;
+  // A link to a thread opens the page its pin is on
+  const linked = init.openThreadId
+    ? threadPage(init.comments ?? [], init.openThreadId, opened)
+    : null;
+  const first = opened.find((page) => page.id === linked) ?? opened[0];
   if (!first) {
     throw new Error("A design has a page");
   }
@@ -645,6 +741,31 @@ export const createEditorStore = (init: EditorInit) => {
           ? state
           : { assets: [...state.assets, ...added] };
       }),
+    addPage: () => {
+      leavePage(get());
+      let added: string | null = null;
+      set((state) => {
+        if (state.outdated) {
+          return state;
+        }
+        if (state.pages.length >= MAX_PAGES) {
+          return refuse(state, "pages");
+        }
+        const id = createId();
+        added = id;
+        return commitStep(
+          state,
+          addPageChanges(
+            state.pages,
+            state.activePageId,
+            id,
+            WHITE_PAGE_BACKGROUND
+          ),
+          id
+        );
+      });
+      return added;
+    },
     adjustUploads: (delta) =>
       set((state) => ({
         uploadsInFlight: Math.max(0, state.uploadsInFlight + delta),
@@ -761,10 +882,22 @@ export const createEditorStore = (init: EditorInit) => {
           return state;
         }
         const { changes } = diffDocument(state.doc, next, activePage(state));
+        const added = elementsAdded(changes);
+        if (added > 0 && elementCount(state) + added > MAX_ELEMENTS) {
+          return refuse(state, "elements");
+        }
         return {
           ...applyLocal(state, writesOf(changes)),
           history: recordChange(state.history, changes),
         };
+      }),
+    changeAllPages: (recipe) =>
+      set((state) => {
+        if (state.outdated) {
+          return state;
+        }
+        const changes = allPagesChanges(state.pages, recipe);
+        return isEmptyChangeSet(changes) ? state : commitStep(state, changes);
       }),
     clearSelection: () =>
       set((state) =>
@@ -775,6 +908,27 @@ export const createEditorStore = (init: EditorInit) => {
     commentMode: false,
     comments: init.comments ?? [],
     cropTargetId: null,
+    deletePage: (id) => {
+      leavePage(get());
+      let deleted = false;
+      set((state) => {
+        const changes = state.outdated
+          ? null
+          : deletePageChanges(state.pages, id);
+        if (!changes) {
+          return state;
+        }
+        deleted = true;
+        return commitStep(
+          state,
+          changes,
+          id === state.activePageId
+            ? neighbourOf(state.pages, id)
+            : state.activePageId
+        );
+      });
+      return deleted;
+    },
     designId: init.designId,
     doc: first.doc,
     draftPin: null,
@@ -784,6 +938,29 @@ export const createEditorStore = (init: EditorInit) => {
       set((state) =>
         reconcile(state, state.synced, dropBatch(state.pending, batch))
       ),
+    duplicatePage: (id) => {
+      leavePage(get());
+      let added: string | null = null;
+      set((state) => {
+        if (state.outdated) {
+          return state;
+        }
+        if (state.pages.length >= MAX_PAGES) {
+          return refuse(state, "pages");
+        }
+        const pageId = createId();
+        const changes = duplicatePageChanges(state.pages, id, pageId, createId);
+        if (!changes) {
+          return state;
+        }
+        if (elementCount(state) + changes.elements.size > MAX_ELEMENTS) {
+          return refuse(state, "elements");
+        }
+        added = pageId;
+        return commitStep(state, changes, pageId);
+      });
+      return added;
+    },
     echoWrites: (txid) =>
       set((state) =>
         reconcile(state, state.synced, echoTransaction(state.pending, txid))
@@ -821,7 +998,8 @@ export const createEditorStore = (init: EditorInit) => {
       }
       set({ pageCrop: null });
       if (keep) {
-        get().change((document) => cropDocument(document, box));
+        // Every page has the design's size, so every page is cropped
+        get().changeAllPages((document) => cropDocument(document, box));
         get().zoomToFit();
       }
     },
@@ -830,12 +1008,22 @@ export const createEditorStore = (init: EditorInit) => {
     focusRequest: init.openThreadId
       ? { seq: 1, threadId: init.openThreadId }
       : null,
-    focusThread: (id) =>
-      set((state) => ({
+    focusThread: (id) => {
+      // A pin shows on its own page: go there first
+      const state = get();
+      const pageId = threadPage(state.comments, id, state.pages);
+      if (pageId) {
+        state.setActivePage(pageId);
+      }
+      set((current) => ({
         draftPin: null,
-        focusRequest: { seq: (state.focusRequest?.seq ?? 0) + 1, threadId: id },
+        focusRequest: {
+          seq: (current.focusRequest?.seq ?? 0) + 1,
+          threadId: id,
+        },
         openThreadId: id,
-      })),
+      }));
+    },
     guides: [],
     held: new Set(),
     history: createHistory(),
@@ -859,8 +1047,9 @@ export const createEditorStore = (init: EditorInit) => {
       }
       return false;
     },
-    legacyBackground: first.doc.document.background,
+    legacyBackground: (opened[0] ?? first).doc.document.background,
     libraryIds: init.libraryIds,
+    limitNotice: null,
     liveStatus: init.live ? "connecting" : "off",
     loseAccess: () =>
       set((state) => (state.accessLost ? state : { accessLost: true })),
@@ -875,6 +1064,13 @@ export const createEditorStore = (init: EditorInit) => {
       set((state) => (state.outdated ? state : { outdated: true })),
     mentionable: null,
     missingAssetIds: [],
+    movePage: (id, index) =>
+      set((state) => {
+        const changes = state.outdated
+          ? null
+          : movePageChanges(state.pages, id, index);
+        return changes ? commitStep(state, changes) : state;
+      }),
     name: init.name,
     openThread: (id) =>
       set((state) =>
@@ -1002,19 +1198,10 @@ export const createEditorStore = (init: EditorInit) => {
       ) {
         return;
       }
-      state.finishCrop(true);
-      state.finishPageCrop(false);
-      state.finishErase();
-      // What was picked, pointed at or being written was on the other page
+      leavePage(state);
       set((current) => ({
         ...showPages(current, current.pages, id),
-        draftPin: null,
-        dragPreview: null,
-        editingTextId: null,
-        openThreadId: null,
-        pointer: null,
-        selectedIds: [],
-        textSelection: null,
+        ...LEAVE_PAGE,
       }));
     },
     setAwaitEcho: (awaitEcho) => set({ awaitEcho }),

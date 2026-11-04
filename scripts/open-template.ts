@@ -9,9 +9,8 @@ import path from "node:path";
 import { neon } from "@neondatabase/serverless";
 import { config } from "dotenv";
 
-import { FIRST_PAGE_POSITION } from "@/lib/document/pages";
+import { FIRST_PAGE_POSITION, documentVersionFor } from "@/lib/document/pages";
 import { findPresetById } from "@/lib/document/presets";
-import { DOCUMENT_VERSION } from "@/lib/document/schema";
 import { templateAssetRow } from "@/lib/templates/assets";
 import {
   initialPositions,
@@ -69,7 +68,7 @@ const main = async () => {
     }),
     sql`
       INSERT INTO designs (id, name, width, height, background, owner_id, version, visibility)
-      VALUES (${designId}, ${template.name}, ${document.width}, ${document.height}, ${JSON.stringify(document.background)}::jsonb, ${user.id}, ${DOCUMENT_VERSION}, 'private')`,
+      VALUES (${designId}, ${template.name}, ${document.width}, ${document.height}, ${JSON.stringify(document.background)}::jsonb, ${user.id}, ${documentVersionFor(1)}, 'private')`,
     // One page, whose id is the design's own
     sql`
       INSERT INTO design_pages (design_id, id, position, background)

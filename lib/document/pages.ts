@@ -20,6 +20,17 @@ export const WHITE_PAGE_BACKGROUND: Background = {
   type: "solid",
 };
 
+// The document version that brought pages: a design with more than one
+// page, or that had more at some point, has at least this version, so
+// editors from before pages stop writing to it (they'd show and save only
+// its first page). A design with one page keeps version 1, which code from
+// before pages reads and edits as it always did.
+export const PAGES_VERSION = 2;
+
+// The version a new design is stored with
+export const documentVersionFor = (pageCount: number): number =>
+  pageCount > 1 ? PAGES_VERSION : 1;
+
 // A design's first page has the design's own id. Rows written by code from
 // before pages (elements and presence without a page, versions without
 // pages, comments without one) are on the first page.

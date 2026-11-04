@@ -4,7 +4,7 @@ import type { Size } from "@/lib/document/geometry";
 import type { DesignDocument, TextElement } from "@/lib/document/schema";
 import { resizeWithLayout } from "@/lib/editor/magic-resize";
 import type { ResizeLayout, TextSize } from "@/lib/editor/magic-resize";
-import { selectDocument } from "@/lib/editor/store";
+import { selectDocument, selectWholeDesign } from "@/lib/editor/store";
 import type { EditorStoreApi } from "@/lib/editor/store";
 import { isFontReady, waitForFonts } from "@/lib/fonts/loader";
 import { canvasMeasurer } from "@/lib/text/canvas";
@@ -15,9 +15,9 @@ import { measureTextElement } from "@/lib/text/element-layout";
 export const measureInBrowser = (text: TextElement): TextSize =>
   measureTextElement(text, canvasMeasurer, isFontReady);
 
-// Resizes the open design in place as one undo step, after finishing
-// crops and typing. Returns that step (null when nothing changed), so an
-// Undo button can check it's still the latest.
+// Resizes the open design in place, every page, as one undo step, after
+// finishing crops and typing. Returns that step (null when nothing
+// changed), so an Undo button can check it's still the latest.
 export const resizeInPlace = async (
   store: EditorStoreApi,
   size: Size,
@@ -29,12 +29,12 @@ export const resizeInPlace = async (
   state.setEditingText(null);
   if (layout === "magic") {
     // Measured in a fallback font, text would wrap wrongly
-    await waitForFonts(selectDocument(store.getState())).catch(() => null);
+    await waitForFonts(selectWholeDesign(store.getState())).catch(() => null);
   }
   const before = store.getState().history.past.at(-1);
   store
     .getState()
-    .change((document) =>
+    .changeAllPages((document) =>
       resizeWithLayout(document, size, layout, measureInBrowser)
     );
   const after = store.getState().history.past.at(-1);

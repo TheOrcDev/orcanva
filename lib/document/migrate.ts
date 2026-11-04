@@ -9,7 +9,12 @@ type Upgrade = (raw: Record<string, unknown>) => Record<string, unknown>;
 
 // Index n upgrades a document from version n + 1 to n + 2. Append a step
 // here whenever DOCUMENT_VERSION is bumped.
-const upgrades: Upgrade[] = [];
+const upgrades: Upgrade[] = [
+  // 1 → 2: pages arrived. A page's document is what a whole design's was,
+  // so nothing in it changes; a design's version says whether code from
+  // before pages can still edit it (see documentVersionFor).
+  (raw) => ({ ...raw, version: 2 }),
+];
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);

@@ -18,6 +18,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { usePeersHere } from "@/hooks/use-peers-here";
 import { anchorLocal, pinAnchor, pinPoint } from "@/lib/comments/anchor";
 import type { PinSource, PinState, PlacedPin } from "@/lib/comments/anchor";
 import { bodyText } from "@/lib/comments/body";
@@ -248,14 +249,15 @@ export const CommentPins = ({
   origin: ScreenPoint;
   zoom: number;
 }) => {
-  const designId = useEditor((state) => state.designId);
+  const pageId = useEditor((state) => state.activePageId);
+  const firstPageId = useEditor((state) => state.pages[0]?.id ?? pageId);
   const comments = useEditor((state) => state.comments);
   const openThreadId = useEditor((state) => state.openThreadId);
   const draftPin = useEditor((state) => state.draftPin);
   const pageCrop = useEditor((state) => state.pageCrop);
   const document = useEditor(selectDocument);
   const held = useEditor((state) => state.held);
-  const peers = useEditor((state) => state.peers);
+  const peers = usePeersHere();
 
   const threads = useMemo(() => groupThreads(comments), [comments]);
   const elements = useMemo(
@@ -274,11 +276,10 @@ export const CommentPins = ({
     [held, peers]
   );
 
-  // Until designs have pages, every thread is on the first page, whose id
-  // is the design's own
+  // Pins show on their own page (a thread without one is on the first)
   const shown = threads.filter(
     (thread) =>
-      isOnPage(thread.root, designId, designId) &&
+      isOnPage(thread.root, pageId, firstPageId) &&
       (!isResolved(thread) || thread.root.id === openThreadId)
   );
   const elementOf = (pin: PinSource) =>

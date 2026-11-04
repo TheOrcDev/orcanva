@@ -67,7 +67,7 @@ const startThread = (store: EditorStoreApi) => {
     : { x: document.width / 2, y: document.height / 2 };
   state.placeDraft({
     anchor: element ? anchorFor(element, spot) : null,
-    pageId: null,
+    pageId: state.activePageId,
     x: spot.x,
     y: spot.y,
   });
@@ -77,11 +77,14 @@ const ThreadItem = ({
   thread,
   open,
   now,
+  page,
   onOpen,
 }: {
   thread: CommentThread;
   open: boolean;
   now: Date;
+  // Where its pin is, once the design has pages to tell apart
+  page: string | null;
   onOpen: () => void;
 }) => {
   const replies = thread.replies.length;
@@ -109,9 +112,10 @@ const ThreadItem = ({
             </time>
           </span>
           <CommentBody comment={root} className="line-clamp-3" />
-          {replies > 0 || isResolved(thread) ? (
+          {page !== null || replies > 0 || isResolved(thread) ? (
             <span className="text-muted-foreground text-xs">
               {[
+                page,
                 replies > 0
                   ? `${replies} ${replies === 1 ? "reply" : "replies"}`
                   : null,
@@ -141,9 +145,20 @@ export const CommentsPanel = () => {
   // oxlint-disable-next-line react/hook-use-state
   const [now] = useState(() => new Date());
 
+  const pages = useEditor((state) => state.pages);
+  const pageIds = useMemo(() => pages.map((page) => page.id), [pages]);
+
   const threads = useMemo(() => groupThreads(comments), [comments]);
   const counts = threadCounts(threads);
   const shown = filterThreads(threads, filter);
+  // "Page 2", when there's more than one; picking it goes there
+  const pageOf = (thread: CommentThread): string | null => {
+    if (pageIds.length < 2) {
+      return null;
+    }
+    const index = pageIds.indexOf(thread.root.pageId ?? pageIds[0] ?? "");
+    return index === -1 ? "On a deleted page" : `Page ${index + 1}`;
+  };
 
   return (
     <PanelSection
@@ -204,6 +219,7 @@ export const CommentsPanel = () => {
               thread={thread}
               open={thread.root.id === openThreadId}
               now={now}
+              page={pageOf(thread)}
               onOpen={() => store.getState().focusThread(thread.root.id)}
             />
           ))}

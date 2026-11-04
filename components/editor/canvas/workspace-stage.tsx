@@ -599,7 +599,7 @@ export const WorkspaceStage = () => {
     const element = elementAt(event.clientX, event.clientY);
     store.getState().placeDraft({
       anchor: element ? anchorFor(element, point) : null,
-      pageId: null,
+      pageId: store.getState().activePageId,
       x: point.x,
       y: point.y,
     });

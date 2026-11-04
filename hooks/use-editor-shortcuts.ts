@@ -187,6 +187,16 @@ const handlePlainShortcut = (
     }
     return false;
   }
+  if (event.key === "PageUp" || event.key === "PageDown") {
+    const index = state.pages.findIndex(
+      (page) => page.id === state.activePageId
+    );
+    const next = state.pages[index + (event.key === "PageUp" ? -1 : 1)];
+    if (next) {
+      state.setActivePage(next.id);
+    }
+    return true;
+  }
   if (event.key === "Delete" || event.key === "Backspace") {
     const ids = editableSelection(store);
     if (ids.length > 0) {

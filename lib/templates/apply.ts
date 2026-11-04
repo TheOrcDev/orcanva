@@ -17,26 +17,6 @@ const moved = <T extends DesignElement>(element: T, dx: number, dy: number) =>
     ? element
     : { ...element, x: element.x + dx, y: element.y + dy };
 
-// Everything on the page, locked elements too, and its background give way
-// to the template's. A page of the template's shape keeps its size and the
-// template scales to it; otherwise the page takes the template's size.
-export const replacePage = (
-  page: DesignDocument,
-  template: DesignDocument
-): DesignDocument => {
-  const size = sameShape(page, template)
-    ? { height: page.height, width: page.width }
-    : { height: template.height, width: template.width };
-  const fitted = resizeDocument(template, size, true);
-  return {
-    ...page,
-    background: fitted.background,
-    elements: freshCopies(fitted.elements),
-    height: size.height,
-    width: size.width,
-  };
-};
-
 // The template's elements on top of the page's, with ids of their own:
 // scaled to the page when it's the same shape, otherwise scaled to fit
 // inside it and centred. The page's size and background stay. Returns the
@@ -62,5 +42,33 @@ export const addToPage = (
   return {
     document: { ...page, elements: [...page.elements, ...added] },
     ids: added.map((element) => element.id),
+  };
+};
+
+// Everything on the page, locked elements too, and its background give way
+// to the template's. A page of the template's shape keeps its size and the
+// template scales to it; otherwise the page takes the template's size,
+// unless `keepSize` (a design of several pages, which all share one size):
+// then the template is fitted inside the page and centred, as Add to page
+// does.
+export const replacePage = (
+  page: DesignDocument,
+  template: DesignDocument,
+  keepSize = false
+): DesignDocument => {
+  if (keepSize && !sameShape(page, template)) {
+    const { document } = addToPage({ ...page, elements: [] }, template);
+    return { ...document, background: template.background };
+  }
+  const size = sameShape(page, template)
+    ? { height: page.height, width: page.width }
+    : { height: template.height, width: template.width };
+  const fitted = resizeDocument(template, size, true);
+  return {
+    ...page,
+    background: fitted.background,
+    elements: freshCopies(fitted.elements),
+    height: size.height,
+    width: size.width,
   };
 };

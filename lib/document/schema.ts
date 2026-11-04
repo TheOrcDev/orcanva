@@ -1,6 +1,8 @@
 import { z } from "zod";
 
-export const DOCUMENT_VERSION = 1;
+// 2: designs have pages (plan 10). The elements and each page's document
+// are as in 1, so 1 upgrades as it is (lib/document/migrate.ts).
+export const DOCUMENT_VERSION = 2;
 export const MIN_CANVAS_SIZE = 16;
 export const MAX_CANVAS_SIZE = 4096;
 // Per design, across all its pages

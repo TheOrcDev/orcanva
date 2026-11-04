@@ -15,9 +15,12 @@ import {
   designs,
 } from "@/lib/db/schema";
 import { migrateDocument } from "@/lib/document/migrate";
-import { FIRST_PAGE_POSITION, firstPageIdOf } from "@/lib/document/pages";
+import {
+  FIRST_PAGE_POSITION,
+  documentVersionFor,
+  firstPageIdOf,
+} from "@/lib/document/pages";
 import { findPresetById } from "@/lib/document/presets";
-import { DOCUMENT_VERSION } from "@/lib/document/schema";
 import type { DesignDocument } from "@/lib/document/schema";
 import type { EditorAsset } from "@/lib/editor/store";
 import { templateAssetRow, templateEditorAsset } from "@/lib/templates/assets";
@@ -69,7 +72,7 @@ export const createDesignFromTemplate = async (
     id,
     name: name ?? template.name,
     ownerId: viewer.id,
-    version: DOCUMENT_VERSION,
+    version: documentVersionFor(1),
     visibility,
     width: document.width,
   });

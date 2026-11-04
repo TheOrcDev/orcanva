@@ -121,6 +121,7 @@ export const TemplatesPanel = () => {
   const store = useEditorStoreApi();
   const width = useEditor((state) => selectDocument(state).width);
   const height = useEditor((state) => selectDocument(state).height);
+  const severalPages = useEditor((state) => state.pages.length > 1);
   const [pendingId, setPendingId] = useState<string | null>(null);
   // Replace page waits here for a yes while the page has elements on it
   const [confirming, setConfirming] = useState<TemplateSummary | null>(null);
@@ -148,7 +149,11 @@ export const TemplatesPanel = () => {
       state.addAssets(loaded.assets);
       if (mode === "replace") {
         const before = selectDocument(state);
-        state.change((document) => replacePage(document, loaded.document));
+        // Every page shares one size: with several, the page keeps its own
+        const keepSize = state.pages.length > 1;
+        state.change((document) =>
+          replacePage(document, loaded.document, keepSize)
+        );
         const after = selectDocument(store.getState());
         if (after.width !== before.width || after.height !== before.height) {
           state.zoomToFit();
@@ -212,8 +217,9 @@ export const TemplatesPanel = () => {
       <PanelSection title={matching.length > 0 ? "Other sizes" : "Templates"}>
         {matching.length > 0 ? null : (
           <p className="text-muted-foreground text-xs">
-            None are made for this page&apos;s shape. Replace page also resizes
-            the page; Add to page fits the template inside it.
+            {severalPages
+              ? "None are made for this page's shape. Replace page and Add to page fit the template inside it, since every page shares one size."
+              : "None are made for this page's shape. Replace page also resizes the page; Add to page fits the template inside it."}
           </p>
         )}
         {tiles(others, true)}

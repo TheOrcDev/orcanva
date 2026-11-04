@@ -72,6 +72,18 @@ describe("replacePage", () => {
     expect(after).toMatchObject(THUMBNAIL);
   });
 
+  it("keeps the page's size for a design of several pages, fitting the template inside", () => {
+    const source = template();
+    const after = replacePage(page(STORY), source, true);
+    expect(after).toMatchObject(STORY);
+    expect(after.background).toEqual(source.background);
+    expect(after.elements).toHaveLength(source.elements.length);
+    // Fitted to the story's width and centred down it
+    const [first] = after.elements;
+    expect(first?.x).toBeCloseTo(0);
+    expect(first?.y).toBeCloseTo((1920 - 720 * (1080 / 1280)) / 2);
+  });
+
   it("gives fresh ids each time", () => {
     const source = template();
     const first = replacePage(page(), source);

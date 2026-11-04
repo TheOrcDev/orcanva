@@ -6,6 +6,7 @@ import {
   createDocument,
   createTextElement,
 } from "@/lib/document/factories";
+import { DOCUMENT_VERSION } from "@/lib/document/schema";
 import {
   insertElement,
   moveElementTo,
@@ -308,9 +309,10 @@ describe("editor store", () => {
       width: PAGE.width,
     };
     store.getState().applyLivePage({ ...row, version: 1 });
+    store.getState().applyLivePage({ ...row, version: DOCUMENT_VERSION });
     expect(store.getState().outdated).toBe(false);
 
-    store.getState().applyLivePage({ ...row, version: 2 });
+    store.getState().applyLivePage({ ...row, version: DOCUMENT_VERSION + 1 });
     expect(store.getState().outdated).toBe(true);
     const { doc, pending, seq } = store.getState();
     store.getState().change((d) => updateElement(d, rect.id, { x: 5 }));

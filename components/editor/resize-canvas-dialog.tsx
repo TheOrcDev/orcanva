@@ -59,7 +59,7 @@ import {
   resizedCopyOf,
   undoResize,
 } from "@/lib/editor/resize-design";
-import { selectDocument } from "@/lib/editor/store";
+import { selectDocument, selectWholeDesign } from "@/lib/editor/store";
 import type { EditorStoreApi } from "@/lib/editor/store";
 import { THUMBNAIL_MAX_SIZE } from "@/lib/export/render-page";
 import { uploadThumbnail } from "@/lib/export/thumbnailer";
@@ -307,7 +307,7 @@ const ResizeForm = ({ onDone }: { onDone: () => void }) => {
   const makeCopies = async () => {
     setPhase({ done: 0, kind: "busy", total: sizes.length });
     // Measured in a fallback font, text would wrap wrongly
-    await waitForFonts(selectDocument(store.getState())).catch(() => null);
+    await waitForFonts(selectWholeDesign(store.getState())).catch(() => null);
     const results: CopyResult[] = [];
     for (const [index, choice] of sizes.entries()) {
       setPhase({ done: index, kind: "busy", total: sizes.length });

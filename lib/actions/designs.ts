@@ -21,8 +21,11 @@ import {
 } from "@/lib/document/element-input";
 import type { ResizedCopyInput } from "@/lib/document/element-input";
 import { createDocument } from "@/lib/document/factories";
-import { FIRST_PAGE_POSITION, firstPageIdOf } from "@/lib/document/pages";
-import { DOCUMENT_VERSION } from "@/lib/document/schema";
+import {
+  FIRST_PAGE_POSITION,
+  documentVersionFor,
+  firstPageIdOf,
+} from "@/lib/document/pages";
 import { thumbnailKey } from "@/lib/storage/keys";
 import { copyObject, deleteObject } from "@/lib/storage/s3";
 
@@ -61,7 +64,7 @@ export const createDesign = async (
       id,
       name,
       ownerId: viewer.id,
-      version: DOCUMENT_VERSION,
+      version: documentVersionFor(1),
       visibility: chosen,
       width,
     }),
@@ -282,7 +285,7 @@ export const createResizedCopy = async (
       id,
       name,
       ownerId: viewer.id,
-      version: DOCUMENT_VERSION,
+      version: documentVersionFor(1),
       visibility: "private",
       width,
     }),

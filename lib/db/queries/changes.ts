@@ -10,11 +10,8 @@ import {
   writerName,
 } from "@/lib/db/queries/versions";
 import type { ChangesWrites } from "@/lib/document/changes-payload";
-import {
-  DOCUMENT_VERSION,
-  MAX_ELEMENTS,
-  MAX_PAGES,
-} from "@/lib/document/schema";
+import { PAGES_VERSION } from "@/lib/document/pages";
+import { MAX_ELEMENTS, MAX_PAGES } from "@/lib/document/schema";
 
 export interface ChangesInput extends ChangesWrites {
   designId: string;
@@ -57,9 +54,9 @@ export interface ChangesInput extends ChangesWrites {
 // Tabs from before pages send the size and their only page's background
 // (`firstPageBackground`), which goes to the first page. The first page's
 // background is also copied into designs.background, which those tabs'
-// page query reads, until 10.10 drops it. A batch that creates a page marks
-// the design with this DOCUMENT_VERSION, so tabs too old for pages stop
-// (G2) once that's 2.
+// page query reads, until 10.10 drops it. A batch that creates a page
+// raises the design's version to PAGES_VERSION, so tabs from before pages
+// stop (G2) rather than show and save only its first page.
 //
 // Version history: when an auto version is due (autoVersionDue), the
 // `snapshot` CTE copies the design as it was before this batch into
@@ -171,7 +168,7 @@ export const changesStatement = ({
           WHEN EXISTS (
             SELECT 1 FROM page_writes
             WHERE id NOT IN (SELECT id FROM before_pages)
-          ) THEN GREATEST(version, ${DOCUMENT_VERSION})
+          ) THEN GREATEST(version, ${PAGES_VERSION})
           ELSE version
         END
       WHERE id = ${id}

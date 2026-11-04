@@ -15,6 +15,7 @@ import {
 import { ExportPopover } from "@/components/editor/export-popover";
 import { VersionPreview } from "@/components/editor/history/version-preview";
 import { OutdatedDialog } from "@/components/editor/outdated-dialog";
+import { PageStrip } from "@/components/editor/page-strip";
 import { PropertiesPanel } from "@/components/editor/panels/properties-panel";
 import { EditorToolbar } from "@/components/editor/toolbar";
 import { YouTubePreviewProvider } from "@/components/editor/youtube-preview-context";
@@ -24,6 +25,7 @@ import { useAssetUrlSync } from "@/hooks/use-asset-url-sync";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { useEditorShortcuts } from "@/hooks/use-editor-shortcuts";
 import { useFileDrop } from "@/hooks/use-file-drop";
+import { useLimitNotice } from "@/hooks/use-limit-notice";
 import { useNewerElementsNotice } from "@/hooks/use-newer-elements-notice";
 import { useOutbox } from "@/hooks/use-outbox";
 import { usePresence } from "@/hooks/use-presence";
@@ -57,6 +59,7 @@ const EditorShell = ({
   useAssetResolver();
   useNewerElementsNotice();
   useRestoreNotice();
+  useLimitNotice();
 
   const flush = useCallback(async () => {
     await Promise.all([flushSave(), flushThumbnail()]);
@@ -84,7 +87,10 @@ const EditorShell = ({
               gallery preview and downloads keep working */}
           <div className="flex min-h-0 flex-1" inert={previewing}>
             <EditorSidebar />
-            <WorkspaceStage />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <WorkspaceStage />
+              <PageStrip />
+            </div>
             <PropertiesPanel />
           </div>
           <VersionPreview />
