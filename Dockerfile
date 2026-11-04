@@ -3,11 +3,12 @@
 # Build: docker build -t orcanva .
 # Run:   docker run --env-file .env -p 3000:3000 orcanva
 
-ARG NODE_VERSION=24-alpine
-# The Alpine release node:24-alpine is built on, so node finds its libraries
+ARG NODE_MAJOR=24
+# The runner is plain Alpine with node copied in, so both stages use the
+# same Alpine release and node finds the libraries it was built against
 ARG ALPINE_VERSION=3.24
 
-FROM node:${NODE_VERSION} AS base
+FROM node:${NODE_MAJOR}-alpine${ALPINE_VERSION} AS base
 ARG PNPM_VERSION=11.28.9
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm install --global corepack@latest && corepack enable \
@@ -31,7 +32,7 @@ RUN pnpm build
 RUN pnpm dlx esbuild@0.28.2 scripts/migrate.ts --bundle --platform=node \
   --format=esm --target=node24 --outfile=migrate.mjs
 
-FROM node:${NODE_VERSION} AS node
+FROM node:${NODE_MAJOR}-alpine${ALPINE_VERSION} AS node
 
 # Plain Alpine with only the node binary: no npm, yarn, corepack or headers
 FROM alpine:${ALPINE_VERSION} AS runner
@@ -50,5 +51,8 @@ COPY --from=builder --chown=node:node /app/drizzle ./drizzle
 COPY --from=builder --chown=node:node /app/migrate.mjs ./migrate.mjs
 USER node
 EXPOSE 3000
+# robots.txt is prerendered, so this asks nothing of the database
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s \
+  CMD wget -q --spider "http://127.0.0.1:${PORT}/robots.txt" || exit 1
 # SKIP_MIGRATIONS=1 starts the server without touching the schema
 CMD ["sh", "-c", "[ \"$SKIP_MIGRATIONS\" = 1 ] || node migrate.mjs && exec node server.js"]

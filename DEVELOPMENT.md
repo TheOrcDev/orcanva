@@ -117,7 +117,7 @@ docker run -d --name orcanva --env-file .env -p 3000:3000 ghcr.io/theorcdev/orca
 
 Set `SITE_URL` to the address you serve the app on (for example `https://design.example.org`), so links in invite and mention emails point to your copy. Prerendered pages (canonical URLs, share images, the sitemap and `robots.txt`) take it when the image is built, so the published image keeps `https://www.orcanva.app` there; to change them too, build the image yourself with `--build-arg SITE_URL=…`. Vercel Analytics is only on when the app runs on Vercel.
 
-Each start applies new migrations from `drizzle/` before the server starts (migrations already applied are skipped). They run in one transaction, so if one fails, the database stays as it was and the container stops. Set `SKIP_MIGRATIONS=1` to start without them. Add the address you serve the app on to Neon Auth's domains (`neon neon-auth domain add`), and to the bucket's CORS (`pnpm storage:setup`) if you want direct uploads.
+Each start applies new migrations from `drizzle/` before the server starts (migrations already applied are skipped). They run in one transaction, so if one fails, the database stays as it was and the container stops. Set `SKIP_MIGRATIONS=1` to start without them. With several containers on one database, nothing stops two from migrating at once: one fails, rolls back and stops, and starts cleanly once restarted, so let one container migrate and start the others with `SKIP_MIGRATIONS=1`. Add the address you serve the app on to Neon Auth's domains (`neon neon-auth domain add`), and to the bucket's CORS (`pnpm storage:setup`) if you want direct uploads.
 
 To build it yourself: `docker build --build-arg SITE_URL=https://design.example.org -t orcanva .`
 
