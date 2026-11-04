@@ -113,6 +113,13 @@
       "when": 1793757363594,
       "tag": "0015_multi_page_expand",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793758320603,
+      "tag": "0016_multi_page_contract",
+      "breakpoints": true
     }
   ]
 }

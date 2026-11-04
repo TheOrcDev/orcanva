@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   check,
+  foreignKey,
   index,
   integer,
   uniqueIndex,
@@ -120,9 +121,10 @@ export const designElements = pgTable(
       .notNull()
       .references(() => designs.id, { onDelete: "cascade" }),
     id: text("id").notNull(),
-    // The page it's on (design_pages.id). Null only for rows written by code
-    // from before pages, which are on the first page.
-    pageId: text("page_id"),
+    // The page it's on (design_pages.id); deleting the page deletes it.
+    // Code from before pages inserts rows without one: a trigger puts those
+    // on the first page until 10.10 drops it (drizzle/0016_*).
+    pageId: text("page_id").notNull(),
     position: text("position").notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
@@ -130,7 +132,14 @@ export const designElements = pgTable(
     // The editor session (not a user) that wrote the row last
     updatedBy: uuid("updated_by"),
   },
-  (table) => [primaryKey({ columns: [table.designId, table.id] })]
+  (table) => [
+    primaryKey({ columns: [table.designId, table.id] }),
+    foreignKey({
+      columns: [table.designId, table.pageId],
+      foreignColumns: [designPages.designId, designPages.id],
+      name: "design_elements_page_fk",
+    }).onDelete("cascade"),
+  ]
 );
 
 // Who is on a design right now, one row per open editor session: where
