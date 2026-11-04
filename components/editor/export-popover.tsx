@@ -44,13 +44,14 @@ import {
 import type { ExportFormat, RenderOptions } from "@/lib/export/render-page";
 import { formatSize } from "@/lib/format";
 
-type DownloadFormat = ExportFormat;
+type DownloadFormat = ExportFormat | "pdf";
 type PageScope = "this" | "all";
 
 const FORMATS: { value: DownloadFormat; label: string }[] = [
   { label: "PNG", value: "png" },
   { label: "JPG", value: "jpeg" },
   { label: "WebP", value: "webp" },
+  { label: "PDF", value: "pdf" },
 ];
 
 const SCOPES: { value: PageScope; label: string }[] = [
@@ -59,6 +60,9 @@ const SCOPES: { value: PageScope; label: string }[] = [
 ];
 
 const MULTIPLIERS = [1, 2];
+// A PDF's pages are pictures at twice their size (about 190 dpi), unless
+// that's more than a download may draw
+const PDF_MULTIPLIER = 2;
 
 const isFormat = (value: unknown): value is DownloadFormat =>
   FORMATS.some((format) => format.value === value);
@@ -97,11 +101,12 @@ const drawPages = async (
   return blobs;
 };
 
-// The ZIP writer loads only when a download needs it
+// The ZIP and PDF writers load only when a download needs them
 const loadZip = () => import("@/lib/export/zip");
+const loadPdf = () => import("@/lib/export/pdf");
 
 // Draws the page on screen, or every page, and downloads them: one picture
-// as it is, several in a ZIP. `onPage` hears which page of
+// as it is, several in a ZIP, or all in a PDF. `onPage` hears which page of
 // several is being drawn.
 const downloadPages = async ({
   allPages,
@@ -138,6 +143,33 @@ const downloadPages = async ({
   const name = slugify(state.name);
   const progress = (index: number) =>
     onPage(pages.length > 1 ? { done: index, total: pages.length } : null);
+
+  if (format === "pdf") {
+    const ratio = canExportAt({ height, width }, PDF_MULTIPLIER)
+      ? PDF_MULTIPLIER
+      : 1;
+    const blobs = await drawPages(
+      store,
+      node,
+      render,
+      pages,
+      { format: "jpeg", pixelRatio: ratio, quality: quality / 100 },
+      progress
+    );
+    const { PT_PER_PX, pdfBlob } = await loadPdf();
+    const pdfPages = await Promise.all(
+      blobs.map(async (blob) => ({
+        height: height * PT_PER_PX,
+        jpeg: await bytesOf(blob),
+        width: width * PT_PER_PX,
+      }))
+    );
+    downloadBlob(
+      pdfBlob(pdfPages, { title: state.name }),
+      `${name}-${width}x${height}.pdf`
+    );
+    return;
+  }
 
   const blobs = await drawPages(
     store,
@@ -190,6 +222,7 @@ export const ExportPopover = () => {
   } | null>(null);
 
   const page = { height, width };
+  const isPdf = format === "pdf";
   const effectiveMultiplier = canExportAt(page, multiplier) ? multiplier : 1;
   const supportsTransparency = format === "png" || format === "webp";
   const allPages = pageCount > 1 && scope === "all";
@@ -221,7 +254,7 @@ export const ExportPopover = () => {
 
   const label = FORMATS.find((item) => item.value === format)?.label;
   let action = `Download ${label}`;
-  if (allPages) {
+  if (allPages && !isPdf) {
     action = `Download ${pageCount} ${label}s (ZIP)`;
   }
 
@@ -235,7 +268,9 @@ export const ExportPopover = () => {
         <PopoverHeader>
           <PopoverTitle>Download</PopoverTitle>
           <PopoverDescription>
-            Exported at exact pixel size from the canvas.
+            {isPdf
+              ? "Each page as a sharp picture, at twice its pixel size."
+              : "Exported at exact pixel size from the canvas."}
           </PopoverDescription>
         </PopoverHeader>
         <FieldGroup>
@@ -258,7 +293,7 @@ export const ExportPopover = () => {
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
-              {scope === "all" ? (
+              {scope === "all" && !isPdf ? (
                 <FieldDescription>
                   One file per page, together in a ZIP.
                 </FieldDescription>
@@ -284,29 +319,31 @@ export const ExportPopover = () => {
               ))}
             </ToggleGroup>
           </Field>
-          <Field>
-            <FieldLabel>Size</FieldLabel>
-            <ToggleGroup
-              variant="outline"
-              value={[String(effectiveMultiplier)]}
-              onValueChange={(value) => {
-                const next = Number(value[0]);
-                if (MULTIPLIERS.includes(next)) {
-                  setMultiplier(next);
-                }
-              }}
-            >
-              {MULTIPLIERS.map((item) => (
-                <ToggleGroupItem
-                  key={item}
-                  value={String(item)}
-                  disabled={!canExportAt(page, item)}
-                >
-                  {item}× · {formatSize(width * item, height * item)}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          </Field>
+          {isPdf ? null : (
+            <Field>
+              <FieldLabel>Size</FieldLabel>
+              <ToggleGroup
+                variant="outline"
+                value={[String(effectiveMultiplier)]}
+                onValueChange={(value) => {
+                  const next = Number(value[0]);
+                  if (MULTIPLIERS.includes(next)) {
+                    setMultiplier(next);
+                  }
+                }}
+              >
+                {MULTIPLIERS.map((item) => (
+                  <ToggleGroupItem
+                    key={item}
+                    value={String(item)}
+                    disabled={!canExportAt(page, item)}
+                  >
+                    {item}× · {formatSize(width * item, height * item)}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </Field>
+          )}
           {format === "png" ? null : (
             <Field>
               <div className="flex items-center justify-between">
