@@ -58,7 +58,9 @@ const restoreIn = async (
     }
     const { awaitEcho } = store.getState();
     await Promise.all([
-      awaitEcho?.(txid, { elements: true, page: true }).catch(() => null),
+      awaitEcho?.(txid, { elements: true, page: true, pages: true }).catch(
+        () => null
+      ),
       restoreSeen(store, start.restoreSeq),
     ]);
     store.getState().previewVersion(null);

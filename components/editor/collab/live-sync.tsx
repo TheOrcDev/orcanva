@@ -15,11 +15,12 @@ import type { LivePresenceRow } from "@/lib/collab/presence";
 import { createRenewalBatcher } from "@/lib/collab/renewals";
 import type { LiveCommentRow } from "@/lib/comments/live-rows";
 import type { LiveStatus } from "@/lib/editor/store";
-import { LIVE_QUERY_NAMES } from "@/lib/realtime/rows";
+import { LIVE_QUERY_NAMES, LIVE_QUERY_SHAPE } from "@/lib/realtime/rows";
 import type {
   LiveConfig,
   LiveElementRow,
   LivePageRow,
+  LivePagesRow,
   LiveQueries as SealedQueries,
   LiveQueryName,
 } from "@/lib/realtime/rows";
@@ -42,13 +43,14 @@ class RenewError extends Error {
   }
 }
 
-// Freshly sealed queries, in one request however many
+// Freshly sealed queries, in one request however many. `v` asks for the
+// queries in the shape this editor reads (every page's elements).
 const fetchSealed = async (
   designId: string,
   queries: readonly LiveQueryName[]
 ): Promise<Partial<SealedQueries>> => {
   const response = await fetch(`/api/designs/${designId}/live`, {
-    body: JSON.stringify({ queries }),
+    body: JSON.stringify({ queries, v: LIVE_QUERY_SHAPE }),
     headers: { "Content-Type": "application/json" },
     method: "POST",
   });
@@ -78,9 +80,9 @@ interface LiveQueriesProps {
   setAwaitSync: (awaitSync: AwaitSync | null) => void;
 }
 
-// Subscribes to the design's page row, element rows, presence rows and
-// comments, and feeds every result into the store, where elements are
-// rebased under this window's own unconfirmed edits.
+// Subscribes to the design's row, its pages, element rows, presence rows
+// and comments, and feeds every result into the store, where pages and
+// elements are rebased under this window's own unconfirmed edits.
 const LiveQueries = ({ live, setAwaitSync }: LiveQueriesProps) => {
   const store = useEditorStoreApi();
   // One request a minute renews every query: they ask within moments of
@@ -112,6 +114,8 @@ const LiveQueries = ({ live, setAwaitSync }: LiveQueriesProps) => {
   const refreshPage = useCallback(() => renew("page"), [renew]);
   const refreshElements = useCallback(() => renew("elements"), [renew]);
   const page = useLiveQuery(live.page, { refreshQuery: refreshPage });
+  const refreshPages = useCallback(() => renew("pages"), [renew]);
+  const pages = useLiveQuery(live.pages, { refreshQuery: refreshPages });
   const elements = useLiveQuery(live.elements, {
     refreshQuery: refreshElements,
   });
@@ -126,6 +130,7 @@ const LiveQueries = ({ live, setAwaitSync }: LiveQueriesProps) => {
   const presenceUtils = presence.utils;
   const commentUtils = comments.utils;
   const pageUtils = page.utils;
+  const pagesUtils = pages.utils;
   const elementUtils = elements.utils;
 
   // Applied from the change listeners rather than after render, so the store
@@ -140,6 +145,16 @@ const LiveQueries = ({ live, setAwaitSync }: LiveQueriesProps) => {
     apply(pageUtils.getSnapshot().data);
     return pageUtils.onChange((snapshot) => apply(snapshot.data));
   }, [pageUtils, store]);
+
+  useEffect(() => {
+    const apply = (rows: readonly LivePagesRow[] | undefined) => {
+      if (rows) {
+        store.getState().applyLivePages(rows);
+      }
+    };
+    apply(pagesUtils.getSnapshot().data);
+    return pagesUtils.onChange((snapshot) => apply(snapshot.data));
+  }, [pagesUtils, store]);
 
   useEffect(() => {
     const apply = (rows: readonly LiveElementRow[] | undefined) => {
@@ -173,6 +188,7 @@ const LiveQueries = ({ live, setAwaitSync }: LiveQueriesProps) => {
 
   const status = combineStatus([
     page.status,
+    pages.status,
     elements.status,
     presence.status,
     comments.status,
@@ -194,10 +210,13 @@ const LiveQueries = ({ live, setAwaitSync }: LiveQueriesProps) => {
           ? elementUtils.awaitTxId(txid, AWAIT_SYNC_TIMEOUT_MS)
           : null,
         touched.page ? pageUtils.awaitTxId(txid, AWAIT_SYNC_TIMEOUT_MS) : null,
+        touched.pages
+          ? pagesUtils.awaitTxId(txid, AWAIT_SYNC_TIMEOUT_MS)
+          : null,
       ]);
     });
     return () => setAwaitSync(null);
-  }, [status, pageUtils, elementUtils, setAwaitSync]);
+  }, [status, pageUtils, pagesUtils, elementUtils, setAwaitSync]);
 
   return null;
 };

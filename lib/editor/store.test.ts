@@ -273,6 +273,7 @@ describe("editor store", () => {
       comments: sealed,
       elements: sealed,
       page: sealed,
+      pages: sealed,
       presence: sealed,
       url: "wss://realtime.example",
     };

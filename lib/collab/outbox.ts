@@ -1,4 +1,3 @@
-import type { PageSettings } from "@/lib/collab/changeset";
 import {
   hasUnsentWrites,
   unechoedTransactions,
@@ -8,8 +7,10 @@ import type {
   BatchOutcome,
   BatchSeqs,
   PendingWrites,
+  Touched,
 } from "@/lib/collab/sync-state";
-import type { DesignElement } from "@/lib/document/schema";
+import type { Size } from "@/lib/document/geometry";
+import type { Background, DesignElement } from "@/lib/document/schema";
 
 export type SaveStatus = "saved" | "unsaved" | "saving" | "error";
 
@@ -18,14 +19,26 @@ export interface ElementWrite {
   // "create" upserts; "update" only touches a row that still exists
   mode: "create" | "update";
   position: string;
+  pageId: string;
 }
 
+export interface PageWrite {
+  id: string;
+  // As for elements
+  mode: "create" | "update";
+  position: string;
+  background: Background;
+}
+
+// The body of POST /api/designs/[id]/changes (see changesPayload)
 export interface ChangesRequest {
   clientId: string;
   deletes: string[];
   elements: ElementWrite[];
   name?: string;
-  page?: PageSettings;
+  pages?: PageWrite[];
+  pageDeletes?: string[];
+  size?: Size;
 }
 
 export class SaveError extends Error {
@@ -50,11 +63,6 @@ export type SendChanges = (
   request: ChangesRequest,
   options: { keepalive: boolean }
 ) => Promise<{ txid: string }>;
-
-export interface Touched {
-  elements: boolean;
-  page: boolean;
-}
 
 // Resolves once the live queries have applied the transaction; rejects on
 // timeout or when the live connection goes away
@@ -101,23 +109,46 @@ export const buildBatch = (
 ): { request: ChangesRequest; seqs: BatchSeqs } => {
   const elements: ElementWrite[] = [];
   const deletes: string[] = [];
-  const seqs = new Map<string, number>();
+  const elementSeqs = new Map<string, number>();
   for (const [id, write] of pending.elements) {
-    seqs.set(id, write.seq);
+    elementSeqs.set(id, write.seq);
     if (write.entry) {
       elements.push({
         data: write.entry.element,
         mode: write.create ? "create" : "update",
+        pageId: write.entry.pageId,
         position: write.entry.position,
       });
     } else {
       deletes.push(id);
     }
   }
+  const pages: PageWrite[] = [];
+  const pageDeletes: string[] = [];
+  const pageSeqs = new Map<string, number>();
+  for (const [id, write] of pending.pages) {
+    pageSeqs.set(id, write.seq);
+    if (write.entry) {
+      pages.push({
+        background: write.entry.background,
+        id,
+        mode: write.create ? "create" : "update",
+        position: write.entry.position,
+      });
+    } else {
+      pageDeletes.push(id);
+    }
+  }
 
   const request: ChangesRequest = { clientId, deletes, elements };
-  if (pending.page) {
-    request.page = pending.page.value;
+  if (pages.length > 0) {
+    request.pages = pages;
+  }
+  if (pageDeletes.length > 0) {
+    request.pageDeletes = pageDeletes;
+  }
+  if (pending.size) {
+    request.size = pending.size.value;
   }
   if (pending.name) {
     request.name = pending.name.value;
@@ -125,9 +156,10 @@ export const buildBatch = (
   return {
     request,
     seqs: {
-      elements: seqs,
+      elements: elementSeqs,
       name: pending.name?.seq ?? null,
-      page: pending.page?.seq ?? null,
+      pages: pageSeqs,
+      size: pending.size?.seq ?? null,
     },
   };
 };
@@ -165,7 +197,9 @@ export const createOutbox = (
     try {
       await sync(txid, {
         elements: request.elements.length + request.deletes.length > 0,
-        page: request.page !== undefined || request.name !== undefined,
+        page: request.size !== undefined || request.name !== undefined,
+        pages:
+          (request.pages?.length ?? 0) + (request.pageDeletes?.length ?? 0) > 0,
       });
       return "echoed";
     } catch {

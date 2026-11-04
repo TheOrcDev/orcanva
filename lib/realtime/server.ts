@@ -10,6 +10,7 @@ import type {
   LiveConfig,
   LiveElementRow,
   LivePageRow,
+  LivePagesRow,
 } from "@/lib/realtime/rows";
 
 // Live queries are raw SQL rather than Drizzle: the Drizzle adapter needs
@@ -19,6 +20,13 @@ import type {
 const pageQuery = (designId: string) =>
   rawSql<LivePageRow>(
     "SELECT name, width, height, background, version, visibility, restore_seq, restored_by_name FROM designs WHERE id = $1",
+    [designId]
+  );
+
+// Each page's place and background
+const pagesQuery = (designId: string) =>
+  rawSql<LivePagesRow>(
+    "SELECT id, position, background FROM design_pages WHERE design_id = $1",
     [designId]
   );
 
@@ -74,6 +82,11 @@ export const sealPageQuery = (
 ): Promise<SealedLiveQuery<LivePageRow>> | null =>
   getRealtime()?.seal({ query: pageQuery(designId) }) ?? null;
 
+export const sealPagesQuery = (
+  designId: string
+): Promise<SealedLiveQuery<LivePagesRow>> | null =>
+  getRealtime()?.seal({ query: pagesQuery(designId) }) ?? null;
+
 // `onlyPage`: the first page's id, for an editor from before pages; null
 // for every page
 export const sealElementsQuery = (
@@ -92,23 +105,25 @@ export const sealCommentsQuery = (
 ): Promise<SealedLiveQuery<LiveCommentRow>> | null =>
   getRealtime()?.seal({ query: commentsQuery(designId) }) ?? null;
 
-// `onlyPage` as for sealElementsQuery
+// Every query an editor subscribes to, sealed together so they expire
+// together
 export const getLiveConfig = async (
-  designId: string,
-  onlyPage: string | null
+  designId: string
 ): Promise<LiveConfig | null> => {
   const url = getEnv().NEON_REALTIME_URL;
   const page = sealPageQuery(designId);
-  const elements = sealElementsQuery(designId, onlyPage);
+  const pages = sealPagesQuery(designId);
+  const elements = sealElementsQuery(designId, null);
   const presence = sealPresenceQuery(designId);
   const comments = sealCommentsQuery(designId);
-  if (!(url && page && elements && presence && comments)) {
+  if (!(url && page && pages && elements && presence && comments)) {
     return null;
   }
   return {
     comments: await comments,
     elements: await elements,
     page: await page,
+    pages: await pages,
     presence: await presence,
     url,
   };

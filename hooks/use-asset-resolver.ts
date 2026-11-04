@@ -9,7 +9,7 @@ import {
   unknownAssetIds,
 } from "@/lib/editor/asset-resolver";
 import { setAssetResolver } from "@/lib/editor/image-cache";
-import { selectDocument } from "@/lib/editor/store";
+import { selectWholeDesign } from "@/lib/editor/store";
 import type { EditorAsset, EditorStore } from "@/lib/editor/store";
 
 const fetchAssets = async (
@@ -54,8 +54,9 @@ export const useAssetResolver = (): void => {
     });
 
     const check = (state: EditorStore) => {
+      // Every page's, since the page strip and downloads draw them all
       const ids = unknownAssetIds(
-        selectDocument(state),
+        selectWholeDesign(state),
         state.assets,
         (id) => resolver.isPending(id) || state.missingAssetIds.includes(id)
       );
@@ -67,7 +68,7 @@ export const useAssetResolver = (): void => {
     setAssetResolver(resolver.resolve);
     check(store.getState());
     const unsubscribe = store.subscribe((state, previous) => {
-      if (state.doc !== previous.doc || state.assets !== previous.assets) {
+      if (state.pages !== previous.pages || state.assets !== previous.assets) {
         check(state);
       }
     });

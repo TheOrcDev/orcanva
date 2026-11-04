@@ -17,7 +17,7 @@ import {
   loadRecentColors,
   rememberRecentColor,
 } from "@/lib/editor/recent-colors";
-import { selectDocument } from "@/lib/editor/store";
+import { selectWholeDesign } from "@/lib/editor/store";
 
 export interface ColorPickerProps {
   label: string;
@@ -78,7 +78,7 @@ export const ColorPicker = ({
     if (open) {
       openedWith.current = value;
       setGathered({
-        design: documentColors(selectDocument(store.getState())),
+        design: documentColors(selectWholeDesign(store.getState())),
         recent: loadRecentColors(),
       });
       store.getState().begin();

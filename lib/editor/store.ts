@@ -6,11 +6,20 @@ import type { DesignRole, Visibility } from "@/lib/auth/access";
 import type { BrandKit } from "@/lib/brand-kit/schema";
 import {
   applyWrites,
+  composePages,
+  contentOf,
   diffDocument,
+  pagesOfStep,
   writesFor,
   writesOf,
 } from "@/lib/collab/changeset";
-import type { EditorDocument, Writes } from "@/lib/collab/changeset";
+import type {
+  ChangeSet,
+  Direction,
+  EditorDocument,
+  PageView,
+  Writes,
+} from "@/lib/collab/changeset";
 import { isDeepEqual } from "@/lib/collab/equal";
 import {
   MAX_PROFILE_NAME,
@@ -22,6 +31,7 @@ import {
   entriesFromRows,
   isNewerDocument,
   pageFromRow,
+  pagesFromRows,
   restoreFromRow,
 } from "@/lib/collab/live-rows";
 import type { AwaitSync, SaveStatus } from "@/lib/collab/outbox";
@@ -37,7 +47,7 @@ import {
   echoTransaction,
   rebase,
   settleBatch,
-  syncedFromDocument,
+  syncedFrom,
 } from "@/lib/collab/sync-state";
 import type {
   BatchOutcome,
@@ -54,7 +64,12 @@ import type {
 } from "@/lib/comments/schema";
 import { createId } from "@/lib/document/factories";
 import type { Rect } from "@/lib/document/geometry";
-import type { DesignDocument } from "@/lib/document/schema";
+import {
+  FIRST_PAGE_POSITION,
+  WHITE_PAGE_BACKGROUND,
+  sortPages,
+} from "@/lib/document/pages";
+import type { Background, DesignDocument } from "@/lib/document/schema";
 import { cropDocument } from "@/lib/editor/document-ops";
 import {
   beginTransaction,
@@ -73,6 +88,7 @@ import type {
   LiveConfig,
   LiveElementRow,
   LivePageRow,
+  LivePagesRow,
 } from "@/lib/realtime/rows";
 
 export type { SaveStatus } from "@/lib/collab/outbox";
@@ -120,10 +136,21 @@ export interface EditorState {
   // Identifies this editor session in writes and presence
   clientId: string;
   name: string;
-  // The rendered document and each element's z-order key: the synced state
-  // with this session's unconfirmed writes on top
+  // Every page in order, each rendered as a document with its elements'
+  // z-order keys: the synced state with this session's unconfirmed writes
+  // on top
+  pages: readonly PageView[];
+  // The page on screen; session UI state, like the selection
+  activePageId: string;
+  // The page on screen as a document (the active page's), which the canvas
+  // and panels work on
   doc: EditorDocument;
   synced: SyncedState;
+  // Whether the design has page rows. Designs made by code from before
+  // pages may have none: their one page is the design's id, with the
+  // background the design row holds (`legacyBackground`).
+  storedPages: boolean;
+  legacyBackground: Background;
   pending: PendingWrites;
   // Counts local writes; also tells "I changed it" apart from remote edits
   seq: number;
@@ -243,6 +270,9 @@ export interface EditorActions {
   // New results from the live queries
   applyLiveElements: (rows: readonly LiveElementRow[]) => void;
   applyLivePage: (row: LivePageRow) => void;
+  applyLivePages: (rows: readonly LivePagesRow[]) => void;
+  // Shows another page (finishing crops and typing, dropping the selection)
+  setActivePage: (id: string) => void;
   applyLiveComments: (rows: readonly LiveCommentRow[]) => void;
   setLiveStatus: (status: LiveStatus) => void;
   setReconnectLive: (reconnect: (() => void) | null) => void;
@@ -329,12 +359,25 @@ export interface EditorActions {
 
 export type EditorStore = EditorState & EditorActions;
 
-export interface EditorInit {
-  designId: string;
-  name: string;
+// One page as the server loaded it
+export interface InitialPage {
+  id: string;
+  position: string;
   document: DesignDocument;
   // Stored z-order keys by element id; generated when missing
   positions?: Record<string, string>;
+}
+
+export interface EditorInit {
+  designId: string;
+  name: string;
+  // The first page (and the only one without `pages`)
+  document: DesignDocument;
+  // Stored z-order keys by element id; generated when missing
+  positions?: Record<string, string>;
+  // Every page, in order; without it the design is `document`, one page
+  // whose id is the design's
+  pages?: InitialPage[];
   // Sealed live queries; null when Realtime isn't configured
   live?: LiveConfig | null;
   assets: EditorAsset[];
@@ -366,13 +409,92 @@ const keepExisting = (ids: string[], document: DesignDocument): string[] => {
   return kept.length === ids.length ? ids : kept;
 };
 
-const initialDocument = (init: EditorInit): EditorDocument => {
-  const ids = init.document.elements.map((element) => element.id);
-  const stored = new Map(Object.entries(init.positions ?? {}));
+const pageViewOf = (page: InitialPage): PageView => {
+  const ids = page.document.elements.map((element) => element.id);
+  const stored = new Map(Object.entries(page.positions ?? {}));
   return {
-    document: init.document,
-    positions: assignPositions(stored, ids),
+    doc: {
+      document: page.document,
+      positions: assignPositions(stored, ids),
+    },
+    id: page.id,
+    position: page.position,
   };
+};
+
+const initialPages = (init: EditorInit): PageView[] => {
+  const pages =
+    init.pages && init.pages.length > 0
+      ? init.pages
+      : [
+          {
+            document: init.document,
+            id: init.designId,
+            position: FIRST_PAGE_POSITION,
+            positions: init.positions,
+          },
+        ];
+  return pages.map(pageViewOf);
+};
+
+// The design's one page when nothing else is known: its id, the size and
+// the background the design row holds
+const legacyPage = (state: EditorState): PageView => ({
+  doc: {
+    document: {
+      background: state.legacyBackground,
+      elements: [],
+      height: state.doc.document.height,
+      version: state.doc.document.version,
+      width: state.doc.document.width,
+    },
+    positions: new Map(),
+  },
+  id: state.designId,
+  position: FIRST_PAGE_POSITION,
+});
+
+// Shows `pages`, staying on `wanted` (the active page by default). When
+// that page is gone (someone deleted it), the page that took its place
+// shows, or the last one.
+const showPages = (
+  state: EditorState,
+  next: readonly PageView[],
+  wanted: string = state.activePageId
+): Pick<EditorState, "activePageId" | "doc" | "pages"> => {
+  const pages = next.length > 0 ? next : [legacyPage(state)];
+  const index = state.pages.findIndex((page) => page.id === wanted);
+  const active =
+    pages.find((page) => page.id === wanted) ??
+    pages[Math.min(Math.max(index, 0), pages.length - 1)] ??
+    legacyPage(state);
+  return { activePageId: active.id, doc: active.doc, pages };
+};
+
+const activePage = (state: EditorState): PageView =>
+  state.pages.find((page) => page.id === state.activePageId) ??
+  legacyPage(state);
+
+// The first page's id, where rows without a page are
+const firstSyncedPage = (state: EditorState): string =>
+  sortPages([...state.synced.pages].map(([id, page]) => ({ ...page, id })))[0]
+    ?.id ?? state.designId;
+
+// The page an undo or redo step should show: the one on screen if the step
+// changed it, else the first page it changed that's still there
+const pageForStep = (
+  state: EditorState,
+  pages: readonly PageView[],
+  step: ChangeSet,
+  direction: Direction
+): string => {
+  const touched = pagesOfStep(step, direction);
+  if (touched.length === 0 || touched.includes(state.activePageId)) {
+    return state.activePageId;
+  }
+  return (
+    pages.find((page) => touched.includes(page.id))?.id ?? state.activePageId
+  );
 };
 
 const visibilityFromRow = (row: LivePageRow, current: Visibility) =>
@@ -425,22 +547,36 @@ const queueWrites = (
   writes: Writes
 ): Pick<EditorState, "pending" | "seq"> => {
   const seq = state.seq + 1;
-  const existing = new Set(
-    state.doc.document.elements.map((element) => element.id)
-  );
+  const content = contentOf(state.pages);
+  const existing = {
+    elements: new Set(content.elements.keys()),
+    pages: new Set(content.pages.keys()),
+  };
   return { pending: addWrites(state.pending, writes, existing, seq), seq };
 };
 
-// Applies undo/redo/rollback writes and queues them
+// Applies writes made here (an edit, undo, redo, rollback), shows them on
+// `wanted` (the active page by default) and queues them
 const applyLocal = (
   state: EditorState,
-  writes: Writes
-): Pick<EditorState, "doc" | "pending" | "seq" | "selectedIds"> => {
-  const doc = applyWrites(state.doc, writes);
+  writes: Writes,
+  wanted?: (pages: readonly PageView[]) => string
+): Pick<
+  EditorState,
+  "activePageId" | "doc" | "pages" | "pending" | "seq" | "selectedIds"
+> => {
+  const pages = composePages(
+    applyWrites(contentOf(state.pages), writes),
+    state.pages
+  );
+  const shown = showPages(state, pages, wanted?.(pages));
   return {
     ...queueWrites(state, writes),
-    doc,
-    selectedIds: keepExisting(state.selectedIds, doc.document),
+    ...shown,
+    selectedIds:
+      shown.activePageId === state.activePageId
+        ? keepExisting(state.selectedIds, shown.doc.document)
+        : [],
   };
 };
 
@@ -451,26 +587,42 @@ const reconcile = (
   pending: PendingWrites
 ): Pick<
   EditorState,
-  "doc" | "editingTextId" | "name" | "pending" | "selectedIds" | "synced"
+  | "activePageId"
+  | "doc"
+  | "editingTextId"
+  | "name"
+  | "pages"
+  | "pending"
+  | "selectedIds"
+  | "synced"
 > => {
-  const doc = rebase(synced, pending, state.doc, state.held);
+  const shown = showPages(
+    state,
+    rebase(synced, pending, state.pages, state.held)
+  );
+  const { document } = shown.doc;
   const exists = (id: string | null) =>
-    id !== null && doc.document.elements.some((element) => element.id === id);
+    id !== null && document.elements.some((element) => element.id === id);
   return {
-    doc,
+    ...shown,
     editingTextId: exists(state.editingTextId) ? state.editingTextId : null,
     name: currentName(synced, pending),
     pending,
-    selectedIds: keepExisting(state.selectedIds, doc.document),
+    selectedIds: keepExisting(state.selectedIds, document),
     synced,
   };
 };
 
 export const createEditorStore = (init: EditorInit) => {
-  const doc = initialDocument(init);
+  const opened = initialPages(init);
+  const [first] = opened;
+  if (!first) {
+    throw new Error("A design has a page");
+  }
 
   return createStore<EditorStore>()((set, get) => ({
     accessLost: false,
+    activePageId: first.id,
     addAsset: (asset) =>
       set((state) => {
         const known = state.assets.some((item) => item.id === asset.id);
@@ -517,7 +669,8 @@ export const createEditorStore = (init: EditorInit) => {
       set((state) => {
         const { entries, skipped } = entriesFromRows(
           rows,
-          state.synced.elements
+          state.synced.elements,
+          firstSyncedPage(state)
         );
         return {
           ...reconcile(
@@ -540,16 +693,55 @@ export const createEditorStore = (init: EditorInit) => {
           (visibility === "private" && !keepsPrivateAccess(state.role));
         const outdated = state.outdated || isNewerDocument(row);
         const restored = restoredFrom(state, row);
-        const live = pageFromRow(row);
-        if (!live) {
-          return { ...restored, accessLost, outdated, visibility };
-        }
+        const { background, name, size } = pageFromRow(row);
+        const legacyBackground = background ?? state.legacyBackground;
+        // Without page rows, the design row's background is the page's
+        const pages = state.storedPages
+          ? state.synced.pages
+          : new Map([
+              [
+                state.designId,
+                {
+                  background: legacyBackground,
+                  position: FIRST_PAGE_POSITION,
+                },
+              ],
+            ]);
         return {
-          ...reconcile(state, { ...state.synced, ...live }, state.pending),
+          ...reconcile(
+            state,
+            { ...state.synced, name, pages, size },
+            state.pending
+          ),
           ...restored,
           accessLost,
+          legacyBackground,
           outdated,
           visibility,
+        };
+      }),
+    applyLivePages: (rows) =>
+      set((state) => {
+        const stored = pagesFromRows(
+          rows,
+          state.synced.pages,
+          WHITE_PAGE_BACKGROUND
+        );
+        const storedPages = stored.size > 0;
+        const pages = storedPages
+          ? stored
+          : new Map([
+              [
+                state.designId,
+                {
+                  background: state.legacyBackground,
+                  position: FIRST_PAGE_POSITION,
+                },
+              ],
+            ]);
+        return {
+          ...reconcile(state, { ...state.synced, pages }, state.pending),
+          storedPages,
         };
       }),
     applyPresence: (rows) =>
@@ -568,12 +760,10 @@ export const createEditorStore = (init: EditorInit) => {
         if (next === state.doc.document) {
           return state;
         }
-        const { changes, editor } = diffDocument(state.doc, next);
+        const { changes } = diffDocument(state.doc, next, activePage(state));
         return {
-          ...queueWrites(state, writesOf(changes)),
-          doc: editor,
+          ...applyLocal(state, writesOf(changes)),
           history: recordChange(state.history, changes),
-          selectedIds: keepExisting(state.selectedIds, next),
         };
       }),
     clearSelection: () =>
@@ -586,7 +776,7 @@ export const createEditorStore = (init: EditorInit) => {
     comments: init.comments ?? [],
     cropTargetId: null,
     designId: init.designId,
-    doc,
+    doc: first.doc,
     draftPin: null,
     dragPreview: null,
     dropTargetId: null,
@@ -669,6 +859,7 @@ export const createEditorStore = (init: EditorInit) => {
       }
       return false;
     },
+    legacyBackground: first.doc.document.background,
     libraryIds: init.libraryIds,
     liveStatus: init.live ? "connecting" : "off",
     loseAccess: () =>
@@ -695,6 +886,7 @@ export const createEditorStore = (init: EditorInit) => {
     outdated: false,
     pageCrop: null,
     pageCropRatio: "free",
+    pages: opened,
     peers: [],
     pending: EMPTY_PENDING,
     placeDraft: (pin) => set({ draftPin: pin, openThreadId: null }),
@@ -730,7 +922,11 @@ export const createEditorStore = (init: EditorInit) => {
           return { editingTextId: null, fileDragActive: false, history };
         }
         return {
-          ...applyLocal(state, writesFor(step, "redo", state.doc)),
+          ...applyLocal(
+            state,
+            writesFor(step, "redo", contentOf(state.pages)),
+            (pages) => pageForStep(state, pages, step, "redo")
+          ),
           editingTextId: null,
           fileDragActive: false,
           history,
@@ -786,7 +982,10 @@ export const createEditorStore = (init: EditorInit) => {
           return { history };
         }
         return {
-          ...applyLocal(state, writesFor(reverted, "undo", state.doc)),
+          ...applyLocal(
+            state,
+            writesFor(reverted, "undo", contentOf(state.pages))
+          ),
           history,
         };
       }),
@@ -795,6 +994,29 @@ export const createEditorStore = (init: EditorInit) => {
     selectedIds: [],
     seq: 0,
     serverOffset: 0,
+    setActivePage: (id) => {
+      const state = get();
+      if (
+        id === state.activePageId ||
+        !state.pages.some((page) => page.id === id)
+      ) {
+        return;
+      }
+      state.finishCrop(true);
+      state.finishPageCrop(false);
+      state.finishErase();
+      // What was picked, pointed at or being written was on the other page
+      set((current) => ({
+        ...showPages(current, current.pages, id),
+        draftPin: null,
+        dragPreview: null,
+        editingTextId: null,
+        openThreadId: null,
+        pointer: null,
+        selectedIds: [],
+        textSelection: null,
+      }));
+    },
     setAwaitEcho: (awaitEcho) => set({ awaitEcho }),
     setBrandKit: (kit) =>
       set((state) => {
@@ -948,7 +1170,8 @@ export const createEditorStore = (init: EditorInit) => {
         selectedIds: [],
       }));
     },
-    synced: syncedFromDocument(doc, init.name),
+    storedPages: true,
+    synced: syncedFrom(contentOf(opened), init.name),
     textSelection: null,
     undo: () =>
       set((state) => {
@@ -960,7 +1183,11 @@ export const createEditorStore = (init: EditorInit) => {
           return { editingTextId: null, fileDragActive: false, history };
         }
         return {
-          ...applyLocal(state, writesFor(step, "undo", state.doc)),
+          ...applyLocal(
+            state,
+            writesFor(step, "undo", contentOf(state.pages)),
+            (pages) => pageForStep(state, pages, step, "undo")
+          ),
           editingTextId: null,
           fileDragActive: false,
           history,
@@ -995,3 +1222,10 @@ export type EditorStoreApi = ReturnType<typeof createEditorStore>;
 
 export const selectDocument = (state: EditorStore): DesignDocument =>
   state.doc.document;
+
+// The page on screen with every page's elements: for what looks at the
+// whole design (its images, its colours), not for drawing
+export const selectWholeDesign = (state: EditorStore): DesignDocument => ({
+  ...state.doc.document,
+  elements: state.pages.flatMap((page) => page.doc.document.elements),
+});

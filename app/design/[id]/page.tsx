@@ -37,7 +37,6 @@ const loadDesign = async (id: string, commentParam?: string | string[]) => {
   // Everything loads alongside the access check (sealing is local crypto),
   // but only leaves the server once the check has passed
   const viewerLoad = getViewer();
-  const contentLoad = getDesignContent(id);
   const [
     viewer,
     content,
@@ -49,11 +48,8 @@ const loadDesign = async (id: string, commentParam?: string | string[]) => {
     comments,
   ] = await Promise.all([
     viewerLoad,
-    contentLoad,
-    // The editor shows the first page
-    contentLoad.then((found) =>
-      found ? getLiveConfig(id, found.pages[0]?.id ?? id) : null
-    ),
+    getDesignContent(id),
+    getLiveConfig(id),
     listDesignAssets(id),
     viewerLoad.then((found) => (found ? listLibrary(found.id) : [])),
     viewerLoad.then((found) => isDesignSharedWith(id, found?.id ?? null)),
@@ -86,6 +82,7 @@ const loadDesign = async (id: string, commentParam?: string | string[]) => {
     live,
     name: content.row.name,
     openThreadId: linkedThread(comments, commentParam),
+    pages: content.pages,
     positions: firstPage.positions,
     restoreSeq: content.row.restoreSeq,
     role,

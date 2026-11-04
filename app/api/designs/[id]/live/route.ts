@@ -2,20 +2,17 @@ import { z } from "zod";
 
 import { getDesignAccess } from "@/lib/auth/design-access";
 import { getFirstPageId } from "@/lib/db/queries/designs";
-import { LIVE_QUERY_NAMES } from "@/lib/realtime/rows";
+import { LIVE_QUERY_NAMES, LIVE_QUERY_SHAPE } from "@/lib/realtime/rows";
 import type { LiveQueryName } from "@/lib/realtime/rows";
 import {
   sealCommentsQuery,
   sealElementsQuery,
   sealPageQuery,
+  sealPagesQuery,
   sealPresenceQuery,
 } from "@/lib/realtime/server";
 
 const queryName = z.enum(LIVE_QUERY_NAMES);
-
-// The editor's live query shape: 2 for editors that know pages. Tabs from
-// before pages send none.
-const PAGES_SHAPE = 2;
 
 // Editors ask for all their queries in one request ({ queries }). Tabs
 // opened before that asked for one at a time ({ query }), and still do
@@ -35,6 +32,7 @@ const SEALERS = {
   comments: (designId) => sealCommentsQuery(designId),
   elements: (designId, onlyPage) => sealElementsQuery(designId, onlyPage),
   page: (designId) => sealPageQuery(designId),
+  pages: (designId) => sealPagesQuery(designId),
   presence: (designId) => sealPresenceQuery(designId),
 } satisfies Record<
   LiveQueryName,
@@ -80,7 +78,7 @@ export const POST = async (
     "query" in parsed.data
       ? [parsed.data.query]
       : [...new Set(parsed.data.queries)];
-  const knowsPages = (parsed.data.v ?? 1) >= PAGES_SHAPE;
+  const knowsPages = (parsed.data.v ?? 1) >= LIVE_QUERY_SHAPE;
   const onlyPage =
     knowsPages || !names.includes("elements") ? null : await getFirstPageId(id);
 

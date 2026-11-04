@@ -20,13 +20,15 @@ const base = createBoxElement("rect", PAGE);
 
 const at = (x: number): Entry => ({
   element: { ...base, x },
+  pageId: "p1",
   position: "a0",
 });
 
 // One element moving from x = from to x = to
 const move = (from: number, to: number): ChangeSet => ({
   elements: new Map([[base.id, { after: at(to), before: at(from) }]]),
-  page: null,
+  pages: new Map(),
+  size: null,
 });
 
 const xs = (steps: ChangeSet[]) =>

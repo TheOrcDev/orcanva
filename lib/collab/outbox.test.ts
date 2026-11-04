@@ -22,12 +22,15 @@ import type {
 import { createBoxElement, createDocument } from "@/lib/document/factories";
 
 const PAGE = { height: 720, width: 1280 };
-const { background, height, width } = createDocument(PAGE);
+const { background } = createDocument(PAGE);
 
-const entry = (id: string, x: number): Entry => ({
+const entry = (id: string, x: number, pageId = "p1"): Entry => ({
   element: { ...createBoxElement("rect", PAGE), id, x },
+  pageId,
   position: "a0",
 });
+
+const NOTHING = { elements: new Set<string>(), pages: new Set<string>() };
 
 // A minimal host that keeps pending/synced state the way the store does
 const setup = (live = false) => {
@@ -35,7 +38,8 @@ const setup = (live = false) => {
   let synced: SyncedState = {
     elements: new Map(),
     name: "Name",
-    page: { background, height, width },
+    pages: new Map([["p1", { background, position: "a0" }]]),
+    size: PAGE,
   };
   let seq = 0;
   const statuses: SaveStatus[] = [];
@@ -67,8 +71,8 @@ const setup = (live = false) => {
     seq += 1;
     pending = addWrites(
       pending,
-      { elements: new Map([[id, entry(id, x)]]), page: null },
-      new Set(),
+      { elements: new Map([[id, entry(id, x)]]), pages: new Map(), size: null },
+      NOTHING,
       seq
     );
   };
@@ -83,29 +87,59 @@ const setup = (live = false) => {
 };
 
 describe("buildBatch", () => {
-  it("splits pending writes into upserts, deletes, page and name", () => {
+  it("splits pending writes into upserts, deletes, pages, the size and the name", () => {
     let pending = addWrites(
       EMPTY_PENDING,
       {
         elements: new Map([
-          ["a", entry("a", 1)],
+          ["a", entry("a", 1, "p2")],
           ["b", null],
         ]),
-        page: { background, height: 100, width: 100 },
+        pages: new Map([
+          ["p1", { background, position: "a0" }],
+          ["p2", { background, position: "a1" }],
+          ["p3", null],
+        ]),
+        size: { height: 100, width: 100 },
       },
-      new Set(["b"]),
+      { elements: new Set(["b"]), pages: new Set(["p1", "p3"]) },
       3
     );
     pending = { ...pending, name: { seq: 4, txid: null, value: "Renamed" } };
     const { request, seqs } = buildBatch("client", pending);
 
-    expect(request.elements.map((item) => [item.data.id, item.mode])).toEqual([
-      ["a", "create"],
-    ]);
+    expect(
+      request.elements.map((item) => [item.data.id, item.mode, item.pageId])
+    ).toEqual([["a", "create", "p2"]]);
     expect(request.deletes).toEqual(["b"]);
-    expect(request.page?.width).toBe(100);
+    expect(request.pages?.map((item) => [item.id, item.mode])).toEqual([
+      ["p1", "update"],
+      ["p2", "create"],
+    ]);
+    expect(request.pageDeletes).toEqual(["p3"]);
+    expect(request.size).toEqual({ height: 100, width: 100 });
     expect(request.name).toBe("Renamed");
-    expect(seqs).toMatchObject({ name: 4, page: 3 });
+    expect(seqs).toMatchObject({ name: 4, size: 3 });
+    expect([...seqs.pages.keys()]).toEqual(["p1", "p2", "p3"]);
+  });
+
+  it("leaves out pages and the size when there are none", () => {
+    const pending = addWrites(
+      EMPTY_PENDING,
+      {
+        elements: new Map([["a", entry("a", 1)]]),
+        pages: new Map(),
+        size: null,
+      },
+      NOTHING,
+      1
+    );
+    const { request } = buildBatch("client", pending);
+    expect(Object.keys(request).toSorted()).toEqual([
+      "clientId",
+      "deletes",
+      "elements",
+    ]);
   });
 });
 
