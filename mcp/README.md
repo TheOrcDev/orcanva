@@ -17,20 +17,13 @@ It runs from this checkout and uses the app's own `.env.local` (database and sto
 
 ### Claude Code
 
-Inside this repo, `.mcp.json` registers the server already. Export your email and start Claude Code:
-
-```bash
-export ORCANVA_EMAIL=you@example.com
-claude
-```
-
-To use it from any directory:
-
 ```bash
 claude mcp add orcanva --scope user \
   -e ORCANVA_EMAIL=you@example.com \
   -- pnpm --silent --dir /absolute/path/to/orcanva mcp
 ```
+
+The repo doesn't register it in a `.mcp.json`, so agents working on Orcanva's code don't get tools that write to your database unless you add them.
 
 ### Other agents (Cursor, Claude Desktop, …)
 

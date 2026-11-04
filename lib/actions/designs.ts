@@ -9,6 +9,7 @@ import { ownerOfNewDesign } from "@/lib/auth/new-design";
 import { requireViewer } from "@/lib/auth/server";
 import { getDb } from "@/lib/db/client";
 import { pagesOrLegacy, visibleTo } from "@/lib/db/queries/designs";
+import { insertNewDesign } from "@/lib/db/queries/new-design";
 import {
   designElements,
   designPages,
@@ -24,7 +25,6 @@ import {
 import type { ResizedCopyInput } from "@/lib/document/element-input";
 import { createDocument } from "@/lib/document/factories";
 import {
-  FIRST_PAGE_POSITION,
   documentVersionFor,
   firstPageIdOf,
   sortPages,
@@ -60,26 +60,13 @@ export const createDesign = async (
   } = createDesignInput.parse(input);
   const ownerId = await ownerOfNewDesign(chosen);
   const id = crypto.randomUUID();
-  const { background } = createDocument({ height, width });
-  const db = getDb();
-  await db.batch([
-    db.insert(designs).values({
-      background,
-      height,
-      id,
-      name,
-      ownerId,
-      version: documentVersionFor(1),
-      visibility: chosen,
-      width,
-    }),
-    db.insert(designPages).values({
-      background,
-      designId: id,
-      id: firstPageIdOf(id),
-      position: FIRST_PAGE_POSITION,
-    }),
-  ]);
+  await insertNewDesign({
+    document: createDocument({ height, width }),
+    id,
+    name,
+    ownerId,
+    visibility: chosen,
+  });
   refreshStudio();
   return { id };
 };

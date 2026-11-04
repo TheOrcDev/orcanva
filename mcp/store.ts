@@ -9,32 +9,26 @@ import path from "node:path";
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import { generateNKeysBetween } from "fractional-indexing";
 import sharp from "sharp";
+import type { Sharp } from "sharp";
 
 import { comparePositioned } from "@/lib/collab/positions";
 import { getDb } from "@/lib/db/client";
 import { changesStatement } from "@/lib/db/queries/changes";
 import { getDesignContent, sharedWith } from "@/lib/db/queries/designs";
 import type { DesignContent } from "@/lib/db/queries/designs";
+import { insertNewDesign } from "@/lib/db/queries/new-design";
 import { finishSnapshot } from "@/lib/db/queries/versions";
-import { assets, designElements, designPages, designs } from "@/lib/db/schema";
+import { assets, designs } from "@/lib/db/schema";
 import type { ChangesWrites } from "@/lib/document/changes-payload";
 import { createDocument } from "@/lib/document/factories";
-import {
-  FIRST_PAGE_POSITION,
-  documentVersionFor,
-  firstPageIdOf,
-} from "@/lib/document/pages";
 import type { Background } from "@/lib/document/schema";
 import { MAX_UPLOAD_BYTES, assetKey } from "@/lib/storage/keys";
 import type { UploadMimeType } from "@/lib/storage/keys";
 import { getObject, putObject } from "@/lib/storage/s3";
 import { templateAssetRow } from "@/lib/templates/assets";
-import { TEMPLATE_FILES } from "@/lib/templates/documents";
-import {
-  initialPositions,
-  instantiateTemplate,
-} from "@/lib/templates/instantiate";
-import { templateSchema } from "@/lib/templates/schema";
+import { instantiateTemplate } from "@/lib/templates/instantiate";
+import { readTemplate } from "@/lib/templates/read";
+import { MAX_IMAGE_SIDE, displayName } from "@/lib/upload/prepare-image";
 
 export interface Viewer {
   id: string;
@@ -114,14 +108,6 @@ export const listDesigns = async (): Promise<DesignListItem[]> => {
   return rows.map((row) => ({ ...row, url: designUrl(row.id) }));
 };
 
-const readTemplate = async (id: string) => {
-  const load = Object.hasOwn(TEMPLATE_FILES, id) ? TEMPLATE_FILES[id] : null;
-  if (!load) {
-    throw new Error(`No template "${id}"; see list_templates`);
-  }
-  return templateSchema.parse(await load());
-};
-
 // A private design of the account's own with one page, blank or from a
 // template (as "Start from" does)
 export const createDesign = async (input: {
@@ -132,58 +118,26 @@ export const createDesign = async (input: {
   templateId: string | null;
 }): Promise<{ id: string }> => {
   const { id: ownerId } = await getViewer();
-  const id = crypto.randomUUID();
-  const pageId = firstPageIdOf(id);
-  const db = getDb();
-
-  let document = createDocument({ height: input.height, width: input.width });
-  let templateAssets: ReturnType<typeof templateAssetRow>[] = [];
+  const size = { height: input.height, width: input.width };
+  let document = createDocument(size);
+  let assetRows: (typeof assets.$inferInsert)[] = [];
   if (input.templateId) {
     const template = await readTemplate(input.templateId);
     // At the size asked for; templates scale to any size
-    document = instantiateTemplate(template.document, {
-      height: input.height,
-      width: input.width,
-    });
-    templateAssets = template.assets.map(templateAssetRow);
+    document = instantiateTemplate(template.document, size);
+    assetRows = template.assets.map(templateAssetRow);
   }
-  const background = input.background ?? document.background;
-  const positions = initialPositions(document.elements.length);
-
-  await db.batch([
-    db.insert(designs).values({
-      background,
-      height: document.height,
-      id,
-      name: input.name,
-      ownerId,
-      version: documentVersionFor(1),
-      visibility: "private",
-      width: document.width,
-    }),
-    db.insert(designPages).values({
-      background,
-      designId: id,
-      id: pageId,
-      position: FIRST_PAGE_POSITION,
-    }),
-    ...(templateAssets.length > 0
-      ? [db.insert(assets).values(templateAssets).onConflictDoNothing()]
-      : []),
-    ...(document.elements.length > 0
-      ? [
-          db.insert(designElements).values(
-            document.elements.map((element, index) => ({
-              data: element,
-              designId: id,
-              id: element.id,
-              pageId,
-              position: positions[index] ?? "a0",
-            }))
-          ),
-        ]
-      : []),
-  ]);
+  const id = crypto.randomUUID();
+  await insertNewDesign({
+    assetRows,
+    document: input.background
+      ? { ...document, background: input.background }
+      : document,
+    id,
+    name: input.name,
+    ownerId,
+    visibility: "private",
+  });
   return { id };
 };
 
@@ -300,6 +254,18 @@ const KEEP_FORMATS: Record<string, UploadMimeType> = {
   webp: "image/webp",
 };
 
+// The browser's re-encoding quality (lib/upload/prepare-image.ts)
+const REENCODE_QUALITY = 92;
+
+// How a file that has to be redrawn is written: GIFs become PNGs, as in
+// the browser
+const ENCODERS: Record<UploadMimeType, (image: Sharp) => Sharp> = {
+  "image/gif": (image) => image.png(),
+  "image/jpeg": (image) => image.jpeg({ quality: REENCODE_QUALITY }),
+  "image/png": (image) => image.png(),
+  "image/webp": (image) => image.webp({ quality: REENCODE_QUALITY }),
+};
+
 const readSource = async (source: string): Promise<Uint8Array> => {
   if (/^https?:\/\//iu.test(source)) {
     const response = await fetch(source);
@@ -320,61 +286,111 @@ export interface UploadedImage {
   height: number;
 }
 
-// Puts an image in the account's library, as an upload from the editor
-// would: one copy per file per account, matched by its SHA-256
-export const uploadImage = async (source: string): Promise<UploadedImage> => {
-  const { id: ownerId } = await getViewer();
-  let bytes = await readSource(source);
-  const meta = await sharp(bytes).metadata();
-  let mimeType = meta.format ? KEEP_FORMATS[meta.format] : undefined;
-  if (!mimeType) {
-    bytes = new Uint8Array(await sharp(bytes).png().toBuffer());
-    mimeType = "image/png";
-  }
-  if (bytes.byteLength > MAX_UPLOAD_BYTES) {
-    throw new Error("Image is over 25 MB");
-  }
+// The image as the editor would upload it: a format Orcanva shows, no
+// bigger than MAX_IMAGE_SIDE, with its size as displayed
+const prepareUpload = async (source: string) => {
+  const original = await readSource(source);
+  const meta = await sharp(original).metadata();
   const { width, height } = meta;
   if (!(width && height)) {
     throw new Error("Couldn't read the image's size");
   }
-  // Rotated phone photos: the size as displayed
-  const rotated = (meta.orientation ?? 1) >= 5;
-  const size = rotated ? { height: width, width: height } : { height, width };
+  const kept = meta.format ? KEEP_FORMATS[meta.format] : undefined;
+  const oversized = Math.max(width, height) > MAX_IMAGE_SIDE;
 
+  let bytes = original;
+  let mimeType = kept ?? "image/png";
+  // Rotated phone photos: the size as displayed
+  let size =
+    (meta.orientation ?? 1) >= 5
+      ? { height: width, width: height }
+      : { height, width };
+  if (oversized || !kept) {
+    if (mimeType === "image/gif") {
+      mimeType = "image/png";
+    }
+    // Turned upright first, since the new file keeps no orientation
+    const image = sharp(original).rotate();
+    const { data, info } = await ENCODERS[mimeType](
+      oversized
+        ? image.resize({
+            fit: "inside",
+            height: MAX_IMAGE_SIDE,
+            width: MAX_IMAGE_SIDE,
+          })
+        : image
+    ).toBuffer({ resolveWithObject: true });
+    bytes = new Uint8Array(data);
+    size = { height: info.height, width: info.width };
+  }
+  if (bytes.byteLength > MAX_UPLOAD_BYTES) {
+    throw new Error("Image is over 25 MB");
+  }
+  return { bytes, mimeType, size };
+};
+
+// Puts an image in the account's library, as an upload from the editor
+// would: one copy per file per account, matched by its SHA-256. The row is
+// reserved before the file goes up and marked ready after, so a failure
+// leaves a pending row (which a retry completes), never a file nobody has.
+export const uploadImage = async (source: string): Promise<UploadedImage> => {
+  const { id: ownerId } = await getViewer();
+  const { bytes, mimeType, size } = await prepareUpload(source);
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   const db = getDb();
-  const [existing] = await db
-    .select({ height: assets.height, id: assets.id, width: assets.width })
-    .from(assets)
-    .where(
-      and(
-        eq(assets.ownerId, ownerId),
-        eq(assets.sha256, sha256),
-        eq(assets.status, "ready")
-      )
-    )
-    .limit(1);
-  if (existing) {
-    return existing;
-  }
+  const sameFile = and(eq(assets.ownerId, ownerId), eq(assets.sha256, sha256));
+  const existing = async () => {
+    const [row] = await db
+      .select({
+        height: assets.height,
+        id: assets.id,
+        key: assets.key,
+        mimeType: assets.mimeType,
+        status: assets.status,
+        width: assets.width,
+      })
+      .from(assets)
+      .where(sameFile)
+      .limit(1);
+    return row;
+  };
 
-  const id = crypto.randomUUID();
-  const key = assetKey(id, mimeType);
-  await putObject(key, bytes, mimeType);
-  await db.insert(assets).values({
-    ...size,
-    id,
-    key,
-    mimeType,
-    originalName:
-      path.basename(new URL(source, "file:///").pathname) || "image",
-    ownerId,
-    sha256,
-    sizeBytes: bytes.byteLength,
-    status: "ready",
-  });
-  return { id, ...size };
+  let row = await existing();
+  if (!row) {
+    const id = crypto.randomUUID();
+    await db
+      .insert(assets)
+      .values({
+        ...size,
+        id,
+        key: assetKey(id, mimeType),
+        mimeType,
+        originalName: displayName(
+          path.basename(new URL(source, "file:///").pathname)
+        ),
+        ownerId,
+        sha256,
+        sizeBytes: bytes.byteLength,
+      })
+      // An upload of the same file may have won the race
+      .onConflictDoNothing();
+    row = await existing();
+  }
+  if (!row) {
+    throw new Error("Couldn't reserve the upload");
+  }
+  if (row.status !== "ready") {
+    await putObject(row.key, bytes, row.mimeType);
+    await db
+      .update(assets)
+      .set({
+        sizeBytes: bytes.byteLength,
+        status: "ready",
+        updatedAt: new Date(),
+      })
+      .where(eq(assets.id, row.id));
+  }
+  return { height: row.height, id: row.id, width: row.width };
 };
 
 // The design's latest gallery picture, which an open editor renders after

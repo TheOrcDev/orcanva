@@ -101,6 +101,11 @@ const blockedReason = (store: EditorStoreApi): string | null => {
   if (state.previewVersionId) {
     return "A version from the history is open; ask the person to close it first";
   }
+  // The eraser holds the photo's pixels until Done, and the store refuses
+  // undo meanwhile
+  if (state.eraseTargetId) {
+    return "The magic eraser is open; ask the person to finish or cancel it first";
+  }
   return null;
 };
 
@@ -222,7 +227,7 @@ const goToPage = (store: EditorStoreApi, pageId: string | undefined) => {
   state.setActivePage(pageId);
 };
 
-// Ends a crop, an erase or typing, as the panels do before changing things
+// Ends a crop or typing, as the panels do before changing things
 const settleEditing = (store: EditorStoreApi) => {
   const state = store.getState();
   state.finishCrop(true);
@@ -655,7 +660,6 @@ export const editorTools = (deps: EditorToolDeps): ModelContextTool[] => {
       name: "get_preview",
       run: async () => {
         const { height, width } = pageSize();
-        settleEditing(store);
         const blob = await deps.render({
           format: "jpeg",
           pixelRatio: Math.min(1, PREVIEW_MAX_SIDE / Math.max(width, height)),
@@ -688,7 +692,6 @@ export const editorTools = (deps: EditorToolDeps): ModelContextTool[] => {
       name: "download",
       run: async ({ format, scale }) => {
         const { height, width } = pageSize();
-        settleEditing(store);
         const blob = await deps.render({
           format,
           pixelRatio: scale,

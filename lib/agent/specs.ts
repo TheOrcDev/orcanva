@@ -293,6 +293,10 @@ export const estimateTextHeight = (
   return lines * text.fontSize * text.lineHeight;
 };
 
+// Fields an agent may never set: they'd turn the element into another one,
+// or (with an id already in use) make a new element overwrite that one
+const FIXED_FIELDS = new Set(["id", "type"]);
+
 // Validates a built element as the save route would, keeping fields this
 // version of the schema doesn't know (like the route does). Fields the
 // agent supplied itself must be known ones, so a typo is an error rather
@@ -301,6 +305,10 @@ export const finishElement = (
   raw: Record<string, unknown>,
   supplied: Record<string, unknown> = {}
 ): DesignElement => {
+  const blocked = Object.keys(supplied).filter((key) => FIXED_FIELDS.has(key));
+  if (blocked.length > 0) {
+    throw new Error(`Can't set ${blocked.join(", ")}`);
+  }
   const parsed = elementSchema.safeParse(raw);
   if (!parsed.success) {
     throw new Error(z.prettifyError(parsed.error));
@@ -491,21 +499,11 @@ export const buildImage = (
   );
 };
 
-// Fields an update may never change: they'd turn the element into another
-// one, or move it to another design's row
-const FIXED_FIELDS = new Set(["id", "type"]);
-
 // An element with some of its fields replaced, checked like a new one
 export const patchElement = (
   element: DesignElement,
   changes: Record<string, unknown>
-): DesignElement => {
-  const blocked = Object.keys(changes).filter((key) => FIXED_FIELDS.has(key));
-  if (blocked.length > 0) {
-    throw new Error(`Can't change ${blocked.join(", ")}`);
-  }
-  return finishElement({ ...element, ...changes }, changes);
-};
+): DesignElement => finishElement({ ...element, ...changes }, changes);
 
 // Graphics carry their vector art, which is long and of no use to an agent
 // reading the design: show the rest
