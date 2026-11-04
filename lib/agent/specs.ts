@@ -1,7 +1,8 @@
-// Turns the MCP tools' friendly element specs ("white Anton text at the
-// top") into full Orcanva elements, built on the editor's own factories and
+// Turns an agent's friendly element specs ("white Anton text at the top")
+// into full Orcanva elements, built on the editor's own factories and
 // validated by the document schema, so whatever an agent writes is
-// something the editor can open. Pure: no database, no files.
+// something the editor can open. Shared by the MCP server (mcp/) and the
+// editor's WebMCP tools. Pure: no database, no files, no DOM.
 import { z } from "zod";
 
 import {
@@ -174,7 +175,9 @@ export const imageSpec = z.object({
   source: z
     .string()
     .min(1)
-    .describe("Absolute local file path or http(s) URL of a PNG/JPG/WebP/GIF"),
+    .describe(
+      "An http(s) URL of a PNG/JPG/WebP/GIF (the local MCP server also takes an absolute file path)"
+    ),
   type: z.literal("image"),
   width: z
     .number()
