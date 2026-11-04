@@ -142,6 +142,16 @@ describe("patchElement", () => {
     expect(() => patchElement(box, { opacity: 5 })).toThrow();
     expect(() => patchElement(box, { fontSize: 5 })).toThrow(/Unknown field/u);
   });
+
+  it("refuses an id or type in a new element's advanced fields", () => {
+    const box = buildBox({ type: "rect" }, PAGE);
+    expect(() =>
+      buildBox({ advanced: { id: box.id }, type: "rect" }, PAGE)
+    ).toThrow(/Can't set id/u);
+    expect(() =>
+      buildText({ advanced: { type: "rect" }, text: "Hi", type: "text" }, PAGE)
+    ).toThrow(/Can't set type/u);
+  });
 });
 
 describe("toBackground", () => {

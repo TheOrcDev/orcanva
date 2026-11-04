@@ -232,10 +232,24 @@ describe("editor WebMCP tools", () => {
     expect(design.error).toBeUndefined();
   });
 
+  it("waits while the magic eraser is open", async () => {
+    const { call, elements, store } = setup();
+    await call("add_elements", { elements: [{ type: "rect" }] });
+    store.setState({ eraseTargetId: elements()[0]?.id ?? null });
+    const undo = await call("undo");
+    expect(undo.error).toMatch(/magic eraser/u);
+    expect(elements()).toHaveLength(1);
+  });
+
   it("previews as an image and downloads with a sensible name", async () => {
-    const { call, download } = setup();
+    const { call, download, elements, store } = setup();
+    await call("add_elements", { elements: [{ text: "Hi", type: "text" }] });
+    const [text] = elements();
+    store.getState().setEditingText(text?.id ?? null);
     const preview = await call("get_preview");
     expect(preview).toMatchObject({ data: "AQID", type: "image" });
+    // Looking doesn't end the person's typing
+    expect(store.getState().editingTextId).toBe(text?.id);
     const result = await call("download", { format: "jpeg", scale: 2 });
     expect(result.downloaded).toBe("my-thumbnail-2560x1440.jpg");
     expect(download).toHaveBeenCalledOnce();

@@ -5,42 +5,19 @@ import { z } from "zod";
 
 import { getDesignAccess } from "@/lib/auth/design-access";
 import { ownerOfNewDesign } from "@/lib/auth/new-design";
-import { getDb } from "@/lib/db/client";
 import { upsertTemplateAssets } from "@/lib/db/queries/assets";
-import {
-  assets,
-  designElements,
-  designPages,
-  designVisibility,
-  designs,
-} from "@/lib/db/schema";
+import { insertNewDesign } from "@/lib/db/queries/new-design";
+import { designVisibility } from "@/lib/db/schema";
 import { migrateDocument } from "@/lib/document/migrate";
-import {
-  FIRST_PAGE_POSITION,
-  documentVersionFor,
-  firstPageIdOf,
-} from "@/lib/document/pages";
 import { findPresetById } from "@/lib/document/presets";
 import type { DesignDocument } from "@/lib/document/schema";
 import type { EditorAsset } from "@/lib/editor/store";
 import { templateAssetRow, templateEditorAsset } from "@/lib/templates/assets";
-import { TEMPLATE_FILES } from "@/lib/templates/documents";
-import {
-  initialPositions,
-  instantiateTemplate,
-} from "@/lib/templates/instantiate";
-import { templateIdSchema, templateSchema } from "@/lib/templates/schema";
-import type { Template } from "@/lib/templates/schema";
+import { instantiateTemplate } from "@/lib/templates/instantiate";
+import { readTemplate } from "@/lib/templates/read";
+import { templateIdSchema } from "@/lib/templates/schema";
 
 // Server Actions are public endpoints: each one checks the session itself
-
-const readTemplate = async (id: string): Promise<Template> => {
-  const load = Object.hasOwn(TEMPLATE_FILES, id) ? TEMPLATE_FILES[id] : null;
-  if (!load) {
-    throw new Error("Template not found");
-  }
-  return templateSchema.parse(await load());
-};
 
 const createInput = z.object({
   name: z.string().trim().min(1).max(120).optional(),
@@ -60,52 +37,16 @@ export const createDesignFromTemplate = async (
   if (!preset) {
     throw new Error("Template not found");
   }
-  const document = instantiateTemplate(template.document, preset);
-  const positions = initialPositions(document.elements.length);
-
   const id = crypto.randomUUID();
   // Templates are one page, so the design is too
-  const pageId = firstPageIdOf(id);
-  const db = getDb();
-  const design = db.insert(designs).values({
-    background: document.background,
-    height: document.height,
+  await insertNewDesign({
+    assetRows: template.assets.map(templateAssetRow),
+    document: instantiateTemplate(template.document, preset),
     id,
     name: name ?? template.name,
     ownerId,
-    version: documentVersionFor(1),
     visibility,
-    width: document.width,
   });
-  const page = db.insert(designPages).values({
-    background: document.background,
-    designId: id,
-    id: pageId,
-    position: FIRST_PAGE_POSITION,
-  });
-  const elements = document.elements.map((element, index) => ({
-    data: element,
-    designId: id,
-    id: element.id,
-    pageId,
-    position: positions[index] ?? "",
-  }));
-  // With rows for its images, which its photos point at
-  await db.batch([
-    design,
-    page,
-    ...(template.assets.length > 0
-      ? [
-          db
-            .insert(assets)
-            .values(template.assets.map(templateAssetRow))
-            .onConflictDoNothing(),
-        ]
-      : []),
-    ...(elements.length > 0
-      ? [db.insert(designElements).values(elements)]
-      : []),
-  ]);
 
   // Every page in the studio's sidebar layout, as for a blank design
   revalidatePath("/(studio)", "layout");
