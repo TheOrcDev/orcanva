@@ -7,6 +7,8 @@ import { useId, useState } from "react";
 import type { FormEvent } from "react";
 
 import { usePageNodeRef } from "@/components/editor/canvas-context";
+import { usePageRenderer } from "@/components/editor/canvas/static-page";
+import type { RenderOffscreen } from "@/components/editor/canvas/static-page";
 import {
   useEditor,
   useEditorStoreApi,
@@ -55,9 +57,12 @@ import { useVersionHistory } from "@/hooks/use-version-history";
 import type { VersionHistory } from "@/hooks/use-version-history";
 import { canManageHistory } from "@/lib/auth/access";
 import type { DesignDocument } from "@/lib/document/schema";
-import { selectDocument } from "@/lib/editor/store";
 import { prepareForRender } from "@/lib/export/prepare";
-import { renderThumbnail } from "@/lib/export/render-page";
+import {
+  THUMBNAIL_MAX_SIZE,
+  THUMBNAIL_QUALITY,
+  renderThumbnail,
+} from "@/lib/export/render-page";
 import { cn } from "@/lib/utils";
 import {
   deleteVersion,
@@ -72,23 +77,38 @@ import {
 import { MAX_VERSION_NAME } from "@/lib/versions/schema";
 import type { VersionSummary } from "@/lib/versions/schema";
 
+// A version's picture is its first page, as the gallery's is: from the
+// canvas when that's the page on screen, otherwise drawn off screen
 const drawPicture = async (
-  node: Konva.Group,
-  document: DesignDocument,
-  designId: string,
-  versionId: string
-) => {
-  await prepareForRender(document);
-  const picture = await renderThumbnail(node, document);
-  await uploadVersionThumbnail(designId, versionId, picture);
+  node: Konva.Group | null,
+  render: RenderOffscreen,
+  first: { id: string; document: DesignDocument },
+  activePageId: string
+): Promise<Blob | null> => {
+  if (first.id !== activePageId) {
+    const { document } = first;
+    return render(document, {
+      format: "jpeg",
+      pixelRatio: Math.min(
+        1,
+        THUMBNAIL_MAX_SIZE / Math.max(document.width, document.height)
+      ),
+      quality: THUMBNAIL_QUALITY,
+    });
+  }
+  if (!node) {
+    return null;
+  }
+  await prepareForRender(first.document);
+  return renderThumbnail(node, first.document);
 };
 
 // Names the design as it is now. This window's own edits go out first, so
-// the version holds them, and its picture is drawn from the canvas, which
-// shows the same state.
+// the version holds them, and its picture is drawn from the same state.
 const SaveVersionForm = ({ onSaved }: { onSaved: () => void }) => {
   const store = useEditorStoreApi();
   const pageNodeRef = usePageNodeRef();
+  const render = usePageRenderer();
   const id = useId();
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -103,13 +123,23 @@ const SaveVersionForm = ({ onSaved }: { onSaved: () => void }) => {
     try {
       const { designId, flushWrites } = store.getState();
       await flushWrites?.();
-      const document = selectDocument(store.getState());
+      const { activePageId, pages } = store.getState();
+      const [first] = pages;
       const saved = await saveVersion(designId, trimmed);
-      const node = pageNodeRef.current;
       // Without its picture, one is drawn when it's first previewed. A tab
       // that can't draw part of the design leaves that to another.
-      if (node && store.getState().skippedElementIds.length === 0) {
-        await drawPicture(node, document, designId, saved.id).catch(() => null);
+      if (first && store.getState().skippedElementIds.length === 0) {
+        const picture = await drawPicture(
+          pageNodeRef.current,
+          render,
+          { document: first.doc.document, id: first.id },
+          activePageId
+        ).catch(() => null);
+        if (picture) {
+          await uploadVersionThumbnail(designId, saved.id, picture).catch(
+            () => null
+          );
+        }
       }
       setName("");
       toast.add({ title: `Saved “${trimmed}”`, type: "success" });
