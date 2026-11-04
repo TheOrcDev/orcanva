@@ -27,14 +27,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Field,
-  FieldContent,
   FieldDescription,
   FieldGroup,
-  FieldLabel,
   FieldLegend,
   FieldSet,
-  FieldTitle,
 } from "@/components/ui/field";
 import {
   Item,
@@ -45,10 +41,10 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@/components/ui/item";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useResizePreviews } from "@/hooks/use-resize-previews";
 import { createResizedCopy } from "@/lib/actions/designs";
 import { signInUrl } from "@/lib/auth/redirect";
@@ -118,33 +114,31 @@ const announceResize = (store: EditorStoreApi, step: object, label: string) => {
 };
 
 const LayoutPicker = ({
-  idPrefix,
   value,
   onChange,
 }: {
-  idPrefix: string;
   value: ResizeLayout;
   onChange: (layout: ResizeLayout) => void;
 }) => (
   <FieldSet>
     <FieldLegend variant="label">Layout</FieldLegend>
-    <RadioGroup
-      className="sm:grid-cols-3"
-      value={value}
-      onValueChange={(next) => onChange(next as ResizeLayout)}
+    <ToggleGroup
+      variant="outline"
+      value={[value]}
+      onValueChange={(next) => {
+        const [picked] = next;
+        if (picked) {
+          onChange(picked as ResizeLayout);
+        }
+      }}
     >
       {RESIZE_LAYOUTS.map((layout) => (
-        <FieldLabel key={layout} htmlFor={`${idPrefix}-${layout}`}>
-          <Field orientation="horizontal">
-            <FieldContent>
-              <FieldTitle>{LAYOUTS[layout].title}</FieldTitle>
-              <FieldDescription>{LAYOUTS[layout].description}</FieldDescription>
-            </FieldContent>
-            <RadioGroupItem value={layout} id={`${idPrefix}-${layout}`} />
-          </Field>
-        </FieldLabel>
+        <ToggleGroupItem key={layout} value={layout}>
+          {LAYOUTS[layout].title}
+        </ToggleGroupItem>
       ))}
-    </RadioGroup>
+    </ToggleGroup>
+    <FieldDescription>{LAYOUTS[value].description}</FieldDescription>
   </FieldSet>
 );
 
@@ -344,7 +338,7 @@ const ResizeForm = ({ onDone }: { onDone: () => void }) => {
   if (phase.kind === "done") {
     const made = phase.results.filter((result) => result.id).length;
     return (
-      <div className="flex flex-col gap-6">
+      <>
         <DialogHeader>
           <DialogTitle>
             {made === phase.results.length
@@ -356,7 +350,9 @@ const ResizeForm = ({ onDone }: { onDone: () => void }) => {
             unchanged.
           </DialogDescription>
         </DialogHeader>
-        <CopyResults results={phase.results} />
+        <div className="-mx-6 min-h-0 flex-1 overflow-y-auto px-6">
+          <CopyResults results={phase.results} />
+        </div>
         <DialogFooter>
           <Button
             variant="outline"
@@ -366,66 +362,64 @@ const ResizeForm = ({ onDone }: { onDone: () => void }) => {
           </Button>
           <Button onClick={onDone}>Done</Button>
         </DialogFooter>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <>
       <DialogHeader>
         <DialogTitle>Magic Resize</DialogTitle>
         <DialogDescription>
           Resize this design, or make a copy at each size you tick.
         </DialogDescription>
       </DialogHeader>
-      <FieldGroup>
-        <SizeChecklist
-          idPrefix={id}
-          current={document}
-          choices={choices}
-          ticked={ticked}
-          max={MAX_SIZES}
-          onTickedChange={setTicked}
-          onAddCustom={(choice) => {
-            if (!choices.some((item) => item.id === choice.id)) {
-              setCustoms((list) => [...list, choice]);
-            }
-            setTicked((list) => [
-              ...list.filter((item) => item !== choice.id),
-              choice.id,
-            ]);
-          }}
-          onRemoveCustom={(choiceId) => {
-            setCustoms((list) => list.filter((item) => item.id !== choiceId));
-            setTicked((list) => list.filter((item) => item !== choiceId));
-          }}
-        />
-        <LayoutPicker
-          idPrefix={`${id}-layout`}
-          value={layout}
-          onChange={setLayout}
-        />
-        {busy ? null : <Previews layout={layout} sizes={sizes} />}
-      </FieldGroup>
-      {busy ? (
-        <output
-          aria-live="polite"
-          className="text-muted-foreground flex items-center gap-2 text-sm"
-        >
-          <Spinner />
-          {phase.total === 1
-            ? "Laying it out…"
-            : `Making ${phase.done + 1} of ${phase.total}…`}
-        </output>
-      ) : null}
-      {incomplete ? (
-        <p className="text-muted-foreground text-sm">
-          Parts of this design were made with a newer Orcanva. Reload to copy or
-          resize all of it.
-        </p>
-      ) : null}
+      <div className="-mx-6 flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6">
+        <FieldGroup>
+          <SizeChecklist
+            idPrefix={id}
+            current={document}
+            choices={choices}
+            ticked={ticked}
+            max={MAX_SIZES}
+            onTickedChange={setTicked}
+            onAddCustom={(choice) => {
+              if (!choices.some((item) => item.id === choice.id)) {
+                setCustoms((list) => [...list, choice]);
+              }
+              setTicked((list) => [
+                ...list.filter((item) => item !== choice.id),
+                choice.id,
+              ]);
+            }}
+            onRemoveCustom={(choiceId) => {
+              setCustoms((list) => list.filter((item) => item.id !== choiceId));
+              setTicked((list) => list.filter((item) => item !== choiceId));
+            }}
+          />
+          <LayoutPicker value={layout} onChange={setLayout} />
+          {busy ? null : <Previews layout={layout} sizes={sizes} />}
+        </FieldGroup>
+        {incomplete ? (
+          <p className="text-muted-foreground text-sm">
+            Parts of this design were made with a newer Orcanva. Reload to copy
+            or resize all of it.
+          </p>
+        ) : null}
+      </div>
       <DialogFooter className="items-center">
-        {signedIn ? null : (
+        {busy ? (
+          <output
+            aria-live="polite"
+            className="text-muted-foreground mr-auto flex items-center gap-2 text-sm"
+          >
+            <Spinner />
+            {phase.total === 1
+              ? "Laying it out…"
+              : `Making ${phase.done + 1} of ${phase.total}…`}
+          </output>
+        ) : null}
+        {signedIn || busy ? null : (
           <p className="text-muted-foreground mr-auto text-sm">
             <Link href={signInUrl(designPath(designId))} className="underline">
               Sign in to make copies
@@ -448,7 +442,7 @@ const ResizeForm = ({ onDone }: { onDone: () => void }) => {
             : "Copy & resize"}
         </Button>
       </DialogFooter>
-    </div>
+    </>
   );
 };
 
@@ -461,7 +455,7 @@ export const ResizeCanvasDialog = () => {
         <RiAspectRatioLine data-icon="inline-start" />
         Resize
       </DialogTrigger>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col sm:max-w-3xl">
         {open ? <ResizeForm onDone={() => setOpen(false)} /> : null}
       </DialogContent>
     </Dialog>
