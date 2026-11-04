@@ -5,13 +5,6 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { generateNKeysBetween } from "fractional-indexing";
 import { z } from "zod";
 
-import { SIZE_PRESETS, findPresetById } from "@/lib/document/presets";
-import { MAX_CANVAS_SIZE, MIN_CANVAS_SIZE } from "@/lib/document/schema";
-import type { DesignElement } from "@/lib/document/schema";
-import { FONT_CATALOG } from "@/lib/fonts/catalog";
-import { GRAPHIC_KINDS } from "@/lib/graphics/entry";
-import { TEMPLATES } from "@/lib/templates/catalog";
-
 import {
   backgroundSpec,
   buildBox,
@@ -23,8 +16,15 @@ import {
   patchElement,
   summarizeElement,
   toBackground,
-} from "./builders";
-import type { ElementSpec } from "./builders";
+} from "@/lib/agent/specs";
+import type { ElementSpec } from "@/lib/agent/specs";
+import { SIZE_PRESETS, findPresetById } from "@/lib/document/presets";
+import { MAX_CANVAS_SIZE, MIN_CANVAS_SIZE } from "@/lib/document/schema";
+import type { DesignElement } from "@/lib/document/schema";
+import { FONT_CATALOG } from "@/lib/fonts/catalog";
+import { GRAPHIC_KINDS } from "@/lib/graphics/entry";
+import { TEMPLATES } from "@/lib/templates/catalog";
+
 import { findGraphics, resolveGraphic } from "./graphics";
 import {
   allElements,

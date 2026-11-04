@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { findBuiltinGraphic } from "@/lib/graphics/builtin";
-
 import {
   buildBox,
   buildGraphic,
@@ -13,8 +11,9 @@ import {
   placeBox,
   summarizeElement,
   toBackground,
-} from "./builders";
-import type { TextSpec } from "./builders";
+} from "@/lib/agent/specs";
+import type { TextSpec } from "@/lib/agent/specs";
+import { findBuiltinGraphic } from "@/lib/graphics/builtin";
 
 const PAGE = { height: 720, width: 1280 };
 const ASSET = {
