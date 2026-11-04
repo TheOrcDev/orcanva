@@ -2,16 +2,14 @@ import type Konva from "konva";
 
 import type { DesignDocument } from "@/lib/document/schema";
 import type { EditorStoreApi } from "@/lib/editor/store";
-import { selectDocument } from "@/lib/editor/store";
-import { prepareForRender } from "@/lib/export/prepare";
-import { renderThumbnail } from "@/lib/export/render-page";
 
 export const THUMBNAIL_IDLE_MS = 4000;
 
 export interface Thumbnailer {
   schedule: (delayMs?: number) => void;
-  // Renders and uploads now if the document changed since the last preview;
-  // "retry" means a text edit was in progress and nothing was rendered
+  // Renders and uploads now if the first page changed since the last
+  // preview; "retry" means a text edit was in progress and nothing was
+  // rendered
   flush: () => Promise<"done" | "retry">;
   dispose: () => void;
 }
@@ -27,40 +25,64 @@ export const uploadThumbnail = async (designId: string, blob: Blob) => {
   }
 };
 
+// Keeps the gallery preview, a picture of the design's first page, up to
+// date. It's drawn from the canvas's page node (`drawCanvas`) while the
+// first page is on screen, and off screen (`drawOffscreen`, the static page
+// renderer) while another is.
 export const createThumbnailer = ({
   store,
   getPageNode,
   hasThumbnail,
+  drawCanvas,
+  drawOffscreen,
+  upload = uploadThumbnail,
 }: {
   store: EditorStoreApi;
   getPageNode: () => Konva.Group | null;
   hasThumbnail: boolean;
+  drawCanvas: (node: Konva.Group, document: DesignDocument) => Promise<Blob>;
+  drawOffscreen: (document: DesignDocument) => Promise<Blob>;
+  upload?: (designId: string, blob: Blob) => Promise<void>;
 }): Thumbnailer => {
+  const firstPage = () => {
+    const state = store.getState();
+    return state.pages[0] ?? null;
+  };
   let rendered: DesignDocument | null = hasThumbnail
-    ? selectDocument(store.getState())
+    ? (firstPage()?.doc.document ?? null)
     : null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let running: Promise<unknown> | null = null;
   let disposed = false;
 
   const generate = async (): Promise<"done" | "retry"> => {
-    const node = getPageNode();
     const state = store.getState();
-    const document = selectDocument(state);
+    const first = firstPage();
     // Elements this tab can't draw would be missing from the preview: leave
     // it to a tab that can
-    if (!node || document === rendered || state.skippedElementIds.length > 0) {
+    if (
+      !first ||
+      first.doc.document === rendered ||
+      state.skippedElementIds.length > 0
+    ) {
       return "done";
     }
-    // An in-progress text edit is hidden on canvas; wait until it's done
-    if (state.editingTextId) {
-      return "retry";
+    const { document } = first.doc;
+    let blob: Blob;
+    if (state.activePageId === first.id) {
+      const node = getPageNode();
+      if (!node) {
+        return "done";
+      }
+      // An in-progress text edit is hidden on canvas; wait until it's done
+      if (state.editingTextId) {
+        return "retry";
+      }
+      blob = await drawCanvas(node, document);
+    } else {
+      blob = await drawOffscreen(document);
     }
-    await prepareForRender(document);
-    await uploadThumbnail(
-      state.designId,
-      await renderThumbnail(node, document)
-    );
+    await upload(state.designId, blob);
     rendered = document;
     return "done";
   };

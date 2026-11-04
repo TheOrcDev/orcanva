@@ -22,17 +22,20 @@ export interface PreviewSize extends Size {
   id: string;
 }
 
-// The design laid out at each size, as a small picture drawn off screen
-// the way Download would draw it, by id. Drawn again (one page at a time)
-// when the sizes, the layout or the design change; until then the last
-// picture of a size stays up. Pictures are blob URLs, revoked once
-// replaced or no longer shown.
+// The design's first page laid out at each size, as a small picture drawn
+// off screen the way Download would draw it, by id. Drawn again (one page
+// at a time) when the sizes, the layout or the design change; until then
+// the last picture of a size stays up. Pictures are blob URLs, revoked
+// once replaced or no longer shown.
 export const useResizePreviews = (
   sizes: readonly PreviewSize[],
   layout: ResizeLayout
 ): ReadonlyMap<string, string> => {
   const render = usePageRenderer();
-  const document = useEditor(selectDocument);
+  // The first page, as a copy's gallery preview shows it
+  const document = useEditor(
+    (state) => state.pages[0]?.doc.document ?? selectDocument(state)
+  );
   const [urls, setUrls] = useState<ReadonlyMap<string, string>>(new Map());
   const shown = useRef(new Map<string, string>());
   // Stands for the sizes, so a new array of the same sizes is no change

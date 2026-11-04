@@ -80,6 +80,7 @@ export const renderPage = async (
 };
 
 export const THUMBNAIL_MAX_SIZE = 640;
+export const THUMBNAIL_QUALITY = 0.8;
 
 export const renderThumbnail = (
   pageNode: Konva.Group,
@@ -91,7 +92,7 @@ export const renderThumbnail = (
       1,
       THUMBNAIL_MAX_SIZE / Math.max(page.width, page.height)
     ),
-    quality: 0.8,
+    quality: THUMBNAIL_QUALITY,
   });
 
 export const downloadBlob = (blob: Blob, filename: string) => {

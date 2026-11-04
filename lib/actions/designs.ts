@@ -25,6 +25,7 @@ import {
   FIRST_PAGE_POSITION,
   documentVersionFor,
   firstPageIdOf,
+  sortPages,
 } from "@/lib/document/pages";
 import { thumbnailKey } from "@/lib/storage/keys";
 import { copyObject, deleteObject } from "@/lib/storage/s3";
@@ -254,16 +255,17 @@ export const duplicateDesign = async (id: string): Promise<{ id: string }> => {
   return { id: copy.id };
 };
 
-// Magic Resize's copies: a new private design of the viewer's own, laid out
-// by the browser (measuring text needs its fonts) from one they can open.
-// The elements are checked as the changes route checks them, so this
-// stores nothing a save couldn't. One batch, so a copy is never half made.
-// It doesn't refresh the studio: from the editor that would load the whole
-// design again, and the studio's pages are fetched afresh on the way back.
+// Magic Resize's copies: a new private design of the viewer's own, every
+// page laid out by the browser (measuring text needs its fonts) from one
+// they can open. The elements are checked as the changes route checks
+// them, so this stores nothing a save couldn't. One batch, so a copy is
+// never half made. It doesn't refresh the studio: from the editor that
+// would load the whole design again, and the studio's pages are fetched
+// afresh on the way back.
 export const createResizedCopy = async (
   input: ResizedCopyInput
 ): Promise<{ id: string }> => {
-  const { background, elements, height, name, sourceId, width } =
+  const { height, name, pages, sourceId, width } =
     resizedCopyInput.parse(input);
   const viewer = await requireViewer();
   const db = getDb();
@@ -277,36 +279,37 @@ export const createResizedCopy = async (
   }
 
   const id = crypto.randomUUID();
-  const pageId = firstPageIdOf(id);
+  const [first] = sortPages(pages);
+  const elements = pages.flatMap((page) =>
+    page.elements.map(({ data, position }) => ({
+      data,
+      designId: id,
+      id: data.id,
+      pageId: page.id,
+      position,
+    }))
+  );
   await db.batch([
     db.insert(designs).values({
-      background,
+      background: first?.background,
       height,
       id,
       name,
       ownerId: viewer.id,
-      version: documentVersionFor(1),
+      version: documentVersionFor(pages.length),
       visibility: "private",
       width,
     }),
-    db.insert(designPages).values({
-      background,
-      designId: id,
-      id: pageId,
-      position: FIRST_PAGE_POSITION,
-    }),
+    db.insert(designPages).values(
+      pages.map((page) => ({
+        background: page.background,
+        designId: id,
+        id: page.id,
+        position: page.position,
+      }))
+    ),
     ...(elements.length > 0
-      ? [
-          db.insert(designElements).values(
-            elements.map(({ data, position }) => ({
-              data,
-              designId: id,
-              id: data.id,
-              pageId,
-              position,
-            }))
-          ),
-        ]
+      ? [db.insert(designElements).values(elements)]
       : []),
   ]);
   return { id };

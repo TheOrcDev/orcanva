@@ -33,6 +33,8 @@ export interface DesignSummary {
   visibility: Visibility;
   width: number;
   height: number;
+  // How many pages it has (one for a design without page rows)
+  pageCount: number;
   thumbnailKey: string | null;
   updatedAt: Date;
 }
@@ -78,6 +80,10 @@ const summaries = () =>
       name: designs.name,
       ownerId: designs.ownerId,
       ownerName: authUsers.name,
+      pageCount: sql<number>`GREATEST((
+        SELECT count(*) FROM ${designPages}
+        WHERE ${designPages.designId} = ${designs.id}
+      ), 1)::int`.mapWith(Number),
       thumbnailKey: designs.thumbnailKey,
       updatedAt: designs.updatedAt,
       visibility: designs.visibility,

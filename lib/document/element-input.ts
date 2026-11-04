@@ -4,10 +4,12 @@ import {
   MAX_CANVAS_SIZE,
   MAX_ELEMENTS,
   MAX_ELEMENT_JSON_LENGTH,
+  MAX_PAGES,
   MIN_CANVAS_SIZE,
   backgroundSchema,
   elementSchema,
   keepUnknownFields,
+  pageIdSchema,
 } from "@/lib/document/schema";
 
 // What a client may write as a design's elements, wherever it writes them
@@ -49,21 +51,46 @@ export const elementData = z
 
 export const positionKey = z.string().regex(POSITION_KEY);
 
-// A whole design at a new size, made in the browser from one the viewer
-// can open (Magic Resize's copies): its elements keep their ids and
-// z-order keys, which only need to be unique within the design
-export const resizedCopyInput = z.object({
+// One page of a copy: its id, place and background, and its elements
+const copyPage = z.object({
   background: backgroundSchema,
   elements: z
     .array(z.object({ data: elementData, position: positionKey }))
-    .max(MAX_ELEMENTS)
-    .refine(
-      (elements) =>
-        new Set(elements.map(({ data }) => data.id)).size === elements.length,
-      { message: "Element ids must be unique" }
-    ),
+    .max(MAX_ELEMENTS),
+  id: pageIdSchema,
+  position: positionKey,
+});
+
+// A whole design at a new size, made in the browser from one the viewer
+// can open (Magic Resize's copies): every page, its elements keeping their
+// ids and z-order keys and its pages theirs, which only need to be unique
+// within the design. At most MAX_ELEMENTS elements across the pages.
+export const resizedCopyInput = z.object({
   height: canvasSize,
   name: designName,
+  pages: z
+    .array(copyPage)
+    .min(1)
+    .max(MAX_PAGES)
+    .refine(
+      (pages) => new Set(pages.map((page) => page.id)).size === pages.length,
+      { message: "Page ids must be unique" }
+    )
+    .refine(
+      (pages) =>
+        pages.reduce((total, page) => total + page.elements.length, 0) <=
+        MAX_ELEMENTS,
+      { message: `At most ${MAX_ELEMENTS} elements` }
+    )
+    .refine(
+      (pages) => {
+        const ids = pages.flatMap((page) =>
+          page.elements.map(({ data }) => data.id)
+        );
+        return new Set(ids).size === ids.length;
+      },
+      { message: "Element ids must be unique" }
+    ),
   sourceId: z.uuid(),
   width: canvasSize,
 });

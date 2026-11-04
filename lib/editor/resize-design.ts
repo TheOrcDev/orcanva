@@ -4,7 +4,7 @@ import type { Size } from "@/lib/document/geometry";
 import type { DesignDocument, TextElement } from "@/lib/document/schema";
 import { resizeWithLayout } from "@/lib/editor/magic-resize";
 import type { ResizeLayout, TextSize } from "@/lib/editor/magic-resize";
-import { selectDocument, selectWholeDesign } from "@/lib/editor/store";
+import { selectWholeDesign } from "@/lib/editor/store";
 import type { EditorStoreApi } from "@/lib/editor/store";
 import { isFontReady, waitForFonts } from "@/lib/fonts/loader";
 import { canvasMeasurer } from "@/lib/text/canvas";
@@ -71,9 +71,10 @@ export class CopyTooLargeError extends Error {
   }
 }
 
-// The open design laid out at `size`, and that as the input for a new
-// design: its elements keep their ids and z-order keys. Fonts must have
-// loaded.
+// The open design laid out at `size`, every page, and that as the input
+// for a new design: its pages and elements keep their ids and z-order keys.
+// `document` is its first page, for the copy's gallery preview. Fonts must
+// have loaded.
 export const resizedCopyOf = (
   store: EditorStoreApi,
   size: Size,
@@ -81,26 +82,36 @@ export const resizedCopyOf = (
   name: string
 ): { document: DesignDocument; input: ResizedCopyInput } => {
   const state = store.getState();
-  const document = resizeWithLayout(
-    selectDocument(state),
-    size,
-    layout,
-    measureInBrowser
-  );
-  const { positions } = state.doc;
+  const laid = state.pages.map((page) => ({
+    document: resizeWithLayout(
+      page.doc.document,
+      size,
+      layout,
+      measureInBrowser
+    ),
+    page,
+  }));
+  const [first] = laid;
+  if (!first) {
+    throw new Error("A design has a page");
+  }
   const input = {
-    background: document.background,
-    elements: document.elements.flatMap((element) => {
-      const position = positions.get(element.id);
-      return position ? [{ data: element, position }] : [];
-    }),
     height: size.height,
     name,
+    pages: laid.map(({ document, page }) => ({
+      background: document.background,
+      elements: document.elements.flatMap((element) => {
+        const position = page.doc.positions.get(element.id);
+        return position ? [{ data: element, position }] : [];
+      }),
+      id: page.id,
+      position: page.position,
+    })),
     sourceId: state.designId,
     width: size.width,
   };
   if (new TextEncoder().encode(JSON.stringify(input)).length > MAX_COPY_BYTES) {
     throw new CopyTooLargeError();
   }
-  return { document, input };
+  return { document: first.document, input };
 };

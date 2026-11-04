@@ -21,6 +21,7 @@ export const toDesignCards = (
     id: design.id,
     name: design.name,
     ownerName: design.ownerName,
+    pageCount: design.pageCount,
     sizeLabel: formatSize(design.width, design.height),
     thumbnailUrl: design.thumbnailKey ? storageUrl(design.thumbnailKey) : null,
     visibility: design.visibility,

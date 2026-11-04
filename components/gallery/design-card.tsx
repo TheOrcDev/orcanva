@@ -72,6 +72,8 @@ export interface DesignCardProps {
   sizeLabel: string;
   editedLabel: string;
   thumbnailUrl: string | null;
+  // Its preview shows the first page; a badge says how many there are
+  pageCount: number;
   visibility: Visibility;
   ownerName: string | null;
   // The viewer owns it: rename, delete, and change visibility
@@ -86,6 +88,7 @@ export const DesignCard = ({
   sizeLabel,
   editedLabel,
   thumbnailUrl,
+  pageCount,
   visibility,
   ownerName,
   canManage,
@@ -177,6 +180,11 @@ export const DesignCard = ({
           ) : (
             <RiImageLine className="text-muted-foreground" aria-hidden />
           )}
+          {pageCount > 1 ? (
+            <span className="absolute right-2 bottom-2">
+              <Badge variant="secondary">{pageCount} pages</Badge>
+            </span>
+          ) : null}
         </Link>
       </CardContent>
       <CardHeader>
