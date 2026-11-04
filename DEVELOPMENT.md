@@ -127,6 +127,7 @@ Starter templates are files in `lib/templates/data/`, one JSON design each, with
 | `pnpm graphics:build [--fluent <checkout>]` | Rebuild the icons, emoji and stickers catalog in `public/graphics/` |
 | `pnpm template:export <design id> --id <id> …` | Turn a design into a starter template; `--catalog` only rewrites the catalog |
 | `pnpm template:open <id> <email>` | Make a private design from a template, to change it |
+| `pnpm mcp` | MCP server so a local agent (Claude Code, Cursor, …) can make and edit designs; see [mcp/README.md](mcp/README.md) |
 
 ## Keyboard shortcuts
 

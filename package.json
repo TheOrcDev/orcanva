@@ -22,6 +22,7 @@
     "graphics:build": "tsx scripts/build-graphics.ts",
     "template:export": "tsx scripts/export-template.ts",
     "template:open": "tsx scripts/open-template.ts",
+    "mcp": "tsx --conditions=react-server mcp/server.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -33,6 +34,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@huggingface/transformers": "4.3.2",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@neon/auth": "0.8.2",
     "@neon/realtime": "^0.1.2",
     "@neon/realtime-react": "^0.1.1",
