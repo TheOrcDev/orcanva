@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Container } from "@/components/landing/container";
 import { Logo } from "@/components/landing/logo";
 import { signInUrl, signUpUrl } from "@/lib/auth/redirect";
+import { CONTRIBUTORS_PATH } from "@/lib/contributors";
 import { STUDIO_PATH } from "@/lib/routes";
 import { COMPARE_LINKS, TOOL_LINKS } from "@/lib/seo/landing-links";
 import type { LandingLink } from "@/lib/seo/landing-links";
@@ -17,6 +18,7 @@ const COLUMNS: { heading: string; links: readonly LandingLink[] }[] = [
     links: [
       { href: STUDIO_PATH, label: "Studio" },
       { href: SPONSORS_PATH, label: "Sponsors" },
+      { href: CONTRIBUTORS_PATH, label: "Contributors" },
       { href: GITHUB_URL, label: "GitHub" },
       { href: signInUrl(STUDIO_PATH), label: "Sign in" },
       { href: signUpUrl(STUDIO_PATH), label: "Create account" },
