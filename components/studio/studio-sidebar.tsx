@@ -14,6 +14,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarSeparator,
 } from "@/components/ui/sidebar";
 
 export const StudioSidebar = ({
@@ -31,6 +32,7 @@ export const StudioSidebar = ({
               Orcanva
             </span>
           </SidebarMenuButton>
+          <SidebarSeparator className="mx-auto mt-1 mb-4" />
         </SidebarMenuItem>
         {/* Guests make public designs; private ones need an account */}
         <SidebarMenuItem>
