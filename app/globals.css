@@ -102,6 +102,12 @@
   --spacing-below-sun: max(38.5rem, 37.07vw);
 }
 
+/* An even halo with no offset, tinted with a shadow color utility
+   (the avatar's glow: `shadow-glow shadow-primary/60`) */
+@theme {
+  --shadow-glow: 0 0 16px 2px rgb(0 0 0 / 0.25);
+}
+
 /* Landing type scale. Nothing here touches the spacing or radius scales the
    app relies on. */
 @theme {
