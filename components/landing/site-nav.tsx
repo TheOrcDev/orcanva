@@ -2,8 +2,8 @@ import Link from "next/link";
 
 import { Container } from "@/components/landing/container";
 import { Logo } from "@/components/landing/logo";
+import { NavAccount } from "@/components/landing/nav-account";
 import { buttonVariants } from "@/components/ui/button";
-import { signInUrl } from "@/lib/auth/redirect";
 import { STUDIO_PATH } from "@/lib/routes";
 import { SPONSORS_PATH } from "@/lib/sponsors";
 
@@ -14,8 +14,8 @@ const SECTIONS = [
   { href: SPONSORS_PATH, label: "Sponsors" },
 ];
 
-// The same for everyone, so the page stays static: signing in from here
-// lands in the studio, and someone already signed in is sent straight on
+// Static for everyone; only the account corner reads the session, in the
+// browser, so the marketing pages stay prerendered
 export const SiteNav = () => (
   <header className="absolute inset-x-0 top-0 z-10">
     <Container className="flex h-18 items-center justify-between gap-6 md:grid md:grid-cols-3">
@@ -41,16 +41,7 @@ export const SiteNav = () => (
         ))}
       </nav>
       <div className="flex items-center gap-2 justify-self-end">
-        <Link
-          href={signInUrl(STUDIO_PATH)}
-          className={buttonVariants({
-            className: "hidden sm:inline-flex",
-            size: "lg",
-            variant: "outline",
-          })}
-        >
-          Sign in
-        </Link>
+        <NavAccount />
         <Link href={STUDIO_PATH} className={buttonVariants({ size: "lg" })}>
           Open Studio
         </Link>
