@@ -778,7 +778,8 @@ const placeRigid = (
 };
 
 // A text at another size. Curved text scales its width with it, so its arc
-// stays centred where it was; straight text keeps its wrap width.
+// stays centred where it was; auto-width text hugs its glyphs; other
+// straight text keeps its wrap width.
 const atSize = (text: TextElement, fontSize: number): TextElement => {
   const size = clamp(fontSize, 1, MAX_FONT_SIZE);
   return text.curve === 0
@@ -840,6 +841,23 @@ const startText = (
 ): { text: TextElement; floor: number } => {
   const { element, size } = piece;
   const room = roomOf(resize);
+  if (element.autoWidth && element.curve === 0) {
+    let text = atSize(
+      element,
+      element.fontSize *
+        Math.min(scale, room.width / Math.max(size.width, 1e-6))
+    );
+    const measured = measure(text);
+    const over = measured.width / room.width;
+    if (over > 1) {
+      text = atSize(text, text.fontSize / over);
+    }
+    const fitted = measure(text);
+    return {
+      floor: floorOf(element, text.fontSize, resize),
+      text: { ...text, width: Math.max(fitted.inkWidth ?? fitted.width, 1) },
+    };
+  }
   if (element.curve !== 0) {
     let text = atSize(
       element,

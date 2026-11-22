@@ -23,10 +23,28 @@ import {
 import { isFontReady } from "@/lib/fonts/loader";
 import { selectRange, selectionIn } from "@/lib/text/dom-text";
 import type { TextRange } from "@/lib/text/dom-text";
+import type { TextPatch } from "@/lib/text/fit";
+import { fittedTextPatchInBrowser } from "@/lib/text/fit";
 import { rebaseMarks, styledSegments } from "@/lib/text/marks";
 import { toggleBold, toggleStyle } from "@/lib/text/text-style";
 
 const CARET_COLOR = "#2563eb";
+
+const patchText = (
+  doc: Parameters<typeof updateElement>[0],
+  id: string,
+  patch: ElementPatch
+) => {
+  const current = findElement(doc, id);
+  if (current?.type !== "text") {
+    return updateElement(doc, id, patch);
+  }
+  return updateElement(
+    doc,
+    id,
+    fittedTextPatchInBrowser(current, patch as TextPatch)
+  );
+};
 
 // Closes the session's single undo step; text emptied while typing is removed
 const finishEditing = (store: EditorStoreApi, id: string) => {
@@ -180,7 +198,13 @@ export const TextEditOverlay = ({
     const { style } = root;
     style.left = `${origin.x + element.x * zoom}px`;
     style.top = `${origin.y + element.y * zoom}px`;
-    style.width = `${element.width * zoom}px`;
+    if (element.autoWidth) {
+      style.width = "max-content";
+      style.whiteSpace = "pre";
+    } else {
+      style.width = `${element.width * zoom}px`;
+      style.whiteSpace = "pre-wrap";
+    }
     style.transform = `rotate(${element.rotation}deg)`;
     Object.assign(style, runStyle(element, {}, zoom));
     style.lineHeight = String(element.lineHeight);
@@ -230,15 +254,13 @@ export const TextEditOverlay = ({
       undoRef.current.push(before);
       redoRef.current = [];
     }
-    store.getState().change((doc) => updateElement(doc, id, patch));
+    store.getState().change((doc) => patchText(doc, id, patch));
   };
 
   const restore = (to: Snapshot) => {
     store
       .getState()
-      .change((doc) =>
-        updateElement(doc, id, { marks: to.marks, text: to.text })
-      );
+      .change((doc) => patchText(doc, id, { marks: to.marks, text: to.text }));
     const root = ref.current;
     const now = currentText(store, id);
     if (root && now) {
@@ -265,7 +287,7 @@ export const TextEditOverlay = ({
       text: current.text,
     });
     redoRef.current = [];
-    store.getState().change((doc) => updateElement(doc, id, { marks, text }));
+    store.getState().change((doc) => patchText(doc, id, { marks, text }));
   };
 
   const settle = (cancel: boolean) => {

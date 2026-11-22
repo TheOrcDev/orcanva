@@ -53,6 +53,14 @@ describe("design document schema", () => {
     ).toThrow();
   });
 
+  it("reads text saved before autoWidth as a wrap box", () => {
+    const { autoWidth, ...saved } = createTextElement("heading", PAGE);
+    expect(autoWidth).toBe(true);
+    const parsed = elementSchema.parse(saved);
+    expect(parsed.type === "text" && parsed.autoWidth).toBe(false);
+    expect(parsed).toMatchObject(saved);
+  });
+
   it("reads images saved before filters existed as unfiltered", () => {
     const { filter, ...saved } = createImageElement(ASSET, PAGE);
     expect(filter).toBeNull();

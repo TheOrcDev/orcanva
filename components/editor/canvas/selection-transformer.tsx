@@ -158,7 +158,14 @@ export const SelectionTransformer = ({
   // What the handles snap to, measured when a resize starts
   const targetsRef = useRef<Rect[] | null>(null);
   const [single] = elements.length === 1 ? elements : [];
-  const ids = elements.map((element) => element.id).join(" ");
+  // Text's box can change without the selection changing (auto-width, type)
+  const layoutKey = elements
+    .map((element) =>
+      element.type === "text"
+        ? `${element.id}:${element.width}:${element.fontSize}:${element.letterSpacingEm}:${element.weight}:${element.fontId}:${element.text}:${element.uppercase}:${element.italic}:${element.autoWidth}`
+        : element.id
+    )
+    .join(" ");
 
   useEffect(() => {
     const transformer = transformerRef.current;
@@ -166,14 +173,18 @@ export const SelectionTransformer = ({
     if (!(transformer && stage)) {
       return;
     }
-    const nodes = ids
-      .split(" ")
-      .filter(Boolean)
-      .map((id) => stage.findOne(`#${id}`))
-      .filter((node): node is Konva.Node => node !== undefined);
+    const nodes = layoutKey.split(" ").flatMap((key) => {
+      const [id] = key.split(":");
+      if (!id) {
+        return [];
+      }
+      const node = stage.findOne(`#${id}`);
+      return node ? [node] : [];
+    });
     transformer.nodes(nodes);
+    transformer.forceUpdate();
     transformer.getLayer()?.batchDraw();
-  }, [ids]);
+  }, [layoutKey]);
 
   const handleTransformEnd = () => {
     const transformed = (transformerRef.current?.nodes() ?? []).flatMap(
@@ -272,6 +283,7 @@ export const SelectionTransformer = ({
       enabledAnchors={single ? anchorsFor(single) : CORNER_ANCHORS}
       flipEnabled={false}
       ignoreStroke
+      padding={0}
       keepRatio={single ? keepsRatio(single) : true}
       resizeEnabled={!locked}
       rotateAnchorOffset={24}

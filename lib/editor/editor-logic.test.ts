@@ -270,6 +270,7 @@ describe("transform baking", () => {
     );
     expect(side.fontSize).toBe(100);
     expect(side.width).toBe(321);
+    expect(side.autoWidth).toBe(false);
   });
 });
 

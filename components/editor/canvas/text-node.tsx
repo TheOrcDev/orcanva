@@ -4,7 +4,10 @@ import type Konva from "konva";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import { Rect, Shape } from "react-konva";
 
-import { useEditor } from "@/components/editor/editor-store-context";
+import {
+  useEditor,
+  useEditorStoreApi,
+} from "@/components/editor/editor-store-context";
 import { useFontsReady } from "@/hooks/use-fonts-ready";
 import { gradientPoints } from "@/lib/document/geometry";
 import type {
@@ -12,6 +15,7 @@ import type {
   TextElement,
   TextGradient,
 } from "@/lib/document/schema";
+import { findElement, updateElement } from "@/lib/editor/document-ops";
 import { isFontReady } from "@/lib/fonts/loader";
 import {
   canvasMeasurer,
@@ -25,6 +29,7 @@ import { paintWithEffect } from "@/lib/text/effects";
 import type { DeviceScale } from "@/lib/text/effects";
 import { measureRuns, textRunsOf } from "@/lib/text/element-layout";
 import type { RunStyle } from "@/lib/text/element-layout";
+import { fitTextElement } from "@/lib/text/fit";
 import { layoutText } from "@/lib/text/layout";
 import type { StyledRun, TextLayout } from "@/lib/text/layout";
 
@@ -41,6 +46,28 @@ export const HIGHLIGHT_NODE_NAME = "text-highlight";
 export const TEXT_BODY_NAME = "text-body";
 
 const ALIGN_FACTOR: Record<string, number> = { center: 0.5, left: 0, right: 1 };
+
+const isNodeTransforming = (node: object | null | undefined): boolean =>
+  Boolean(
+    node &&
+    "isTransforming" in node &&
+    typeof node.isTransforming === "function" &&
+    node.isTransforming()
+  );
+
+const textOffsetX = (
+  element: TextElement,
+  drawnWidth: number,
+  curve: number
+): number => {
+  if (curve !== 0) {
+    return (element.width - drawnWidth) / 2;
+  }
+  if (!element.autoWidth) {
+    return 0;
+  }
+  return (element.width - drawnWidth) * (ALIGN_FACTOR[element.align] ?? 0);
+};
 
 // What the text shape draws from. It lives on the node, so a side handle
 // can re-wrap the text live by changing only the node's width.
@@ -246,6 +273,7 @@ export const layoutHighlight = (text: Konva.Node, box: Konva.Node) => {
 export const TextNode = ({ element }: { element: TextElement }) => {
   const textRef = useRef<Konva.Shape>(null);
   const highlightRef = useRef<Konva.Rect>(null);
+  const store = useEditorStoreApi();
   const { fonts, runs, strut } = textRunsOf(element, isFontReady);
   useFontsReady(fonts);
   // Stands for the runs, so the input only changes when they do
@@ -300,13 +328,14 @@ export const TextNode = ({ element }: { element: TextElement }) => {
         input,
         {
           align: input.align,
+          autoWidth: element.autoWidth,
           curve: input.curve,
           lineHeight: input.lineHeight,
           width: element.width,
         },
         canvasMeasurer
       ),
-    [input, element.width]
+    [input, element.autoWidth, element.width]
   );
 
   // Sized after every render because it depends on measured text
@@ -317,6 +346,37 @@ export const TextNode = ({ element }: { element: TextElement }) => {
       layoutHighlight(textNode, box);
     }
   });
+
+  // Auto-width text stores the measured width, so the transformer hugs it
+  // after fonts load and after the text or type changes
+  useLayoutEffect(() => {
+    if (!element.autoWidth || element.curve !== 0) {
+      return;
+    }
+    if (isNodeTransforming(textRef.current?.getParent())) {
+      return;
+    }
+    if (Math.abs(size.width - element.width) < 0.5) {
+      return;
+    }
+    const fitted = fitTextElement(element, canvasMeasurer, isFontReady);
+    if (
+      Math.abs(fitted.width - element.width) < 0.5 &&
+      Math.abs(fitted.x - element.x) < 0.5
+    ) {
+      return;
+    }
+    store.getState().revise((doc) => {
+      const current = findElement(doc, element.id);
+      if (current?.type !== "text" || !current.autoWidth) {
+        return doc;
+      }
+      const next = fitTextElement(current, canvasMeasurer, isFontReady);
+      return next === current
+        ? doc
+        : updateElement(doc, element.id, { width: next.width, x: next.x });
+    });
+  }, [element, size.width, store]);
 
   return (
     <>
@@ -334,8 +394,9 @@ export const TextNode = ({ element }: { element: TextElement }) => {
         ref={textRef}
         name={TEXT_BODY_NAME}
         textInput={input}
-        // An arc stays centred where the straight text was
-        x={(element.width - size.width) / 2}
+        // An arc stays centred where the straight text was; auto-width
+        // text sits by its alignment until the stored width catches up
+        x={textOffsetX(element, size.width, curve)}
         width={size.width}
         height={size.height}
         fill={element.fill}

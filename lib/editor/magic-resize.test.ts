@@ -93,6 +93,7 @@ const smokeDesign = (): DesignDocument => {
   const text = (overrides: Partial<TextElement>): TextElement => ({
     ...createTextElement("heading", page),
     align: "center",
+    autoWidth: false,
     fontSize: 120,
     lineHeight: 1.1,
     shadow: {

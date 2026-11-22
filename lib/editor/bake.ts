@@ -99,7 +99,11 @@ export const bakeTextTransform = (
       width: Math.max(MIN_ELEMENT_SIZE, liveWidth * sx),
     };
   }
-  return { ...base, width: Math.max(MIN_ELEMENT_SIZE, liveWidth * sx) };
+  return {
+    ...base,
+    autoWidth: false,
+    width: Math.max(MIN_ELEMENT_SIZE, liveWidth * sx),
+  };
 };
 
 const MIN_STROKE_WIDTH = 0.5;

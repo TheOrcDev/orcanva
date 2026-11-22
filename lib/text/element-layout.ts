@@ -120,6 +120,9 @@ export interface TextShape {
   curve: number;
   // The wrap width of straight text
   width: number;
+  // Straight text lays out on one line (newlines still break) and the box
+  // is as wide as the longest line
+  autoWidth?: boolean;
 }
 
 // The box runs draw in: straight text wraps at its width and is as tall as
@@ -138,21 +141,26 @@ export const measureRuns = (
       width: curved.width,
     };
   }
+  const wrapWidth = shape.autoWidth && shape.curve === 0 ? null : shape.width;
   const layout = layoutText(
     runs,
     {
       align: shape.align,
       lineHeight: shape.lineHeight,
       strut,
-      width: shape.width,
+      width: wrapWidth,
     },
     measurer
   );
+  const inkWidth =
+    wrapWidth === null
+      ? layout.textWidth
+      : Math.min(layout.textWidth, shape.width);
   return {
     height: layout.height,
-    inkWidth: Math.min(layout.textWidth, shape.width),
+    inkWidth,
     splitsWords: splitsWords(layout),
-    width: shape.width,
+    width: wrapWidth === null ? Math.max(inkWidth, 1) : shape.width,
   };
 };
 

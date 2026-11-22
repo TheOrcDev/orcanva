@@ -50,9 +50,19 @@ describe("buildText", () => {
 
   it("centres by default and honours explicit x/y", () => {
     const centred = text({ text: "Hi" });
-    expect(centred.x).toBeCloseTo((PAGE.width - PAGE.width * 0.8) / 2);
+    if (centred.type !== "text") {
+      throw new Error("expected text");
+    }
+    expect(centred.autoWidth).toBe(true);
+    expect(centred.x).toBeCloseTo((PAGE.width - centred.width) / 2);
+    expect(centred.width).toBeLessThan(PAGE.width * 0.8);
     const placed = text({ text: "Hi", x: 10, y: 20 });
     expect(placed).toMatchObject({ x: 10, y: 20 });
+  });
+
+  it("uses an explicit wrap width when the spec sets one", () => {
+    const element = text({ text: "Hi", width: 500 });
+    expect(element).toMatchObject({ autoWidth: false, width: 500 });
   });
 
   it("rejects unknown fonts and unknown advanced fields", () => {

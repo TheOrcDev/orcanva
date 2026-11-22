@@ -21,6 +21,7 @@ import type {
 } from "@/lib/document/schema";
 import { findFont } from "@/lib/fonts/catalog";
 import type { GraphicEntry } from "@/lib/graphics/entry";
+import { sizeNewText } from "@/lib/text/fit";
 
 // Where an element goes when the agent gives a keyword instead of x/y
 export const PLACEMENTS = [
@@ -41,8 +42,6 @@ const PLACEMENT_MARGIN = 0.05;
 // Average glyph width in em, for estimating how text wraps. Display fonts
 // run narrower and body fonts wider; Konva measures the real thing.
 const AVERAGE_GLYPH_EM = 0.55;
-// Text boxes default to this share of the page's width
-const TEXT_WIDTH_RATIO = 0.8;
 
 const color = z
   .string()
@@ -114,7 +113,7 @@ export const textSpec = z.object({
     .number()
     .positive()
     .optional()
-    .describe("Wrap width in pixels. Default 80% of the page"),
+    .describe("Wrap width in pixels. Omit to hug the text"),
 });
 
 export const boxSpec = z.object({
@@ -278,11 +277,17 @@ const position = (
 export const estimateTextHeight = (
   text: Pick<
     TextElement,
-    "text" | "fontSize" | "lineHeight" | "letterSpacingEm" | "width"
+    | "autoWidth"
+    | "text"
+    | "fontSize"
+    | "lineHeight"
+    | "letterSpacingEm"
+    | "width"
   >
 ): number => {
   const glyph = text.fontSize * (AVERAGE_GLYPH_EM + text.letterSpacingEm);
-  const perLine = Math.max(1, Math.floor(text.width / Math.max(glyph, 1)));
+  const wrap = text.autoWidth ? Number.POSITIVE_INFINITY : text.width;
+  const perLine = Math.max(1, Math.floor(wrap / Math.max(glyph, 1)));
   const lines = text.text
     .split("\n")
     .reduce(
@@ -361,12 +366,13 @@ export const buildText = (spec: TextSpec, page: Size): DesignElement => {
     throw new Error(`Unknown font "${spec.font}"; see list_fonts`);
   }
   const base = createTextElement("heading", page);
-  const width = spec.width ?? Math.round(page.width * TEXT_WIDTH_RATIO);
-  const text: TextElement = {
+  const wrapping = spec.width !== undefined;
+  const draft: TextElement = {
     ...base,
     ...common(spec),
     ...textStyle(spec),
     align: spec.align ?? base.align,
+    autoWidth: !wrapping,
     fill: spec.color ?? base.fill,
     fontId: spec.font ?? base.fontId,
     fontSize: spec.fontSize ?? base.fontSize,
@@ -377,11 +383,15 @@ export const buildText = (spec: TextSpec, page: Size): DesignElement => {
     text: spec.text,
     uppercase: spec.uppercase ?? false,
     weight: spec.weight ?? base.weight,
-    width,
+    width: spec.width ?? base.width,
   };
-  const size = { height: estimateTextHeight(text), width };
+  const text = wrapping ? draft : sizeNewText(draft);
+  const size = {
+    height: estimateTextHeight(text),
+    width: text.width,
+  };
   const centred = {
-    x: (page.width - width) / 2,
+    x: (page.width - size.width) / 2,
     y: (page.height - size.height) / 2,
   };
   return finishElement(

@@ -19,6 +19,7 @@ const ready = () => true;
 
 const text = (overrides: Partial<TextElement>): TextElement => ({
   ...createTextElement("heading", { height: 720, width: 1280 }),
+  autoWidth: false,
   fontSize: 20,
   letterSpacingEm: 0,
   lineHeight: 1.5,
@@ -71,6 +72,20 @@ describe("text element layout", () => {
       measureTextElement(text({ text: "abcdefgh-ijk" }), measurer, ready)
         .splitsWords
     ).toBe(false);
+  });
+
+  it("hugs the longest line when auto-width is on", () => {
+    const measured = measureTextElement(
+      text({ autoWidth: true, text: "aaaa", width: 1000 }),
+      measurer,
+      ready
+    );
+    expect(measured).toEqual({
+      height: 30,
+      inkWidth: 40,
+      splitsWords: false,
+      width: 40,
+    });
   });
 
   it("measures curved text by its arc", () => {

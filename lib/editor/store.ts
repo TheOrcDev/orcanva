@@ -273,6 +273,9 @@ export interface EditorState {
 export interface EditorActions {
   // Applies a document change; transient while a transaction is open
   change: (recipe: (document: DesignDocument) => DesignDocument) => void;
+  // Same as change, without an undo step: measurement that follows from
+  // something already committed (a font that finished loading)
+  revise: (recipe: (document: DesignDocument) => DesignDocument) => void;
   begin: () => void;
   end: () => void;
   // Abandons the open transaction (e.g. Escape while typing)
@@ -1173,6 +1176,21 @@ export const createEditorStore = (init: EditorInit) => {
       ),
     restoreSeq: init.restoreSeq ?? 0,
     restoring: false,
+    revise: (recipe) =>
+      set((state) => {
+        if (state.outdated) {
+          return state;
+        }
+        const next = recipe(state.doc.document);
+        if (next === state.doc.document) {
+          return state;
+        }
+        const { changes } = diffDocument(state.doc, next, activePage(state));
+        if (isEmptyChangeSet(changes)) {
+          return state;
+        }
+        return applyLocal(state, writesOf(changes));
+      }),
     role: init.role,
     rollback: () =>
       set((state) => {

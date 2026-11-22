@@ -15,6 +15,7 @@ import type {
 } from "@/lib/document/schema";
 import { DEFAULT_FONT_ID } from "@/lib/fonts/catalog";
 import type { GraphicEntry } from "@/lib/graphics/entry";
+import { sizeNewText } from "@/lib/text/fit";
 
 const HEX_BYTE = Array.from({ length: 256 }, (_, byte) =>
   byte.toString(16).padStart(2, "0")
@@ -200,14 +201,12 @@ export const createTextElement = (
 ): TextElement => {
   const config = TEXT_PRESETS[preset];
   const fontSize = Math.max(8, Math.round(page.height * config.sizeRatio));
-  const width = Math.round(page.width * 0.8);
-  // Rough first-render height; Konva measures the real one
+  // Rough first-render height; the canvas measures the real one
   const height = fontSize * config.lineHeight;
-  const origin = centerIn({ height, width }, page);
-
-  return {
+  const draft: TextElement = {
     ...baseFields(config.name),
     align: "center",
+    autoWidth: true,
     curve: 0,
     effect: null,
     fill: "#111111",
@@ -227,10 +226,19 @@ export const createTextElement = (
     underline: false,
     uppercase: config.uppercase,
     weight: config.weight,
+    width: 1,
+    x: 0,
+    y: 0,
+    ...config.style,
+  };
+  const { width } = sizeNewText(draft);
+  const origin = centerIn({ height, width }, page);
+
+  return {
+    ...draft,
     width,
     x: origin.x,
     y: origin.y,
-    ...config.style,
   };
 };
 

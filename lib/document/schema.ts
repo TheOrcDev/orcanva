@@ -226,6 +226,9 @@ export const textAlignSchema = z.enum(["left", "center", "right"]);
 export const textElementSchema = z.object({
   ...baseElement,
   align: textAlignSchema,
+  // Width follows the longest line until a side handle sets a wrap box.
+  // Text saved before this is a wrap box.
+  autoWidth: z.boolean().default(false),
   // Bends the text along a circle, -100 (smile) to 100 (rainbow); 0 is
   // straight, as is all text saved before curving
   curve: z.number().min(-100).max(100).default(0),

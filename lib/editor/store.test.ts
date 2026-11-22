@@ -37,6 +37,14 @@ const setup = () => {
 };
 
 describe("editor store", () => {
+  it("revises the document without an undo step", () => {
+    const { rect, store } = setup();
+    const steps = store.getState().history.past.length;
+    store.getState().revise((doc) => updateElement(doc, rect.id, { x: 9 }));
+    expect(selectDocument(store.getState()).elements[0]?.x).toBe(9);
+    expect(store.getState().history.past).toHaveLength(steps);
+  });
+
   it("makes a crop one undo step, or nothing when cancelled", () => {
     const { rect, store } = setup();
     const x = () => selectDocument(store.getState()).elements[0]?.x;

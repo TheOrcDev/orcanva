@@ -170,16 +170,23 @@ const settleText = async (
   page: Size,
   measure: EditorToolDeps["measureText"]
 ): Promise<DesignElement> => {
-  if (element.type !== "text" || spec.type !== "text" || spec.y !== undefined) {
+  if (element.type !== "text" || spec.type !== "text") {
     return element;
   }
-  const { height } = await measure(element);
+  const size = await measure(element);
+  const next =
+    element.autoWidth && size.width > 0
+      ? { ...element, width: size.width }
+      : element;
+  if (spec.y !== undefined) {
+    return next;
+  }
   const spot = placeBox(
     spec.place ?? "center",
-    { height, width: element.width },
+    { height: size.height, width: next.width },
     page
   );
-  return { ...element, x: spec.x ?? spot.x, y: spot.y };
+  return { ...next, x: spec.x ?? spot.x, y: spot.y };
 };
 
 const buildElement = async (
