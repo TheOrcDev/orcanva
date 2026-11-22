@@ -7,16 +7,22 @@ import * as React from "react";
 function Avatar({
   className,
   size = "default",
+  glow = false,
   ...props
 }: AvatarPrimitive.Root.Props & {
   size?: "default" | "sm" | "lg";
+  // Rings and glows in the brand coral while the control around it is
+  // hovered, keyboard-focused or open
+  glow?: boolean;
 }) {
   return (
     <AvatarPrimitive.Root
       data-slot="avatar"
       data-size={size}
+      data-glow={glow || undefined}
       className={cn(
         "group/avatar after:border-border relative flex size-8 shrink-0 rounded-full select-none after:absolute after:inset-0 after:rounded-full after:border after:mix-blend-darken data-[size=lg]:size-10 data-[size=sm]:size-6 dark:after:mix-blend-lighten",
+        "data-glow:ring-primary data-glow:shadow-primary/60 data-glow:ring-0 data-glow:transition-[box-shadow] data-glow:duration-200 data-glow:in-[button:focus-visible]:shadow-lg data-glow:in-[button:focus-visible]:ring-2 data-glow:in-[button:hover]:shadow-lg data-glow:in-[button:hover]:ring-2 data-glow:in-[button[aria-expanded=true]]:shadow-lg data-glow:in-[button[aria-expanded=true]]:ring-2",
         className
       )}
       {...props}

@@ -24,7 +24,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
 } from "@/components/ui/sidebar";
 import { useSignOut } from "@/hooks/use-sign-out";
 import { signInUrl } from "@/lib/auth/redirect";
@@ -43,7 +42,6 @@ const ViewerLabel = ({ viewer }: { viewer: UserMenuViewer }) => (
 // sign-out for everyone else
 export const NavUser = ({ viewer }: { viewer: UserMenuViewer | null }) => {
   const pathname = usePathname();
-  const { isMobile } = useSidebar();
   const { isPending, signOut } = useSignOut();
 
   if (!viewer) {
@@ -80,8 +78,8 @@ export const NavUser = ({ viewer }: { viewer: UserMenuViewer | null }) => {
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="min-w-56"
-            side={isMobile ? "bottom" : "right"}
-            align="end"
+            side="top"
+            align="start"
             sideOffset={4}
           >
             <DropdownMenuGroup>
