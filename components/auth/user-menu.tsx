@@ -33,22 +33,34 @@ export interface UserMenuViewer {
 export const UserAvatar = ({
   viewer,
   size,
+  glow,
   className,
 }: {
   viewer: Pick<UserMenuViewer, "name" | "image">;
   size?: "sm" | "default" | "lg";
+  glow?: boolean;
   className?: string;
 }) => (
-  <Avatar size={size} className={className}>
+  <Avatar size={size} glow={glow} className={className}>
     {viewer.image ? <AvatarImage src={viewer.image} alt="" /> : null}
     <AvatarFallback>{initials(viewer.name)}</AvatarFallback>
   </Avatar>
 );
 
-// "Sign in" for guests; the account, settings and sign-out for everyone else
-export const UserMenu = ({ viewer }: { viewer: UserMenuViewer | null }) => {
+// "Sign in" for guests; the account, settings and sign-out for everyone else.
+// `large` sizes the avatar to a `lg` button; `signOutTo` is where signing out
+// lands (the studio by default)
+export const UserMenu = ({
+  viewer,
+  large = false,
+  signOutTo,
+}: {
+  viewer: UserMenuViewer | null;
+  large?: boolean;
+  signOutTo?: string;
+}) => {
   const pathname = usePathname();
-  const { isPending, signOut } = useSignOut();
+  const { isPending, signOut } = useSignOut(signOutTo);
 
   if (!viewer) {
     return (
@@ -65,12 +77,12 @@ export const UserMenu = ({ viewer }: { viewer: UserMenuViewer | null }) => {
         render={
           <Button
             variant="ghost"
-            size="icon"
+            size={large ? "icon-lg" : "icon"}
             aria-label={`Account: ${viewer.name}`}
           />
         }
       >
-        <UserAvatar viewer={viewer} size="sm" />
+        <UserAvatar viewer={viewer} size={large ? "lg" : "sm"} glow={large} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuGroup>
